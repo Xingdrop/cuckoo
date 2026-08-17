@@ -1,0 +1,26 @@
+# ---- 依赖 ----
+node_modules/
+
+# ---- 环境与密钥（严禁提交）----
+.env
+*.local
+
+# ---- 构建产物 ----
+dist/
+build/
+*.tsbuildinfo
+
+# ---- 数据与上传（运行时产生）----
+backend/data/
+backend/uploads/
+tools/screenshots/*.png
+tools/screenshots/*-report.md
+
+# ---- 日志与系统 ----
+*.log
+.DS_Store
+Thumbs.db
+
+# ---- IDE ----
+.vscode/
+.idea/

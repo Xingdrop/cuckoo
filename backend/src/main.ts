@@ -44,7 +44,7 @@ async function bootstrap() {
     SwaggerModule.setup('api', app, document);
   }
 
-  const port = config.get<number>('port');
+  const port = config.get<number>('port') ?? 3000;
   await app.listen(port);
   // eslint-disable-next-line no-console
   console.log(`[Cuckoo] API 已启动: http://localhost:${port}/api/v1`);

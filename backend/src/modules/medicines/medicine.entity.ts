@@ -25,15 +25,15 @@ export class Medicine {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column()
+  @Column({ type: 'varchar' })
   name: string;
 
   /** 剂量，如 "10mg" */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   dosage: string | null;
 
   /** 服用方式：口服/含服/外用等 */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   administration: string | null;
 
   /** 剩余库存（片/粒/包） */
@@ -48,10 +48,10 @@ export class Medicine {
   expiryDate: string | null;
 
   /** 服用说明：饭前/饭后/空腹等 */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   instructions: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   photoUrl: string | null;
 
   /** 每次服用扣减数量，默认 1 */
@@ -59,7 +59,7 @@ export class Medicine {
   deductionPerUse: number;
 
   /** 启用库存预警通知（默认开） */
-  @Column({ default: true })
+  @Column({ type: 'varchar',  default: true })
   notifyOnLowStock: boolean;
 
   @CreateDateColumn()

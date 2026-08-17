@@ -16,6 +16,9 @@ import { PlanTemplate } from './modules/social/plan-template.entity';
 import { Notification } from './modules/notifications/notification.entity';
 import { NotificationLog } from './modules/notifications/notification-log.entity';
 import { Device } from './modules/notifications/device.entity';
+import { Exercise } from './modules/exercises/exercise.entity';
+import { SensitiveWord } from './modules/social/sensitive-word.entity';
+import { SeedModule } from './seed/seed.module';
 
 /**
  * 根模块：全局配置 + 数据库 + 领域模块装配。
@@ -47,12 +50,15 @@ import { Device } from './modules/notifications/device.entity';
           Notification,
           NotificationLog,
           Device,
+          Exercise,
+          SensitiveWord,
         ],
         // M0-M1 阶段用 synchronize 快速建表；生产切换 PostgreSQL 后改用 migration
         synchronize: config.get<string>('env') !== 'production',
       }),
     }),
     HealthModule,
+    SeedModule,
   ],
 })
 export class AppModule {}

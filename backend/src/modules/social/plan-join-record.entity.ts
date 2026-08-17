@@ -32,7 +32,7 @@ export class PlanJoinRecord {
   @Column('text')
   reminderId: string;
 
-  @Column({ default: true })
+  @Column({ type: 'varchar',  default: true })
   isActive: boolean;
 
   @CreateDateColumn()

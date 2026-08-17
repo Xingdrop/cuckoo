@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+/* ============================================================
+   布谷设计系统 Design Tokens
+   色板来源：健康管理调性（温和 / 可信 / 清爽）
+   换肤（P2）：新增主题时覆盖 --color-* 变量即可
+   ============================================================ */
+@theme {
+  /* 主色：青绿（布谷鸟森林意象） */
+  --color-primary-50: #eef7f4;
+  --color-primary-100: #d5ece5;
+  --color-primary-200: #abd9cc;
+  --color-primary-300: #7cc2b0;
+  --color-primary-400: #55a894;
+  --color-primary-500: #3e8e7e;
+  --color-primary-600: #2f7265;
+  --color-primary-700: #275b52;
+  --color-primary-800: #214a43;
+  --color-primary-900: #1c3d38;
+
+  /* 辅助色：鼓励橙（成就/激励） */
+  --color-accent-100: #fdf0e0;
+  --color-accent-300: #f7c98f;
+  --color-accent-500: #f2a65a;
+  --color-accent-700: #d9822f;
+
+  /* 语义色 */
+  --color-danger-500: #e05c5c;
+  --color-danger-700: #c03939;
+  --color-warning-500: #e6b13e;
+
+  /* 中性色（暖灰，避免冷硬） */
+  --color-ink-900: #22302c;
+  --color-ink-700: #3d4f4a;
+  --color-ink-500: #6b7f79;
+  --color-ink-300: #a9bab5;
+  --color-ink-100: #e2eae7;
+
+  /* 背景 */
+  --color-bg: #f7faf9;
+  --color-surface: #ffffff;
+
+  /* 字体与圆角 */
+  --font-sans:
+    "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+  --radius-card: 1rem;
+  --radius-btn: 0.75rem;
+}
+
+/* 基础样式 */
+html {
+  font-family: var(--font-sans);
+  color: var(--color-ink-900);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 触摸目标最小 44px（无障碍基线 NFR-09） */
+button,
+[role="button"],
+a.btn {
+  min-height: 44px;
+}
+
+/* 移动端安全区 */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}

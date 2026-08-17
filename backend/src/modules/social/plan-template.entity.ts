@@ -19,7 +19,7 @@ export class PlanTemplate {
   @PrimaryColumn('text')
   id: string;
 
-  @Column()
+  @Column({ type: 'varchar' })
   title: string;
 
   @Column({ type: 'text' })

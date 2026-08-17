@@ -54,7 +54,7 @@ export class ReminderLog {
   delayMinutes: number;
 
   /** 拍照打卡照片 URL */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   photoUrl: string | null;
 
   /** 关联药品（若为用药提醒） */
@@ -66,7 +66,7 @@ export class ReminderLog {
   stockDeducted: number;
 
   /** 用药名快照（药品删除后仍可读） */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   medicineNameSnapshot: string | null;
 
   @CreateDateColumn()

@@ -98,13 +98,13 @@ export class Reminder {
   @Column({ type: 'text' })
   category: ReminderCategory;
 
-  @Column()
+  @Column({ type: 'varchar' })
   title: string;
 
   @Column({ type: 'simple-json' })
   repeatRule: RepeatRule;
 
-  @Column()
+  @Column({ type: 'varchar' })
   startDate: Date;
 
   @Column({ type: 'datetime', nullable: true })
@@ -134,7 +134,7 @@ export class Reminder {
   @JoinColumn({ name: 'medicineId' })
   medicine: Medicine | null;
 
-  @Column({ default: true })
+  @Column({ type: 'varchar',  default: true })
   isActive: boolean;
 
   @CreateDateColumn()

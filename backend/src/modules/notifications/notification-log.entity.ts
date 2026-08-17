@@ -33,18 +33,18 @@ export class NotificationLog {
   userId: string;
 
   /** 接收者类型：user=本人 / app=APP 用户亲友 / phone=手机号亲友（短信预留） */
-  @Column({ default: 'user' })
+  @Column({ type: 'varchar',  default: 'user' })
   recipientType: string;
 
   /** 目标（appUserId 或手机号） */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   recipient: string | null;
 
   @Column({ type: 'text' })
   channel: NotificationChannel;
 
   /** 幂等去重键，如 lowstock:{medicineId} / missed:{reminderId}:{scheduledTime} */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   dedupKey: string | null;
 
   @Column({ type: 'text', default: NotificationStatus.SENT })

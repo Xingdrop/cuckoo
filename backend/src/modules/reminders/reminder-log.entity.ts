@@ -1,0 +1,74 @@
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryColumn,
+  Unique,
+} from 'typeorm';
+import { Reminder } from './reminder.entity';
+
+export enum ReminderLogStatus {
+  COMPLETED = 'completed',
+  DELAYED = 'delayed',
+  SKIPPED = 'skipped',
+  MISSED = 'missed',
+  CHALLENGE_COMPLETED = 'challenge_completed',
+  MANUAL = 'manual',
+}
+
+/** 提醒执行记录。UNIQUE(reminderId, scheduledTime) 保证同一时刻只记录一次（幂等） */
+@Entity('reminder_logs')
+@Unique(['reminderId', 'scheduledTime'])
+@Index(['userId', 'scheduledTime'])
+export class ReminderLog {
+  @PrimaryColumn('text')
+  id: string;
+
+  @Column('text')
+  reminderId: string;
+
+  @ManyToOne(() => Reminder, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'reminderId' })
+  reminder: Reminder;
+
+  @Index()
+  @Column('text')
+  userId: string;
+
+  /** 计划触发时间 */
+  @Column('datetime')
+  scheduledTime: Date;
+
+  /** 用户实际操作时间 */
+  @Column({ type: 'datetime', nullable: true })
+  actualTime: Date | null;
+
+  @Column({ type: 'text' })
+  status: ReminderLogStatus;
+
+  /** 延迟分钟数（若延迟） */
+  @Column({ type: 'int', default: 0 })
+  delayMinutes: number;
+
+  /** 拍照打卡照片 URL */
+  @Column({ nullable: true })
+  photoUrl: string | null;
+
+  /** 关联药品（若为用药提醒） */
+  @Column('text', { nullable: true })
+  medicineId: string | null;
+
+  /** 本次扣减库存数量 */
+  @Column({ type: 'int', default: 0 })
+  stockDeducted: number;
+
+  /** 用药名快照（药品删除后仍可读） */
+  @Column({ nullable: true })
+  medicineNameSnapshot: string | null;
+
+  @CreateDateColumn()
+  createdAt: Date;
+}

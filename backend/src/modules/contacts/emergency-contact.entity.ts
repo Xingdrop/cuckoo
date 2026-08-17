@@ -23,11 +23,11 @@ export class EmergencyContact {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column()
+  @Column({ type: 'varchar' })
   name: string;
 
   /** 手机号（短信通道预留；P2 验证码绑定前可空，用邀请码/App 用户关联） */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   phone: string | null;
 
   /** 若联系人也是布谷用户 */
@@ -35,13 +35,13 @@ export class EmergencyContact {
   appUserId: string | null;
 
   /** 关系：家人/朋友等 */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   relation: string | null;
 
-  @Column({ default: true })
+  @Column({ type: 'varchar',  default: true })
   receiveLowStock: boolean;
 
-  @Column({ default: true })
+  @Column({ type: 'varchar',  default: true })
   receiveMissed: boolean;
 
   @CreateDateColumn()

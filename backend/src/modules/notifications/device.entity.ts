@@ -18,19 +18,19 @@ export class Device {
   userId: string;
 
   /** Push 订阅端点（唯一） */
-  @Column({ unique: true })
+  @Column({ type: 'varchar',  unique: true })
   endpoint: string;
 
-  @Column()
+  @Column({ type: 'varchar' })
   keysAuth: string;
 
-  @Column()
+  @Column({ type: 'varchar' })
   keysP256dh: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   userAgent: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   lastSeenAt: Date | null;
 
   @CreateDateColumn()

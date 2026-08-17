@@ -39,7 +39,7 @@ export class Interaction {
   type: InteractionType;
 
   /** 评论内容（type=comment 时） */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   content: string | null;
 
   @CreateDateColumn()

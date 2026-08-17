@@ -31,17 +31,17 @@ export class Notification {
   @Column({ type: 'text' })
   type: NotificationType;
 
-  @Column()
+  @Column({ type: 'varchar' })
   title: string;
 
   @Column({ type: 'text' })
   content: string;
 
   /** 点击跳转路由 */
-  @Column({ nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   linkUrl: string | null;
 
-  @Column({ default: false })
+  @Column({ type: 'varchar',  default: false })
   isRead: boolean;
 
   @CreateDateColumn()

@@ -15,16 +15,16 @@ export class User {
   @PrimaryColumn('text')
   id: string;
 
-  @Column({ unique: true })
+  @Column({ type: 'varchar',  unique: true })
   username: string;
 
-  @Column({ unique: true, nullable: true })
+  @Column({ type: 'varchar',  unique: true, nullable: true })
   phone: string | null;
 
-  @Column()
+  @Column({ type: 'varchar' })
   passwordHash: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   avatarUrl: string | null;
 
   /** 健康目标（多选），JSON 数组：medication / sedentary / water / sleep / work */
@@ -32,7 +32,7 @@ export class User {
   healthGoals: string[] | null;
 
   /** IANA 时区，如 Asia/Shanghai */
-  @Column({ default: 'Asia/Shanghai' })
+  @Column({ type: 'varchar',  default: 'Asia/Shanghai' })
   timezone: string;
 
   @CreateDateColumn()

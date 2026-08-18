@@ -1,4 +1,4 @@
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Clock, Plus, X } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { errorMessage } from '../services/http';
@@ -36,6 +36,8 @@ export function ReminderEditPage() {
   const [category, setCategory] = useState<ReminderCategory>('water');
   const [title, setTitle] = useState('');
   const [time, setTime] = useState('08:00');
+  /** 每日多时间点（daily/weekly 适用），保留与单时间兼容 */
+  const [times, setTimes] = useState<string[]>(['08:00']);
   const [repeatType, setRepeatType] = useState<RepeatType>('daily');
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5]);
   const [dayOfMonth, setDayOfMonth] = useState(1);
@@ -62,6 +64,9 @@ export function ReminderEditPage() {
         setTime(
           `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
         );
+        if (r.times && r.times.length > 0) {
+          setTimes(r.times);
+        }
         setRepeatType(r.repeatRule.type);
         setDaysOfWeek(r.repeatRule.daysOfWeek ?? [1, 2, 3, 4, 5]);
         setDayOfMonth(r.repeatRule.dayOfMonth ?? 1);
@@ -98,6 +103,15 @@ export function ReminderEditPage() {
     const now = new Date();
     const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
 
+    // daily/weekly 支持多时间点；其余类型用单时间
+    const useTimes =
+      (repeatType === 'daily' || repeatType === 'weekly') &&
+      times.length > 0 &&
+      times.some((t) => t !== '');
+    const cleanTimes = useTimes
+      ? [...new Set(times.map((t) => t.trim()).filter(Boolean))].sort()
+      : undefined;
+
     const body = {
       category,
       title: title.trim(),
@@ -108,6 +122,7 @@ export function ReminderEditPage() {
         ...(repeatType === 'interval' ? { intervalValue, intervalUnit } : {}),
       },
       startDate: startDate.toISOString(),
+      ...(cleanTimes ? { times: cleanTimes } : {}),
       content: contentText.trim() ? { text: contentText.trim() } : {},
       challenge: { enabled: challengeEnabled, allowGallery: true },
       delaySettings: delayEnabled ? { presetOptions: [5, 10, 15, 30], customEnabled: true, maxDelayCount } : {},
@@ -196,18 +211,64 @@ export function ReminderEditPage() {
           />
         </section>
 
-        {/* 时间 */}
+        {/* 时间（daily/weekly 支持多时间点） */}
         <section>
-          <label htmlFor="time" className="text-sm font-medium text-ink-700">
-            提醒时间
-          </label>
-          <input
-            id="time"
-            type="time"
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-            className="mt-2 w-full rounded-btn border border-ink-100 bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary-400"
-          />
+          {(repeatType === 'daily' || repeatType === 'weekly') ? (
+            <>
+              <div className="flex items-center justify-between">
+                <h2 className="flex items-center gap-1 text-sm font-medium text-ink-700">
+                  <Clock size={14} /> 提醒时间（可多个）
+                </h2>
+                {times.length < 10 && (
+                  <button
+                    type="button"
+                    onClick={() => setTimes((prev) => [...prev, '08:00'])}
+                    className="flex items-center gap-1 rounded-full bg-primary-50 px-3 py-1.5 text-xs text-primary-600"
+                  >
+                    <Plus size={12} /> 添加时间点
+                  </button>
+                )}
+              </div>
+              <div className="mt-2 space-y-2">
+                {times.map((t, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      value={t}
+                      onChange={(e) =>
+                        setTimes((prev) => prev.map((x, i) => (i === idx ? e.target.value : x)))
+                      }
+                      className="w-full rounded-btn border border-ink-100 bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary-400"
+                    />
+                    {times.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setTimes((prev) => prev.filter((_, i) => i !== idx))}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn text-ink-300 hover:text-danger-500"
+                        aria-label="删除该时间点"
+                      >
+                        <X size={18} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="mt-1.5 text-xs text-ink-500">每个时间点都会单独提醒；同一提醒今日完成多次会自动折叠显示</p>
+            </>
+          ) : (
+            <>
+              <label htmlFor="time" className="text-sm font-medium text-ink-700">
+                提醒时间
+              </label>
+              <input
+                id="time"
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                className="mt-2 w-full rounded-btn border border-ink-100 bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary-400"
+              />
+            </>
+          )}
         </section>
 
         {/* 重复规则 */}

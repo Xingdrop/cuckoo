@@ -75,6 +75,8 @@ export interface Reminder {
   title: string;
   repeatRule: RepeatRule;
   startDate: string;
+  /** 每日多时间点（HH:mm，daily/weekly 适用） */
+  times: string[] | null;
   endDate: string | null;
   nextTriggerAt: string | null;
   content: ReminderContent;
@@ -85,6 +87,11 @@ export interface Reminder {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+/** 今日概览项（GET /reminders/today） */
+export interface TodayReminder extends Reminder {
+  todayLogs: { id: string; scheduledTime: string; status: ReminderLogStatus }[];
 }
 
 export type ReminderLogStatus =

@@ -27,16 +27,22 @@ export function isPushSupported(): boolean {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 }
 
-/** 订阅 Web Push：返回是否成功 */
-export async function subscribePush(): Promise<boolean> {
-  if (!isPushSupported()) return false;
+export interface PushResult {
+  ok: boolean;
+  /** 失败原因：unsupported / permission / sw / vapid / error */
+  reason?: 'unsupported' | 'permission' | 'sw' | 'vapid' | 'error';
+}
+
+/** 订阅 Web Push：返回是否成功及具体原因 */
+export async function subscribePush(): Promise<PushResult> {
+  if (!isPushSupported()) return { ok: false, reason: 'unsupported' };
   const permission = await Notification.requestPermission();
-  if (permission !== 'granted') return false;
+  if (permission !== 'granted') return { ok: false, reason: 'permission' };
 
   try {
     const sw = await getSW();
     const { data } = await http.get<{ publicKey: string }>('/push/vapid-key');
-    if (!data.publicKey) return false; // 后端未配置 VAPID
+    if (!data.publicKey) return { ok: false, reason: 'vapid' }; // 后端未配置 VAPID
 
     let subscription = await sw.pushManager.getSubscription();
     if (!subscription) {
@@ -55,9 +61,25 @@ export async function subscribePush(): Promise<boolean> {
       keysP256dh: sub.keys?.p256dh ?? '',
       userAgent: navigator.userAgent.slice(0, 300),
     });
-    return true;
+    return { ok: true };
   } catch {
-    return false;
+    return { ok: false, reason: 'error' };
+  }
+}
+
+/** 失败原因 → 用户可读文案 */
+export function pushFailMessage(reason: PushResult['reason']): string {
+  switch (reason) {
+    case 'unsupported':
+      return '当前浏览器不支持推送（需 Chrome/Edge/Safari 等现代浏览器 + HTTPS 或 localhost）';
+    case 'permission':
+      return '通知权限被拒绝：请点击浏览器地址栏的 🔔 图标允许通知后重试';
+    case 'sw':
+      return 'Service Worker 注册失败，请刷新页面重试';
+    case 'vapid':
+      return '服务器推送配置缺失（VAPID 未配置），请联系管理员';
+    default:
+      return '推送订阅失败，请稍后重试';
   }
 }
 

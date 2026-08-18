@@ -10,6 +10,7 @@ import type {
   ReminderLogStatus,
   ReminderMethod,
   RepeatRule,
+  TodayReminder,
 } from '../../types';
 
 export interface CreateReminderInput {
@@ -17,6 +18,7 @@ export interface CreateReminderInput {
   title: string;
   repeatRule: RepeatRule;
   startDate: string;
+  times?: string[];
   endDate?: string;
   content?: ReminderContent;
   method?: ReminderMethod;
@@ -30,6 +32,9 @@ export interface CreateReminderInput {
 export const remindersApi = {
   list: (params?: { category?: string; isActive?: boolean }) =>
     http.get<Reminder[]>('/reminders', { params }).then((r) => r.data),
+
+  /** 今日概览：将触发 + 已执行（含次数） */
+  today: () => http.get<TodayReminder[]>('/reminders/today').then((r) => r.data),
 
   get: (id: string) => http.get<Reminder>(`/reminders/${id}`).then((r) => r.data),
 

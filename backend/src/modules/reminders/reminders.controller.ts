@@ -65,6 +65,12 @@ export class RemindersController {
     return this.remindersService.list(userId, query);
   }
 
+  @Get('today')
+  @ApiOperation({ summary: '今日概览：将触发 + 已执行（含次数）' })
+  today(@CurrentUser('sub') userId: string) {
+    return this.remindersService.today(userId);
+  }
+
   @Post()
   @ApiOperation({ summary: '创建提醒（FR-201/202/203）' })
   create(@CurrentUser('sub') userId: string, @Body() dto: CreateReminderDto) {

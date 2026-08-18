@@ -5,6 +5,7 @@ import {
   Index,
   PrimaryColumn,
 } from 'typeorm';
+import { utcDateTime } from '../../common/datetime.transformer';
 
 export enum NotificationChannel {
   PUSH = 'push',
@@ -50,6 +51,6 @@ export class NotificationLog {
   @Column({ type: 'text', default: NotificationStatus.SENT })
   status: NotificationStatus;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ transformer: utcDateTime })
   sentAt: Date;
 }

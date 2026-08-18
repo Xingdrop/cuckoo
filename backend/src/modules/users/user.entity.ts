@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { Reminder } from '../reminders/reminder.entity';
 import { Medicine } from '../medicines/medicine.entity';
+import { utcDateTime } from '../../common/datetime.transformer';
 
 @Entity('users')
 export class User {
@@ -35,13 +36,13 @@ export class User {
   @Column({ type: 'varchar',  default: 'Asia/Shanghai' })
   timezone: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ transformer: utcDateTime })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ transformer: utcDateTime })
   updatedAt: Date;
 
-  @DeleteDateColumn()
+  @DeleteDateColumn({ transformer: utcDateTime })
   deletedAt: Date | null;
 
   @OneToMany(() => Reminder, (r) => r.user)

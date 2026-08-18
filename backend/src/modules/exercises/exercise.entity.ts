@@ -1,4 +1,5 @@
 import { Column, CreateDateColumn, Entity, PrimaryColumn } from 'typeorm';
+import { utcDateTime } from '../../common/datetime.transformer';
 
 export enum ExerciseCategory {
   STRETCH = 'stretch',
@@ -41,6 +42,6 @@ export class Exercise {
   @Column({ type: 'varchar',  default: true })
   isActive: boolean;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ transformer: utcDateTime })
   createdAt: Date;
 }

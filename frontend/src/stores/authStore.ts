@@ -1,0 +1,66 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { tokenStore } from '../services/http';
+import { authApi } from '../services/api/api.auth';
+import type { User } from '../types';
+
+interface AuthState {
+  user: User | null;
+  /** 已初始化（是否尝试过恢复会话） */
+  initialized: boolean;
+  login: (username: string, password: string) => Promise<void>;
+  register: (username: string, password: string, healthGoals?: string[]) => Promise<void>;
+  logout: () => void;
+  setUser: (user: User) => void;
+  init: () => Promise<void>;
+}
+
+/**
+ * 认证状态：token 存 localStorage（http 拦截器读取），用户信息持久化。
+ * 页面刷新后 init() 恢复会话；401 时 http 拦截器自动清 token 并跳登录。
+ */
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set, get) => ({
+      user: null,
+      initialized: false,
+
+      init: async () => {
+        if (!tokenStore.get() || get().user) {
+          set({ initialized: true });
+          return;
+        }
+        try {
+          const user = await authApi.getMe();
+          set({ user, initialized: true });
+        } catch {
+          tokenStore.clear();
+          set({ user: null, initialized: true });
+        }
+      },
+
+      login: async (username, password) => {
+        const res = await authApi.login({ username, password });
+        tokenStore.set(res.token);
+        set({ user: res.user });
+      },
+
+      register: async (username, password, healthGoals) => {
+        const res = await authApi.register({ username, password, healthGoals });
+        tokenStore.set(res.token);
+        set({ user: res.user });
+      },
+
+      logout: () => {
+        tokenStore.clear();
+        set({ user: null });
+      },
+
+      setUser: (user) => set({ user }),
+    }),
+    {
+      name: 'cuckoo_auth',
+      partialize: (s) => ({ user: s.user }),
+    },
+  ),
+);

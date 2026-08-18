@@ -10,6 +10,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../users/user.entity';
+import { utcDateTime } from '../../common/datetime.transformer';
 
 /** 药品。库存扣减在 Service 层事务中执行 */
 @Entity('medicines')
@@ -62,12 +63,12 @@ export class Medicine {
   @Column({ type: 'varchar',  default: true })
   notifyOnLowStock: boolean;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ transformer: utcDateTime })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ transformer: utcDateTime })
   updatedAt: Date;
 
-  @DeleteDateColumn()
+  @DeleteDateColumn({ transformer: utcDateTime })
   deletedAt: Date | null;
 }

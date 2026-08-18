@@ -6,6 +6,7 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { utcDateTime } from '../../common/datetime.transformer';
 
 export enum PlanTemplateStatus {
   DRAFT = 'draft',
@@ -41,9 +42,9 @@ export class PlanTemplate {
   @Column('text')
   createdBy: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ transformer: utcDateTime })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ transformer: utcDateTime })
   updatedAt: Date;
 }

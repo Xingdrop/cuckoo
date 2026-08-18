@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { User } from '../users/user.entity';
 import { Medicine } from '../medicines/medicine.entity';
+import { utcDateTime } from '../../common/datetime.transformer';
 
 /** 提醒分类 */
 export enum ReminderCategory {
@@ -104,14 +105,14 @@ export class Reminder {
   @Column({ type: 'simple-json' })
   repeatRule: RepeatRule;
 
-  @Column({ type: 'varchar' })
+  @Column({ type: 'datetime', transformer: utcDateTime })
   startDate: Date;
 
-  @Column({ type: 'datetime', nullable: true })
+  @Column({ type: 'datetime', transformer: utcDateTime, nullable: true })
   endDate: Date | null;
 
   /** 调度引擎依赖：下一次触发时间（UTC），由 computeNextTrigger 计算 */
-  @Column({ type: 'datetime', nullable: true })
+  @Column({ type: 'datetime', transformer: utcDateTime, nullable: true })
   nextTriggerAt: Date | null;
 
   @Column({ type: 'simple-json', default: () => "'{}'" })
@@ -137,12 +138,12 @@ export class Reminder {
   @Column({ type: 'varchar',  default: true })
   isActive: boolean;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ transformer: utcDateTime })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ transformer: utcDateTime })
   updatedAt: Date;
 
-  @DeleteDateColumn()
+  @DeleteDateColumn({ transformer: utcDateTime })
   deletedAt: Date | null;
 }

@@ -1,0 +1,120 @@
+import { createPortal } from 'react-dom';
+import { AlarmClock, Check, ChevronRight, X } from 'lucide-react';
+import { useState } from 'react';
+import type { Reminder } from '../../types';
+import type { useReminderScheduler } from './useReminderScheduler';
+
+const CATEGORY_EMOJI: Record<string, string> = {
+  medication: '💊',
+  exercise: '🏃',
+  water: '💧',
+  rest: '😴',
+  work: '💼',
+  custom: '📌',
+};
+
+const DELAY_PRESETS = [5, 10, 15, 30];
+
+interface Props {
+  reminder: Reminder;
+  onAction: ReturnType<typeof useReminderScheduler>['handleAction'];
+}
+
+/**
+ * P-06 提醒全屏弹窗（FR-204~207）
+ * 触发后全屏遮罩展示内容；提供 完成 / 延迟 / 跳过 操作。
+ * 拍照挑战（FR-208）在 M3 接入：开启 challenge 时先进入拍照步骤。
+ */
+export function ReminderOverlay({ reminder, onAction }: Props) {
+  const [showDelay, setShowDelay] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const act = async (status: 'completed' | 'delayed' | 'skipped', minutes?: number) => {
+    setBusy(true);
+    await onAction(status, minutes);
+  };
+
+  const maxDelayCount = reminder.delaySettings.maxDelayCount ?? 3;
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex flex-col bg-primary-900 text-white">
+      {/* 顶部 */}
+      <div className="flex items-center justify-between px-6 pt-8">
+        <span className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-sm">
+          <AlarmClock size={16} />
+          提醒时间到
+        </span>
+        <span className="text-2xl">{CATEGORY_EMOJI[reminder.category] ?? '📌'}</span>
+      </div>
+
+      {/* 内容 */}
+      <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
+        <h2 className="text-3xl font-bold leading-snug">{reminder.title}</h2>
+        {reminder.content.text && (
+          <p className="mt-4 text-lg leading-relaxed text-white/80">{reminder.content.text}</p>
+        )}
+        {reminder.challenge.enabled && (
+          <p className="mt-6 rounded-full bg-accent-500/20 px-4 py-2 text-sm text-accent-300">
+            📸 拍照打卡挑战（M3 接入）
+          </p>
+        )}
+      </div>
+
+      {/* 操作区 */}
+      <div className="space-y-3 px-6 pb-10">
+        {showDelay ? (
+          <div className="rounded-card bg-white/10 p-4">
+            <p className="mb-3 text-sm text-white/70">延迟多久再提醒？</p>
+            <div className="grid grid-cols-4 gap-2">
+              {DELAY_PRESETS.map((m) => (
+                <button
+                  key={m}
+                  disabled={busy}
+                  onClick={() => act('delayed', m)}
+                  className="rounded-btn bg-white/15 py-2.5 text-sm transition-colors hover:bg-white/25 disabled:opacity-50"
+                >
+                  {m}分
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowDelay(false)}
+              className="mt-3 w-full py-2 text-sm text-white/60"
+            >
+              返回
+            </button>
+          </div>
+        ) : (
+          <>
+            <button
+              disabled={busy}
+              onClick={() => act('completed')}
+              className="flex w-full items-center justify-center gap-2 rounded-card bg-primary-500 py-4 text-lg font-semibold transition-colors hover:bg-primary-400 disabled:opacity-50"
+            >
+              <Check size={22} /> 完成
+            </button>
+            <div className="flex gap-3">
+              {maxDelayCount > 0 && (
+                <button
+                  disabled={busy}
+                  onClick={() => setShowDelay(true)}
+                  className="flex flex-1 items-center justify-center gap-1 rounded-card bg-white/10 py-3.5 text-base transition-colors hover:bg-white/20"
+                >
+                  延迟 <ChevronRight size={18} />
+                </button>
+              )}
+              <button
+                disabled={busy}
+                onClick={() => act('skipped')}
+                className="flex flex-1 items-center justify-center gap-1 rounded-card bg-white/10 py-3.5 text-base transition-colors hover:bg-white/20"
+              >
+                <X size={18} /> 跳过
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>,
+    document.body,
+  );
+}

@@ -9,6 +9,7 @@ import {
   Unique,
 } from 'typeorm';
 import { Post } from './post.entity';
+import { utcDateTime } from '../../common/datetime.transformer';
 
 export enum InteractionType {
   LIKE = 'like',
@@ -42,6 +43,6 @@ export class Interaction {
   @Column({ type: 'varchar',  nullable: true })
   content: string | null;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ transformer: utcDateTime })
   createdAt: Date;
 }

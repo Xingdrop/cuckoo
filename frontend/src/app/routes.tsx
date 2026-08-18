@@ -3,6 +3,7 @@ import { DashboardPage } from '../pages/DashboardPage';
 import { LoginPage } from '../pages/LoginPage';
 import { ReminderListPage } from '../pages/ReminderListPage';
 import { SettingsPage } from '../pages/SettingsPage';
+import { SocialPage } from '../pages/SocialPage';
 
 /**
  * 路由表（页面清单见 docs/需求分析文档.md §7）
@@ -21,6 +22,7 @@ export function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/today" element={<DashboardPage />} />
       <Route path="/reminders" element={<ReminderListPage />} />
+      <Route path="/social" element={<SocialPage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="*" element={<Navigate to="/today" replace />} />
     </Routes>

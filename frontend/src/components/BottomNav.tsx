@@ -1,10 +1,10 @@
-import { Bell, CalendarCheck, Home, Settings } from 'lucide-react';
+import { CalendarCheck, Home, Settings, Users } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 
 const tabs = [
   { to: '/today', label: '今日', icon: Home },
   { to: '/reminders', label: '提醒', icon: CalendarCheck },
-  { to: '/notifications', label: '通知', icon: Bell },
+  { to: '/social', label: '社交', icon: Users },
   { to: '/settings', label: '设置', icon: Settings },
 ];
 

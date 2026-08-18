@@ -9,6 +9,7 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+frontend/dev-dist/
 
 # ---- 数据与上传（运行时产生）----
 backend/data/

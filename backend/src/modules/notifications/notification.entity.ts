@@ -42,7 +42,7 @@ export class Notification {
   @Column({ type: 'varchar',  nullable: true })
   linkUrl: string | null;
 
-  @Column({ type: 'varchar',  default: false })
+  @Column({ type: 'boolean', default: false })
   isRead: boolean;
 
   @CreateDateColumn({ transformer: utcDateTime })

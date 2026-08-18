@@ -60,7 +60,7 @@ export class Medicine {
   deductionPerUse: number;
 
   /** 启用库存预警通知（默认开） */
-  @Column({ type: 'varchar',  default: true })
+  @Column({ type: 'boolean', default: true })
   notifyOnLowStock: boolean;
 
   @CreateDateColumn({ transformer: utcDateTime })

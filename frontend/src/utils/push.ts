@@ -33,28 +33,52 @@ export async function subscribePush(): Promise<boolean> {
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') return false;
 
-  const sw = await getSW();
-  const { data } = await http.get<{ publicKey: string }>('/push/vapid-key');
-  if (!data.publicKey) return false; // 后端未配置 VAPID
+  try {
+    const sw = await getSW();
+    const { data } = await http.get<{ publicKey: string }>('/push/vapid-key');
+    if (!data.publicKey) return false; // 后端未配置 VAPID
 
-  let subscription = await sw.pushManager.getSubscription();
-  if (!subscription) {
-    subscription = await sw.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: data.publicKey,
+    let subscription = await sw.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await sw.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: data.publicKey,
+      });
+    }
+    const sub = subscription.toJSON() as {
+      endpoint: string;
+      keys?: { auth?: string; p256dh?: string };
+    };
+    await http.post('/devices', {
+      endpoint: sub.endpoint,
+      keysAuth: sub.keys?.auth ?? '',
+      keysP256dh: sub.keys?.p256dh ?? '',
+      userAgent: navigator.userAgent.slice(0, 300),
     });
+    return true;
+  } catch {
+    return false;
   }
-  const sub = subscription.toJSON() as {
-    endpoint: string;
-    keys?: { auth?: string; p256dh?: string };
-  };
-  await http.post('/devices', {
-    endpoint: sub.endpoint,
-    keysAuth: sub.keys?.auth ?? '',
-    keysP256dh: sub.keys?.p256dh ?? '',
-    userAgent: navigator.userAgent.slice(0, 300),
-  });
-  return true;
+}
+
+/**
+ * 检测当前是否已订阅 Push。
+ * 带超时：dev 下 SW 注册慢/失败时降级返回 false，避免开关永久不可操作。
+ */
+export async function checkPushSubscribed(): Promise<boolean> {
+  if (!isPushSupported()) return false;
+  try {
+    const sw = await Promise.race([
+      getSW(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('SW 注册超时')), 8000),
+      ),
+    ]);
+    const sub = await sw.pushManager.getSubscription();
+    return Boolean(sub);
+  } catch {
+    return false;
+  }
 }
 
 /** 退订（仅前端退订；服务端订阅清理在 M5 通知中心完善） */

@@ -115,12 +115,13 @@ export function ReminderEditPage() {
 
     setSubmitting(true);
     try {
+      let saved;
       if (isEdit && id) {
-        await remindersApi.update(id, body);
+        saved = await remindersApi.update(id, body);
       } else {
-        await remindersApi.create(body);
+        saved = await remindersApi.create(body);
       }
-      navigate('/reminders');
+      navigate('/reminders', { state: { created: saved } });
     } catch (err) {
       setError(errorMessage(err));
     } finally {

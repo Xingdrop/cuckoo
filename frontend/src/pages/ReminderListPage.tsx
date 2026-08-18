@@ -1,6 +1,6 @@
 import { Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { errorMessage } from '../services/http';
 import { remindersApi } from '../services/api/api.reminders';
@@ -38,6 +38,12 @@ function formatTime(iso: string | null): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+function formatFullTime(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${formatTime(iso)}`;
+}
+
 /**
  * P-04 提醒列表（FR-201/209）
  * 按 nextTriggerAt 排序，支持启停/删除/编辑
@@ -47,6 +53,17 @@ export function ReminderListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  const created = (location.state as { created?: Reminder } | null)?.created;
+
+  // 创建成功提示（缓存到本地 state，避免 replace 后丢失）
+  const [toast, setToast] = useState<Reminder | null>(null);
+  useEffect(() => {
+    if (created) {
+      setToast(created);
+      navigate('.', { replace: true, state: {} });
+    }
+  }, [created, navigate]);
 
   const load = useCallback(async () => {
     try {
@@ -90,6 +107,11 @@ export function ReminderListPage() {
       </header>
 
       <main className="px-4 pt-4">
+        {toast && (
+          <div className="mb-3 rounded-btn bg-primary-50 px-4 py-3 text-sm text-primary-700">
+            ✅ 提醒已创建，下次触发：{formatFullTime(toast.nextTriggerAt)}
+          </div>
+        )}
         {error && (
           <p className="mb-3 rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
         )}

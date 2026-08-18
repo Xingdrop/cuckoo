@@ -48,11 +48,17 @@ export class PushService {
   ): Promise<Device> {
     const existing = await this.deviceRepo.findOne({ where: { endpoint: dto.endpoint } });
     if (existing) {
-      existing.keysAuth = dto.keysAuth;
-      existing.keysP256dh = dto.keysP256dh;
-      existing.userAgent = dto.userAgent ?? existing.userAgent;
-      existing.lastSeenAt = new Date();
-      return this.deviceRepo.save(existing);
+      // 注意：不能用 save(entity)——TypeORM 1.x 对带 transformer 的列会写入数据库旧值
+      await this.deviceRepo.update(
+        { id: existing.id, userId },
+        {
+          keysAuth: dto.keysAuth,
+          keysP256dh: dto.keysP256dh,
+          userAgent: dto.userAgent ?? existing.userAgent,
+          lastSeenAt: new Date(),
+        },
+      );
+      return this.deviceRepo.findOneOrFail({ where: { id: existing.id } });
     }
     return this.deviceRepo.save(
       this.deviceRepo.create({

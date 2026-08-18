@@ -53,8 +53,8 @@ export class UsersService {
     userId: string,
     patch: Partial<UserSetting>,
   ): Promise<UserSetting> {
-    const setting = await this.getSettings(userId);
-    Object.assign(setting, patch);
-    return this.settingRepo.save(setting);
+    // 注意：不能用 save(entity)——TypeORM 1.x 对带 transformer 的列会写入数据库旧值
+    await this.settingRepo.update({ userId }, patch);
+    return this.getSettings(userId);
   }
 }

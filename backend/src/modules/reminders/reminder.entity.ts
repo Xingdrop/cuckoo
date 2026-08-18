@@ -135,7 +135,7 @@ export class Reminder {
   @JoinColumn({ name: 'medicineId' })
   medicine: Medicine | null;
 
-  @Column({ type: 'varchar',  default: true })
+  @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
   @CreateDateColumn({ transformer: utcDateTime })

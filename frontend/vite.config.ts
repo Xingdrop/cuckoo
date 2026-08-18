@@ -10,6 +10,8 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // 开发环境也注册 Service Worker（否则 Web Push 订阅在 dev 下不可用）
+      devOptions: { enabled: true },
       includeAssets: ['icons/*.svg'],
       manifest: {
         name: '布谷 Cuckoo',

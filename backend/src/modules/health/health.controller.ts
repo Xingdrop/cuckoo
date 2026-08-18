@@ -1,8 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DataSource } from 'typeorm';
+import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('系统')
+@Public()
 @Controller()
 export class HealthController {
   constructor(private readonly dataSource: DataSource) {}

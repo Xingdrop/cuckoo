@@ -39,10 +39,10 @@ export class EmergencyContact {
   @Column({ type: 'varchar',  nullable: true })
   relation: string | null;
 
-  @Column({ type: 'varchar',  default: true })
+  @Column({ type: 'boolean', default: true })
   receiveLowStock: boolean;
 
-  @Column({ type: 'varchar',  default: true })
+  @Column({ type: 'boolean', default: true })
   receiveMissed: boolean;
 
   @CreateDateColumn({ transformer: utcDateTime })

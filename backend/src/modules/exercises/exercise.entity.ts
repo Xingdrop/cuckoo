@@ -39,7 +39,7 @@ export class Exercise {
   @Column({ type: 'int', default: 0 })
   sortOrder: number;
 
-  @Column({ type: 'varchar',  default: true })
+  @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
   @CreateDateColumn({ transformer: utcDateTime })

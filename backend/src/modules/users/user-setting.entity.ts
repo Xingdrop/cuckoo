@@ -11,25 +11,25 @@ export class UserSetting {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column({ type: 'varchar',  default: true })
+  @Column({ type: 'boolean', default: true })
   notificationEnabled: boolean;
 
-  @Column({ type: 'varchar',  default: true })
+  @Column({ type: 'boolean', default: true })
   soundEnabled: boolean;
 
-  @Column({ type: 'varchar',  default: true })
+  @Column({ type: 'boolean', default: true })
   vibrationEnabled: boolean;
 
   @Column({ type: 'varchar',  default: 'default' })
   theme: string;
 
   /** 漏服判定阈值（分钟），全局默认 30 */
-  @Column({ type: 'varchar',  default: 30 })
+  @Column({ type: 'int', default: 30 })
   missedThresholdMinutes: number;
 
-  @Column({ type: 'varchar',  default: false })
+  @Column({ type: 'boolean', default: false })
   showSkipButton: boolean;
 
-  @Column({ type: 'varchar',  default: 3 })
+  @Column({ type: 'int', default: 3 })
   maxDelayCount: number;
 }

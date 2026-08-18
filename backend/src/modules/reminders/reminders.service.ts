@@ -91,14 +91,16 @@ export class RemindersService {
     const startDate = dto.startDate ? new Date(dto.startDate) : reminder.startDate;
     const endDate = dto.endDate !== undefined ? (dto.endDate ? new Date(dto.endDate) : null) : reminder.endDate;
 
-    Object.assign(reminder, {
+    const patch = {
       ...dto,
       repeatRule: next,
       startDate,
       endDate,
       nextTriggerAt: computeNextTrigger(next, new Date(), startDate, endDate, timezone),
-    });
-    return this.reminderRepo.save(reminder);
+    };
+    // 注意：不能用 save(entity)——TypeORM 1.x 对带 transformer 的列会写入数据库旧值
+    await this.reminderRepo.update({ id, userId }, patch);
+    return this.findOne(userId, id);
   }
 
   /** 软删除 */
@@ -111,10 +113,10 @@ export class RemindersService {
   /** 启停 */
   async setActive(userId: string, id: string, isActive: boolean) {
     const reminder = await this.findOne(userId, id);
-    reminder.isActive = isActive;
+    let nextTriggerAt = reminder.nextTriggerAt;
     if (isActive && !reminder.nextTriggerAt) {
       const timezone = await this.getUserTimezone(userId);
-      reminder.nextTriggerAt = computeNextTrigger(
+      nextTriggerAt = computeNextTrigger(
         reminder.repeatRule,
         new Date(),
         reminder.startDate,
@@ -122,7 +124,8 @@ export class RemindersService {
         timezone,
       );
     }
-    return this.reminderRepo.save(reminder);
+    await this.reminderRepo.update({ id, userId }, { isActive, nextTriggerAt });
+    return this.findOne(userId, id);
   }
 
   /**
@@ -178,23 +181,30 @@ export class RemindersService {
 
       await logRepo.save(log);
 
-      // 调度重排
+      // 调度重排（TypeORM 1.x 的 save 对 transformer 列写旧值，故用 update）
       const now = new Date();
       if (dto.status === ReminderLogStatus.DELAYED) {
         const delayMs = (dto.delayMinutes ?? 0) * 60_000;
-        reminder.nextTriggerAt = new Date(now.getTime() + delayMs);
+        await reminderRepo.update(
+          { id, userId },
+          { nextTriggerAt: new Date(now.getTime() + delayMs) },
+        );
       } else if (reminder.repeatRule.type === RepeatType.ONCE) {
-        reminder.nextTriggerAt = null;
+        await reminderRepo.update({ id, userId }, { nextTriggerAt: null });
       } else {
-        reminder.nextTriggerAt = computeFollowingTrigger(
-          reminder.repeatRule,
-          scheduledTime,
-          reminder.startDate,
-          reminder.endDate,
-          timezone,
+        await reminderRepo.update(
+          { id, userId },
+          {
+            nextTriggerAt: computeFollowingTrigger(
+              reminder.repeatRule,
+              scheduledTime,
+              reminder.startDate,
+              reminder.endDate,
+              timezone,
+            ),
+          },
         );
       }
-      await reminderRepo.save(reminder);
 
       return { ok: true, log, duplicate: false };
     });

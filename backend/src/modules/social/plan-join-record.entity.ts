@@ -33,7 +33,7 @@ export class PlanJoinRecord {
   @Column('text')
   reminderId: string;
 
-  @Column({ type: 'varchar',  default: true })
+  @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
   @CreateDateColumn({ transformer: utcDateTime })

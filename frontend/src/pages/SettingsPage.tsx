@@ -1,16 +1,77 @@
-import { Bell, LogOut, Smartphone } from 'lucide-react';
+import { Bell, BellRing, LogOut } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
+import { ReminderOverlay } from '../features/reminders/ReminderOverlay';
 import { authApi } from '../services/api/api.auth';
 import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
-import { isPushSupported, subscribePush } from '../utils/push';
-import type { UserSettings } from '../types';
+import { checkPushSubscribed, isPushSupported, subscribePush } from '../utils/push';
+import type { Reminder, UserSettings } from '../types';
+
+/** 开关组件：清晰的独立选项样式 */
+function Switch({
+  checked,
+  onChange,
+  disabled,
+  label,
+  desc,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+  label: string;
+  desc: string;
+}) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3">
+      <div className="min-w-0 pr-3">
+        <p className={`text-sm ${disabled ? 'text-ink-300' : ''}`}>{label}</p>
+        <p className={`mt-0.5 text-xs ${disabled ? 'text-ink-300/60' : 'text-ink-500'}`}>{desc}</p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
+          disabled ? 'bg-ink-100 opacity-60' : checked ? 'bg-primary-500' : 'bg-ink-100'
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${
+            checked ? 'left-[22px]' : 'left-0.5'
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
+
+/** 测试提醒的临时数据（本地弹窗验证用，不进数据库） */
+const TEST_REMINDER: Reminder = {
+  id: 'test-reminder',
+  userId: '',
+  category: 'water',
+  title: '这是一条测试提醒',
+  repeatRule: { type: 'once' },
+  startDate: new Date().toISOString(),
+  endDate: null,
+  nextTriggerAt: new Date().toISOString(),
+  content: { text: '全屏提醒功能正常！你可以点击完成、延迟或跳过。' },
+  method: { fullScreen: true },
+  delaySettings: { presetOptions: [5, 10], maxDelayCount: 3 },
+  challenge: { enabled: false, allowGallery: true },
+  medicineId: null,
+  isActive: true,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
 
 /**
  * P-18 设置（FR-104）
- * 通知偏好 + Web Push 订阅 + 账号退出（导出/注销 M5）
+ * 通知偏好（独立开关）+ Web Push 订阅 + 测试提醒 + 账号退出
  */
 export function SettingsPage() {
   const user = useAuthStore((s) => s.user);
@@ -18,6 +79,8 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [pushEnabled, setPushEnabled] = useState<boolean | null>(null);
+  const [pushSupport, setPushSupport] = useState<boolean>(isPushSupported());
+  const [showTest, setShowTest] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,15 +89,10 @@ export function SettingsPage() {
       .getSettings()
       .then(setSettings)
       .catch((e) => setError(errorMessage(e)));
-    // 当前是否已订阅 Push
-    if (isPushSupported()) {
-      navigator.serviceWorker.ready
-        .then((sw) => sw.pushManager.getSubscription())
-        .then((sub) => setPushEnabled(Boolean(sub)))
-        .catch(() => setPushEnabled(false));
-    } else {
-      setPushEnabled(false);
-    }
+    void checkPushSubscribed().then((ok) => {
+      setPushEnabled(ok);
+      setPushSupport(isPushSupported());
+    });
   }, []);
 
   const update = async (patch: Partial<UserSettings>) => {
@@ -56,7 +114,7 @@ export function SettingsPage() {
       } else {
         const ok = await subscribePush();
         setPushEnabled(ok);
-        if (!ok) setError('通知权限未开启或后端未配置推送服务');
+        if (!ok) setError('通知权限未开启或浏览器不支持推送');
       }
     } catch (e) {
       setError(errorMessage(e));
@@ -70,6 +128,13 @@ export function SettingsPage() {
     navigate('/login');
   };
 
+  const settingsRows = [
+    { key: 'notificationEnabled' as const, label: '提醒通知', desc: '到点触发全屏提醒' },
+    { key: 'soundEnabled' as const, label: '响铃', desc: '提醒时播放铃声' },
+    { key: 'vibrationEnabled' as const, label: '震动', desc: '提醒时震动' },
+    { key: 'showSkipButton' as const, label: '显示跳过按钮', desc: '关闭后提醒只能完成或延迟' },
+  ];
+
   return (
     <div className="mx-auto max-w-md pb-20">
       <header className="px-4 pt-6">
@@ -82,49 +147,50 @@ export function SettingsPage() {
           <p className="rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
         )}
 
-        {/* 通知偏好 */}
-        <section className="rounded-card bg-surface shadow-sm">
-          <h2 className="border-b border-ink-100 px-4 py-3 text-sm font-medium">通知偏好</h2>
-          {[
-            { key: 'notificationEnabled' as const, label: '提醒通知', desc: '到点触发全屏提醒' },
-            { key: 'soundEnabled' as const, label: '响铃', desc: '提醒时播放铃声' },
-            { key: 'vibrationEnabled' as const, label: '震动', desc: '提醒时震动' },
-            { key: 'showSkipButton' as const, label: '显示跳过按钮', desc: '关闭后提醒只能完成或延迟' },
-          ].map((row) => (
-            <div key={row.key} className="flex items-center justify-between px-4 py-3">
-              <div>
-                <p className="text-sm">{row.label}</p>
-                <p className="text-xs text-ink-300">{row.desc}</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={settings?.[row.key] ?? false}
-                disabled={!settings}
-                onChange={(e) => update({ [row.key]: e.target.checked })}
-                className="h-5 w-5 accent-primary-500"
-              />
-            </div>
+        {/* 通知偏好（每个选项独立开关） */}
+        <section className="divide-y divide-ink-100 rounded-card bg-surface shadow-sm">
+          <h2 className="px-4 py-3 text-sm font-medium">通知偏好</h2>
+          {settingsRows.map((row) => (
+            <Switch
+              key={row.key}
+              label={row.label}
+              desc={row.desc}
+              checked={settings?.[row.key] ?? false}
+              disabled={!settings}
+              onChange={(v) => update({ [row.key]: v })}
+            />
           ))}
         </section>
 
-        {/* 推送订阅 */}
+        {/* 浏览器推送 */}
         <section className="rounded-card bg-surface shadow-sm">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex items-center gap-3">
-              <Smartphone size={18} className="text-ink-500" />
-              <div>
-                <p className="text-sm">浏览器推送</p>
-                <p className="text-xs text-ink-300">页面关闭时也能收到提醒（通道 B）</p>
-              </div>
+          <Switch
+            label="浏览器推送"
+            desc={
+              pushEnabled === null
+                ? '检测中…'
+                : pushSupport
+                  ? '页面关闭时也能收到提醒（通道 B）'
+                  : '当前浏览器/环境不支持推送（需 HTTPS 或 localhost）'
+            }
+            checked={pushEnabled ?? false}
+            disabled={pushEnabled === null || !pushSupport || busy}
+            onChange={togglePush}
+          />
+        </section>
+
+        {/* 测试提醒 */}
+        <section className="rounded-card bg-surface shadow-sm">
+          <button
+            onClick={() => setShowTest(true)}
+            className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
+          >
+            <BellRing size={18} className="shrink-0 text-primary-600" />
+            <div>
+              <p className="text-sm font-medium">测试提醒</p>
+              <p className="mt-0.5 text-xs text-ink-500">立即弹出全屏提醒，验证触发效果</p>
             </div>
-            <input
-              type="checkbox"
-              checked={pushEnabled ?? false}
-              disabled={pushEnabled === null || busy}
-              onChange={togglePush}
-              className="h-5 w-5 accent-primary-500"
-            />
-          </div>
+          </button>
         </section>
 
         {/* 账号 */}
@@ -137,12 +203,22 @@ export function SettingsPage() {
           </button>
         </section>
 
-        <p className="flex items-center justify-center gap-1 pt-2 text-xs text-ink-300">
+        <p className="flex items-center justify-center gap-1 pt-2 text-xs text-ink-500">
           <Bell size={12} /> 布谷 Cuckoo v0.1 · 准时提醒，温柔守护
         </p>
       </main>
 
       <BottomNav />
+
+      {/* 测试全屏提醒 */}
+      {showTest && (
+        <ReminderOverlay
+          reminder={TEST_REMINDER}
+          onAction={async () => {
+            setShowTest(false);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -6,10 +6,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
-import { DataSource, Repository } from 'typeorm';
+import { Between, DataSource, Repository } from 'typeorm';
 import {
   computeFollowingTrigger,
   computeNextTrigger,
+  localToUtc,
+  toLocal,
 } from '../../common/reminder-schedule';
 import { Medicine } from '../medicines/medicine.entity';
 import { User } from '../users/user.entity';
@@ -58,7 +60,15 @@ export class RemindersService {
       challenge: dto.challenge ?? {},
       medicineId: dto.medicineId ?? null,
       isActive: dto.isActive ?? true,
-      nextTriggerAt: computeNextTrigger(dto.repeatRule, new Date(), startDate, endDate, timezone),
+      times: dto.times ?? null,
+      nextTriggerAt: computeNextTrigger(
+        dto.repeatRule,
+        new Date(),
+        startDate,
+        endDate,
+        timezone,
+        dto.times ?? null,
+      ),
     });
     return this.reminderRepo.save(reminder);
   }
@@ -72,6 +82,44 @@ export class RemindersService {
     if (query.category) qb.andWhere('r.category = :category', { category: query.category });
     if (query.isActive !== undefined) qb.andWhere('r.isActive = :isActive', { isActive: query.isActive });
     return qb.getMany();
+  }
+
+  /**
+   * 今日概览（看板数据源）：
+   * 返回今日"相关"的提醒（今日将触发 或 今日已有执行记录），附今日执行日志。
+   * 前端据此展示：未到提醒 + 已完成提醒（含"已提醒 n 次"折叠）。
+   */
+  async today(userId: string) {
+    const timezone = await this.getUserTimezone(userId);
+    const reminders = await this.reminderRepo.find({
+      where: { userId, isActive: true },
+    });
+
+    const now = new Date();
+    const local = toLocal(now, timezone);
+    const todayStart = localToUtc(timezone, local.year, local.month, local.day, 0, 0);
+    const tomorrowStart = localToUtc(timezone, local.year, local.month, local.day + 1, 0, 0);
+
+    const logs = await this.logRepo.find({
+      where: { userId, scheduledTime: Between(todayStart, tomorrowStart) },
+      order: { scheduledTime: 'ASC' },
+    });
+
+    return reminders
+      .map((r) => {
+        const todayLogs = logs
+          .filter((l) => l.reminderId === r.id)
+          .map((l) => ({
+            id: l.id,
+            scheduledTime: l.scheduledTime,
+            status: l.status,
+          }));
+        const next = r.nextTriggerAt ? new Date(r.nextTriggerAt) : null;
+        const willTriggerToday = next !== null && next >= todayStart && next < tomorrowStart;
+        if (todayLogs.length === 0 && !willTriggerToday) return null;
+        return { ...r, todayLogs };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
   }
 
   async findOne(userId: string, id: string) {
@@ -90,13 +138,15 @@ export class RemindersService {
     const next = { ...reminder.repeatRule, ...(dto.repeatRule ?? {}) };
     const startDate = dto.startDate ? new Date(dto.startDate) : reminder.startDate;
     const endDate = dto.endDate !== undefined ? (dto.endDate ? new Date(dto.endDate) : null) : reminder.endDate;
+    const times = dto.times !== undefined ? dto.times : reminder.times;
 
     const patch = {
       ...dto,
       repeatRule: next,
       startDate,
       endDate,
-      nextTriggerAt: computeNextTrigger(next, new Date(), startDate, endDate, timezone),
+      times,
+      nextTriggerAt: computeNextTrigger(next, new Date(), startDate, endDate, timezone, times),
     };
     // 注意：不能用 save(entity)——TypeORM 1.x 对带 transformer 的列会写入数据库旧值
     await this.reminderRepo.update({ id, userId }, patch);
@@ -201,6 +251,7 @@ export class RemindersService {
               reminder.startDate,
               reminder.endDate,
               timezone,
+              reminder.times,
             ),
           },
         );

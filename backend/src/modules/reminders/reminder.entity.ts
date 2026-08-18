@@ -108,6 +108,10 @@ export class Reminder {
   @Column({ type: 'datetime', transformer: utcDateTime })
   startDate: Date;
 
+  /** 每日多时间点（HH:mm 数组，daily/weekly 适用）；为空时用 startDate 的时间 */
+  @Column({ type: 'simple-json', nullable: true })
+  times: string[] | null;
+
   @Column({ type: 'datetime', transformer: utcDateTime, nullable: true })
   endDate: Date | null;
 

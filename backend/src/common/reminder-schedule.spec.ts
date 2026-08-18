@@ -201,6 +201,66 @@ describe('UT-SCH-10 时区处理', () => {
   });
 });
 
+describe('UT-SCH-11~13 多时间点（times）', () => {
+  it('UT-SCH-11 当天第二个时间点未到 → 返回它', () => {
+    // times = [08:00, 12:00, 18:00]（北京），from = 09:00 北京 = 01:00Z
+    const start = new Date('2026-08-20T00:00:00Z');
+    const next = computeNextTrigger(
+      { type: RepeatType.DAILY },
+      new Date('2026-08-20T01:00:00Z'),
+      start,
+      null,
+      TZ,
+      ['08:00', '12:00', '18:00'],
+    );
+    // 12:00 北京 = 04:00Z
+    expect(next?.toISOString()).toBe('2026-08-20T04:00:00.000Z');
+  });
+
+  it('UT-SCH-12 当天全部时间点已过 → 次日第一个时间点', () => {
+    const start = new Date('2026-08-20T00:00:00Z');
+    const next = computeNextTrigger(
+      { type: RepeatType.DAILY },
+      new Date('2026-08-20T11:00:00Z'), // 19:00 北京，18:00 已过
+      start,
+      null,
+      TZ,
+      ['08:00', '12:00', '18:00'],
+    );
+    // 次日 08:00 北京 = 08-21T00:00Z
+    expect(next?.toISOString()).toBe('2026-08-21T00:00:00.000Z');
+  });
+
+  it('UT-SCH-13 每周 + times 组合', () => {
+    const start = new Date('2026-08-17T00:00:00Z'); // 周一
+    // 周二 from → 周三 18:00（Wed 匹配 + times[1]）
+    const next = computeNextTrigger(
+      { type: RepeatType.WEEKLY, daysOfWeek: [1, 3, 5] },
+      new Date('2026-08-18T00:00:00Z'), // 周二 08:00 北京
+      start,
+      null,
+      TZ,
+      ['08:00', '18:00'],
+    );
+    // 周三 08:00 北京 = 08-19T00:00Z
+    expect(next?.toISOString()).toBe('2026-08-19T00:00:00.000Z');
+  });
+
+  it('UT-SCH-14 多时间点触发后重排到同一天的下一个时间点', () => {
+    const start = new Date('2026-08-20T00:00:00Z');
+    // 08:00 完成后（after=08:01 北京）→ 当天 12:00
+    const next = computeFollowingTrigger(
+      { type: RepeatType.DAILY },
+      new Date('2026-08-20T00:01:00Z'),
+      start,
+      null,
+      TZ,
+      ['08:00', '12:00', '18:00'],
+    );
+    expect(next?.toISOString()).toBe('2026-08-20T04:00:00.000Z');
+  });
+});
+
 describe('computeFollowingTrigger（触发后重排）', () => {
   it('daily 完成后 → 次日', () => {
     const start = new Date('2026-08-20T00:00:00Z');

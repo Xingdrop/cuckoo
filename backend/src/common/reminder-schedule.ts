@@ -106,6 +106,7 @@ function expandCandidates(
   startDate: Date,
   timezone: string,
   endDate: Date | null,
+  times: string[] | null = null,
 ): Date[] {
   const triggerLocal = toLocal(startDate, timezone);
   const fromLocal = toLocal(from, timezone);
@@ -137,12 +138,34 @@ function expandCandidates(
     }
 
     if (matched) {
-      const t = atTimeOnDate(timezone, triggerLocal, local.year, local.month, local.day);
-      if (t > from) {
-        if (endDate && t > endDate) return candidates;
-        candidates.push(t);
-        // 每天重复/周重复：取最近一个即可（避免生成大量候选）
-        if (rule.type === RepeatType.DAILY || rule.type === RepeatType.WEEKLY) break;
+      // 多时间点模式：当天所有时间点都是候选（daily/weekly 适用）
+      if (times && times.length > 0) {
+        const parsed = times
+          .map((t) => {
+            const [h, mi] = t.split(':').map(Number);
+            return { hour: h, minute: mi };
+          })
+          .filter((t) => Number.isFinite(t.hour) && Number.isFinite(t.minute))
+          .sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute));
+        let added = false;
+        for (const t of parsed) {
+          const cand = atTimeOnDate(timezone, t, local.year, local.month, local.day);
+          if (cand > from) {
+            if (endDate && cand > endDate) return candidates;
+            candidates.push(cand);
+            added = true;
+          }
+        }
+        // 当天有未过期的时间点 → 当天候选必然早于后续日期，停止扫描
+        if (added) break;
+      } else {
+        const t = atTimeOnDate(timezone, triggerLocal, local.year, local.month, local.day);
+        if (t > from) {
+          if (endDate && t > endDate) return candidates;
+          candidates.push(t);
+          // 每天重复/周重复：取最近一个即可（避免生成大量候选）
+          if (rule.type === RepeatType.DAILY || rule.type === RepeatType.WEEKLY) break;
+        }
       }
     }
 
@@ -151,13 +174,14 @@ function expandCandidates(
   return candidates;
 }
 
-/** 计算下一次触发时间（严格大于 from）；无下一次返回 null */
+/** 计算下一次触发时间（严格大于 from）；无下一次返回 null。times 为每日多时间点（HH:mm） */
 export function computeNextTrigger(
   rule: RepeatRule,
   from: Date,
   startDate: Date,
   endDate: Date | null = null,
   timezone = 'Asia/Shanghai',
+  times: string[] | null = null,
 ): Date | null {
   switch (rule.type) {
     case RepeatType.ONCE:
@@ -179,7 +203,7 @@ export function computeNextTrigger(
     case RepeatType.DAILY:
     case RepeatType.WEEKLY:
     case RepeatType.MONTHLY: {
-      const candidates = expandCandidates(rule, from, startDate, timezone, endDate);
+      const candidates = expandCandidates(rule, from, startDate, timezone, endDate, times);
       if (candidates.length === 0) return null;
       candidates.sort((a, b) => a.getTime() - b.getTime());
       const next = candidates[0];
@@ -198,7 +222,8 @@ export function computeFollowingTrigger(
   startDate: Date,
   endDate: Date | null = null,
   timezone = 'Asia/Shanghai',
+  times: string[] | null = null,
 ): Date | null {
   if (rule.type === RepeatType.ONCE) return null;
-  return computeNextTrigger(rule, after, startDate, endDate, timezone);
+  return computeNextTrigger(rule, after, startDate, endDate, timezone, times);
 }

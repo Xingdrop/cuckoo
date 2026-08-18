@@ -6,11 +6,11 @@ import { ReminderOverlay } from '../features/reminders/ReminderOverlay';
 import { authApi } from '../services/api/api.auth';
 import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
-import { checkPushSubscribed, isPushSupported, subscribePush } from '../utils/push';
+import { checkPushSubscribed, isPushSupported, pushFailMessage, subscribePush } from '../utils/push';
 import type { Reminder, UserSettings } from '../types';
 
-/** 开关组件：清晰的独立选项样式 */
-function Switch({
+/** 设置开关行：checkbox 样式（accent 主题色） */
+function SettingRow({
   checked,
   onChange,
   disabled,
@@ -26,25 +26,16 @@ function Switch({
   return (
     <div className="flex items-center justify-between px-4 py-3">
       <div className="min-w-0 pr-3">
-        <p className={`text-sm ${disabled ? 'text-ink-300' : ''}`}>{label}</p>
-        <p className={`mt-0.5 text-xs ${disabled ? 'text-ink-300/60' : 'text-ink-500'}`}>{desc}</p>
+        <p className={`text-sm ${disabled ? 'text-ink-500' : ''}`}>{label}</p>
+        <p className={`mt-0.5 text-xs ${disabled ? 'text-ink-500/70' : 'text-ink-500'}`}>{desc}</p>
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
+      <input
+        type="checkbox"
+        checked={checked}
         disabled={disabled}
-        onClick={() => onChange(!checked)}
-        className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
-          disabled ? 'bg-ink-100 opacity-60' : checked ? 'bg-primary-500' : 'bg-ink-100'
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${
-            checked ? 'left-[22px]' : 'left-0.5'
-          }`}
-        />
-      </button>
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-5 w-5 shrink-0 accent-primary-500"
+      />
     </div>
   );
 }
@@ -57,6 +48,7 @@ const TEST_REMINDER: Reminder = {
   title: '这是一条测试提醒',
   repeatRule: { type: 'once' },
   startDate: new Date().toISOString(),
+  times: null,
   endDate: null,
   nextTriggerAt: new Date().toISOString(),
   content: { text: '全屏提醒功能正常！你可以点击完成、延迟或跳过。' },
@@ -112,9 +104,9 @@ export function SettingsPage() {
         await import('../utils/push').then((m) => m.unsubscribePush());
         setPushEnabled(false);
       } else {
-        const ok = await subscribePush();
-        setPushEnabled(ok);
-        if (!ok) setError('通知权限未开启或浏览器不支持推送');
+        const result = await subscribePush();
+        setPushEnabled(result.ok);
+        if (!result.ok) setError(pushFailMessage(result.reason));
       }
     } catch (e) {
       setError(errorMessage(e));
@@ -147,11 +139,11 @@ export function SettingsPage() {
           <p className="rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
         )}
 
-        {/* 通知偏好（每个选项独立开关） */}
+        {/* 通知偏好（每个选项独立） */}
         <section className="divide-y divide-ink-100 rounded-card bg-surface shadow-sm">
           <h2 className="px-4 py-3 text-sm font-medium">通知偏好</h2>
           {settingsRows.map((row) => (
-            <Switch
+            <SettingRow
               key={row.key}
               label={row.label}
               desc={row.desc}
@@ -164,7 +156,7 @@ export function SettingsPage() {
 
         {/* 浏览器推送 */}
         <section className="rounded-card bg-surface shadow-sm">
-          <Switch
+          <SettingRow
             label="浏览器推送"
             desc={
               pushEnabled === null

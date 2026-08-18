@@ -9,6 +9,7 @@ import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { RemindersModule } from './modules/reminders/reminders.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { User } from './modules/users/user.entity';
 import { UserSetting } from './modules/users/user-setting.entity';
 import { Reminder } from './modules/reminders/reminder.entity';
@@ -76,6 +77,7 @@ import { SeedModule } from './seed/seed.module';
     AuthModule,
     UsersModule,
     RemindersModule,
+    NotificationsModule,
   ],
   providers: [
     // 全局 JWT 鉴权：所有接口默认需要登录，@Public() 例外

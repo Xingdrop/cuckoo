@@ -9,6 +9,7 @@ import {
   Unique,
 } from 'typeorm';
 import { Reminder } from './reminder.entity';
+import { utcDateTime } from '../../common/datetime.transformer';
 
 export enum ReminderLogStatus {
   COMPLETED = 'completed',
@@ -43,7 +44,7 @@ export class ReminderLog {
   scheduledTime: Date;
 
   /** 用户实际操作时间 */
-  @Column({ type: 'datetime', nullable: true })
+  @Column({ type: 'datetime', transformer: utcDateTime, nullable: true })
   actualTime: Date | null;
 
   @Column({ type: 'text' })
@@ -69,6 +70,6 @@ export class ReminderLog {
   @Column({ type: 'varchar',  nullable: true })
   medicineNameSnapshot: string | null;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ transformer: utcDateTime })
   createdAt: Date;
 }

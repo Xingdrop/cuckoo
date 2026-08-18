@@ -9,6 +9,7 @@ import {
   Unique,
 } from 'typeorm';
 import { Post } from './post.entity';
+import { utcDateTime } from '../../common/datetime.transformer';
 
 /** 一键加入计划记录。UNIQUE(postId, userId) 防重复加入 */
 @Entity('plan_join_records')
@@ -35,6 +36,6 @@ export class PlanJoinRecord {
   @Column({ type: 'varchar',  default: true })
   isActive: boolean;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ transformer: utcDateTime })
   joinedAt: Date;
 }

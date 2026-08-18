@@ -5,6 +5,7 @@ import {
   Index,
   PrimaryColumn,
 } from 'typeorm';
+import { utcDateTime } from '../../common/datetime.transformer';
 
 export enum NotificationType {
   REMINDER = 'reminder',
@@ -44,6 +45,6 @@ export class Notification {
   @Column({ type: 'varchar',  default: false })
   isRead: boolean;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ transformer: utcDateTime })
   createdAt: Date;
 }

@@ -10,6 +10,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../users/user.entity';
+import { utcDateTime } from '../../common/datetime.transformer';
 
 export enum PostType {
   USER_PLAN = 'user_plan',
@@ -67,12 +68,12 @@ export class Post {
   @Column({ type: 'text', default: PostStatus.PUBLISHED })
   status: PostStatus;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ transformer: utcDateTime })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ transformer: utcDateTime })
   updatedAt: Date;
 
-  @DeleteDateColumn()
+  @DeleteDateColumn({ transformer: utcDateTime })
   deletedAt: Date | null;
 }

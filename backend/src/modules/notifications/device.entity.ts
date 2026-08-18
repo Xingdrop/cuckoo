@@ -6,6 +6,7 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { utcDateTime } from '../../common/datetime.transformer';
 
 /** Web Push 订阅端点（用户多设备） */
 @Entity('devices')
@@ -30,12 +31,12 @@ export class Device {
   @Column({ type: 'varchar',  nullable: true })
   userAgent: string | null;
 
-  @Column({ type: 'varchar',  nullable: true })
+  @Column({ type: 'datetime', transformer: utcDateTime, nullable: true })
   lastSeenAt: Date | null;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ transformer: utcDateTime })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ transformer: utcDateTime })
   updatedAt: Date;
 }

@@ -1,4 +1,5 @@
 import { Column, CreateDateColumn, Entity, PrimaryColumn } from 'typeorm';
+import { utcDateTime } from '../../common/datetime.transformer';
 
 export enum SensitiveWordLevel {
   BLOCK = 'block',
@@ -17,6 +18,6 @@ export class SensitiveWord {
   @Column({ type: 'text', default: SensitiveWordLevel.MASK })
   level: SensitiveWordLevel;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ transformer: utcDateTime })
   createdAt: Date;
 }

@@ -8,6 +8,7 @@ import {
   PrimaryColumn,
 } from 'typeorm';
 import { User } from '../users/user.entity';
+import { utcDateTime } from '../../common/datetime.transformer';
 
 /** 亲友联系人：接收库存预警/漏服通知 */
 @Entity('emergency_contacts')
@@ -44,6 +45,6 @@ export class EmergencyContact {
   @Column({ type: 'varchar',  default: true })
   receiveMissed: boolean;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ transformer: utcDateTime })
   createdAt: Date;
 }

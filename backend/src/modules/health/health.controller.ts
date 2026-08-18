@@ -3,11 +3,23 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DataSource } from 'typeorm';
 
 @ApiTags('系统')
-@Controller('health')
+@Controller()
 export class HealthController {
   constructor(private readonly dataSource: DataSource) {}
 
-  @Get()
+  /** API 根路径：返回服务元信息（避免裸路径 404，便于联调探测） */
+  @Get('/')
+  @ApiOperation({ summary: 'API 元信息' })
+  info() {
+    return {
+      name: '布谷 Cuckoo API',
+      version: '1.0.0',
+      docs: '/api',
+      endpoints: ['/api/v1/health'],
+    };
+  }
+
+  @Get('health')
   @ApiOperation({ summary: '健康检查（含数据库连通性）' })
   async check() {
     await this.dataSource.query('SELECT 1');

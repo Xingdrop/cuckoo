@@ -1,4 +1,4 @@
-import { Pencil, Pill, Plus, Power, Trash2 } from 'lucide-react';
+import { Dumbbell, Pencil, Pill, Plus, Power, Timer, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -106,6 +106,20 @@ export function ReminderListPage() {
             aria-label="药品管理"
           >
             <Pill size={20} />
+          </button>
+          <button
+            onClick={() => navigate('/exercises')}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-ink-700 shadow-sm"
+            aria-label="微运动库"
+          >
+            <Dumbbell size={20} />
+          </button>
+          <button
+            onClick={() => navigate('/pomodoro')}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-ink-700 shadow-sm"
+            aria-label="番茄钟"
+          >
+            <Timer size={20} />
           </button>
           <button
             onClick={() => navigate('/reminders/new')}

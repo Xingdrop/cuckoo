@@ -32,4 +32,8 @@ export class UserSetting {
 
   @Column({ type: 'int', default: 3 })
   maxDelayCount: number;
+
+  /** 每日喝水目标（ml） */
+  @Column({ type: 'int', default: 2000 })
+  waterGoalMl: number;
 }

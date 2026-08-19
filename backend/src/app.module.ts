@@ -10,6 +10,9 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { RemindersModule } from './modules/reminders/reminders.module';
 import { MedicinesModule } from './modules/medicines/medicines.module';
+import { StatsModule } from './modules/stats/stats.module';
+import { ExercisesModule } from './modules/exercises/exercises.module';
+import { FilesModule } from './modules/files/files.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { User } from './modules/users/user.entity';
 import { UserSetting } from './modules/users/user-setting.entity';
@@ -79,6 +82,9 @@ import { SeedModule } from './seed/seed.module';
     UsersModule,
     RemindersModule,
     MedicinesModule,
+    StatsModule,
+    ExercisesModule,
+    FilesModule,
     NotificationsModule,
   ],
   providers: [

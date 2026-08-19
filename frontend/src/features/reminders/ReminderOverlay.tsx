@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom';
-import { AlarmClock, Check, ChevronRight, X } from 'lucide-react';
-import { useState } from 'react';
+import { AlarmClock, Camera, Check, ChevronRight, Image as ImageIcon, X } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { http } from '../../services/http';
 import type { Reminder } from '../../types';
 import type { useReminderScheduler } from './useReminderScheduler';
 
@@ -28,15 +29,36 @@ interface Props {
 export function ReminderOverlay({ reminder, onAction }: Props) {
   const [showDelay, setShowDelay] = useState(false);
   const [customMinutes, setCustomMinutes] = useState('');
+  const [showCamera, setShowCamera] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const galleryRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const act = async (status: 'completed' | 'delayed' | 'skipped', minutes?: number) => {
+  const act = async (
+    status: 'completed' | 'delayed' | 'skipped' | 'challenge_completed',
+    minutes?: number,
+    photoUrl?: string,
+  ) => {
     setBusy(true);
-    await onAction(status, minutes);
+    await onAction(status, minutes, photoUrl);
   };
 
   const maxDelayCount = reminder.delaySettings.maxDelayCount ?? 3;
   const customEnabled = reminder.delaySettings.customEnabled ?? true;
+
+  /** 拍照/相册选择 → 上传 → 完成挑战 */
+  const uploadAndComplete = async (file: File) => {
+    setPhotoBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const { data } = await http.post<{ url: string }>('/files/upload', fd);
+      await act('challenge_completed', undefined, data.url);
+    } catch {
+      setPhotoBusy(false);
+    }
+  };
 
   const submitCustom = async () => {
     const m = Number(customMinutes);
@@ -62,9 +84,69 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
           <p className="mt-4 text-lg leading-relaxed text-white/80">{reminder.content.text}</p>
         )}
         {reminder.challenge.enabled && (
-          <p className="mt-6 rounded-full bg-accent-500/20 px-4 py-2 text-sm text-accent-300">
-            📸 拍照打卡挑战（M3 接入）
-          </p>
+          <div className="mt-6 w-full">
+            {showCamera ? (
+              <div className="rounded-card bg-white/10 p-5">
+                <p className="mb-3 text-center text-sm text-white/80">拍摄打卡照片</p>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void uploadAndComplete(f);
+                  }}
+                />
+                <input
+                  ref={galleryRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void uploadAndComplete(f);
+                  }}
+                />
+                <div className="flex gap-3">
+                  <button
+                    disabled={photoBusy}
+                    onClick={() => fileRef.current?.click()}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-btn bg-white/15 py-3.5 text-sm transition-colors hover:bg-white/25 disabled:opacity-50"
+                  >
+                    <Camera size={18} /> {photoBusy ? '上传中…' : '拍照'}
+                  </button>
+                  <button
+                    disabled={photoBusy}
+                    onClick={() => galleryRef.current?.click()}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-btn bg-white/15 py-3.5 text-sm transition-colors hover:bg-white/25 disabled:opacity-50"
+                  >
+                    <ImageIcon size={18} /> 相册
+                  </button>
+                </div>
+                <button
+                  disabled={photoBusy}
+                  onClick={() => setShowCamera(false)}
+                  className="mt-3 w-full py-2 text-sm text-white/60"
+                >
+                  返回
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="rounded-full bg-accent-500/20 px-4 py-2 text-center text-sm text-accent-300">
+                  📸 拍照打卡挑战：完成后自动记录
+                </p>
+                <button
+                  onClick={() => setShowCamera(true)}
+                  className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-card bg-accent-500 py-3.5 text-base font-semibold text-white transition-colors hover:bg-accent-700"
+                >
+                  <Camera size={20} /> 开始拍照打卡
+                </button>
+              </>
+            )}
+          </div>
         )}
       </div>
 

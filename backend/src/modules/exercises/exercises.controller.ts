@@ -1,0 +1,23 @@
+import { Controller, Get } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Exercise } from './exercise.entity';
+
+@ApiTags('微运动')
+@Controller('exercises')
+export class ExercisesController {
+  constructor(
+    @InjectRepository(Exercise)
+    private readonly exerciseRepo: Repository<Exercise>,
+  ) {}
+
+  @Get()
+  @ApiOperation({ summary: '微运动库列表（FR-405）' })
+  list() {
+    return this.exerciseRepo.find({
+      where: { isActive: true },
+      order: { sortOrder: 'ASC' },
+    });
+  }
+}

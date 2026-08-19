@@ -3,15 +3,22 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'node:path';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const config = app.get(ConfigService);
 
   // 安全头
   app.use(helmet());
+
+  // 上传文件静态访问（/uploads/xxx.webp）
+  app.useStaticAssets(join(process.cwd(), config.get<string>('upload.dir') ?? 'uploads'), {
+    prefix: '/uploads/',
+  });
 
   // CORS 白名单（.env: CORS_ORIGINS）
   app.enableCors({ origin: config.get<string[]>('corsOrigins') });

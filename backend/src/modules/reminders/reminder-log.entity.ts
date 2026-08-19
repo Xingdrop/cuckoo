@@ -71,6 +71,14 @@ export class ReminderLog {
   @Column({ type: 'varchar',  nullable: true })
   medicineNameSnapshot: string | null;
 
+  /** 分类快照（统计用） */
+  @Column({ type: 'varchar',  nullable: true })
+  category: string | null;
+
+  /** 数量快照（如喝水 ml），通用 */
+  @Column({ type: 'int', default: 0 })
+  amount: number;
+
   @CreateDateColumn({ transformer: utcDateTime })
   createdAt: Date;
 }

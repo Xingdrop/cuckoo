@@ -1,6 +1,6 @@
 import { ChevronLeft, Clock, Plus, X } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { errorMessage } from '../services/http';
 import { remindersApi } from '../services/api/api.reminders';
 import { medicinesApi } from '../services/api/api.medicines';
@@ -33,6 +33,8 @@ export function ReminderEditPage() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const location = useLocation();
+  const preset = (location.state as { preset?: { category?: ReminderCategory; title?: string; contentText?: string } } | null)?.preset;
 
   const [category, setCategory] = useState<ReminderCategory>('water');
   const [categoryLabel, setCategoryLabel] = useState('');
@@ -60,6 +62,15 @@ export function ReminderEditPage() {
   const [loading, setLoading] = useState(isEdit);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 微运动/预设预填（从微运动库跳转）
+  useEffect(() => {
+    if (!preset) return;
+    if (preset.category) setCategory(preset.category);
+    if (preset.title) setTitle(preset.title);
+    if (preset.contentText) setContentText(preset.contentText);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 加载药品列表（medication 分类关联用）
   useEffect(() => {

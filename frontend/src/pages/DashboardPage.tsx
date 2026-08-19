@@ -1,9 +1,9 @@
-import { Check, ChevronLeft, ChevronRight, Plus, TrendingUp } from 'lucide-react';
+import { BarChart3, Check, ChevronLeft, ChevronRight, Plus, TrendingUp } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
-import { useAuthStore } from '../stores/authStore';
 import { remindersApi } from '../services/api/api.reminders';
+import { statsApi, DashboardStats } from '../services/api/api.stats';
 import { dateHead, festivalIcon, lunarInfo, shiftKey, todayKey } from '../utils/calendar';
 import type { CalendarItem } from '../types';
 
@@ -56,11 +56,11 @@ function untilLabel(dateKey: string, time: string): string {
  * - 已完成时间点：暗色 + ✓ + 绿色边框，排在下方的"已完成"分组
  */
 export function DashboardPage() {
-  const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
   const today = todayKey();
   const [selected, setSelected] = useState(today);
   const [items, setItems] = useState<CalendarItem[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const touchX = useRef<number | null>(null);
@@ -69,13 +69,16 @@ export function DashboardPage() {
     async (date: string) => {
       try {
         setItems(await remindersApi.calendar(date));
+        if (date === today) {
+          statsApi.dashboard().then(setStats).catch(() => undefined);
+        }
       } catch {
         setError('加载失败，请刷新重试');
       } finally {
         setLoading(false);
       }
     },
-    [],
+    [today],
   );
 
   // 切换日期时不显示"加载中"（保留旧内容直到新数据就绪）
@@ -170,26 +173,75 @@ export function DashboardPage() {
             </button>
           </div>
           <div className="flex items-center gap-1 text-sm text-ink-700">
-            <span className="text-ink-500">@{user?.username}</span>
+            <button
+              onClick={() => navigate('/stats')}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-surface text-primary-600 shadow-sm"
+              aria-label="统计"
+            >
+              <BarChart3 size={18} />
+            </button>
           </div>
         </div>
 
       </header>
 
       <main className="px-4">
-        {/* 完成率卡片（所选日期） */}
+        {/* 完成率卡片（stats 数据） */}
         <section className="mt-4 rounded-card bg-surface p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-ink-500">完成率</p>
-              <p className="mt-1 text-3xl font-bold text-primary-600">{rate}%</p>
-              <p className="mt-1 text-xs text-ink-500">{totalDone} / {totalPlanned} 已完成</p>
+              <p className="mt-1 text-3xl font-bold text-primary-600">
+                {selected === today && stats ? stats.rate : rate}%
+              </p>
+              <p className="mt-1 text-xs text-ink-500">
+                {selected === today && stats ? stats.done : totalDone} / {selected === today && stats ? stats.planned : totalPlanned} 已完成
+                {selected === today && stats && stats.missed > 0 && (
+                  <span className="ml-1 text-danger-700">（错过 {stats.missed}）</span>
+                )}
+              </p>
             </div>
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary-50 text-primary-500">
-              <TrendingUp size={32} strokeWidth={1.5} />
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary-50 text-primary-500">
+                <TrendingUp size={32} strokeWidth={1.5} />
+              </div>
+              {selected === today && stats && (
+                <span className="rounded-full bg-accent-100 px-2.5 py-1 text-[10px] font-medium text-accent-700">
+                  🔥 连续 {stats.streakDays} 天
+                </span>
+              )}
             </div>
           </div>
         </section>
+
+        {/* 喝水进度（今天） */}
+        {selected === today && stats && (
+          <section className="mt-3 rounded-card bg-surface p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">💧 今日喝水</p>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-primary-600">
+                  {stats.water.waterMl} / {stats.water.waterGoalMl}ml
+                </span>
+                <button
+                  onClick={async () => {
+                    await statsApi.water(200).catch(() => undefined);
+                    statsApi.dashboard().then(setStats).catch(() => undefined);
+                  }}
+                  className="rounded-full bg-primary-500 px-3 py-1.5 text-xs font-medium text-white"
+                >
+                  +200ml
+                </button>
+              </div>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink-100">
+              <div
+                className="h-full rounded-full bg-primary-500 transition-all"
+                style={{ width: `${stats.water.rate}%` }}
+              />
+            </div>
+          </section>
+        )}
 
         {/* 当日提醒时间线 */}
         <section className="mt-4">

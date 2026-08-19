@@ -16,11 +16,37 @@ const CATEGORY_EMOJI: Record<string, string> = {
   custom: '📌',
 };
 
-/** 完成的次数 */
+/** 完成的次数（仅 completed/challenge_completed，不含错过/跳过） */
 function doneCount(item: CalendarItem): number {
   return item.times.filter(
     (t) => t.status === 'completed' || t.status === 'challenge_completed',
   ).length;
+}
+
+/** 错过的次数（missed/skipped 状态，或未完成且时间已过） */
+function missedCount(item: CalendarItem, dateKey: string, today: string, nowTime: string): number {
+  return item.times.filter(
+    (t) =>
+      t.status === 'missed' ||
+      t.status === 'skipped' ||
+      (t.status === null && (dateKey < today || (dateKey === today && t.time < nowTime))),
+  ).length;
+}
+
+/** 距目标时间（日期+HH:mm，本地）的间隔文案 */
+function untilLabel(dateKey: string, time: string): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const [hh, mm] = time.split(':').map(Number);
+  const diffMs = new Date(y, m - 1, d, hh, mm).getTime() - Date.now();
+  if (diffMs <= 0) return '';
+  const mins = Math.floor(diffMs / 60_000);
+  if (mins < 60) return `${mins} 分钟后`;
+  const hours = Math.floor(mins / 60);
+  const rem = mins % 60;
+  if (hours < 24) return rem > 0 ? `${hours} 小时 ${rem} 分后` : `${hours} 小时后`;
+  const days = Math.floor(hours / 24);
+  const remH = hours % 24;
+  return remH > 0 ? `${days} 天 ${remH} 小时后` : `${days} 天后`;
 }
 
 /**
@@ -52,8 +78,8 @@ export function DashboardPage() {
     [],
   );
 
+  // 切换日期时不显示"加载中"（保留旧内容直到新数据就绪）
   useEffect(() => {
-    setLoading(true);
     setError(null);
     void load(selected);
   }, [selected, load]);
@@ -79,8 +105,12 @@ export function DashboardPage() {
       status: t.status,
       item,
       isDone: t.status === 'completed' || t.status === 'challenge_completed',
-      // 已错过：仅今天，时间已过且未完成
-      isMissed: selected === today && t.status === null && t.time < nowTime,
+      // 已错过：missed/skipped 状态，或（未完成 且 时间已过：今天已过 / 历史日期）
+      isMissed:
+        t.status === 'missed' ||
+        t.status === 'skipped' ||
+        (t.status === null &&
+          (selected < today || (selected === today && t.time < nowTime))),
     })),
   );
   const pendingSlots = slots
@@ -216,22 +246,12 @@ export function DashboardPage() {
                     )}
                   </div>
                   {(() => {
-                    const k = doneCount(s.item);
-                    const m = s.item.todayTotal - k;
-                    return (
-                      <span className="flex shrink-0 items-center gap-1">
-                        {k > 0 && (
-                          <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-medium text-primary-600">
-                            已完成 {k}/{s.item.todayTotal} 次
-                          </span>
-                        )}
-                        {m > 0 && (
-                          <span className="rounded-full bg-accent-100 px-2 py-0.5 text-[10px] font-medium text-accent-700">
-                            未完成 {m}/{s.item.todayTotal} 次
-                          </span>
-                        )}
+                    const label = untilLabel(selected, s.time);
+                    return label ? (
+                      <span className="shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-medium text-primary-600">
+                        ⏰ {label}
                       </span>
-                    );
+                    ) : null;
                   })()}
                 </li>
               ))}
@@ -251,31 +271,42 @@ export function DashboardPage() {
                 <span className="h-px flex-1 bg-ink-100" />
               </div>
               <ul className="mt-2 space-y-2">
-                {doneSlots.map((s, i) => (
-                  <li
-                    key={`d-${s.item.reminderId}-${s.time}-${i}`}
-                    className="flex items-center gap-3 rounded-card border-l-4 border-primary-500/60 bg-ink-100/60 px-4 py-3 opacity-80"
-                  >
-                    <span className="w-14 text-right text-sm font-semibold text-ink-500">{s.time}</span>
-                    <span className="text-lg opacity-50">
-                      {s.item.categoryIcon ?? CATEGORY_EMOJI[s.item.category] ?? '📌'}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-ink-500 line-through decoration-ink-300">
-                        {s.item.category === 'custom' && s.item.categoryLabel
-                          ? `${s.item.categoryLabel} · `
-                          : ''}
-                        {s.item.title}
-                      </p>
-                      {s.item.content.text && (
-                        <p className="mt-0.5 truncate text-xs text-ink-500/70">{s.item.content.text}</p>
+                {doneSlots.map((s, i) => {
+                  const k = doneCount(s.item);
+                  // 分母 = 有效计划数（总次数 - 错过次数），错过不计入
+                  const effective = Math.max(1, s.item.todayTotal - missedCount(s.item, selected, today, nowTime));
+                  return (
+                    <li
+                      key={`d-${s.item.reminderId}-${s.time}-${i}`}
+                      className="flex items-center gap-3 rounded-card border-l-4 border-primary-500/60 bg-ink-100/60 px-4 py-3 opacity-80"
+                    >
+                      <span className="w-14 text-right text-sm font-semibold text-ink-500">{s.time}</span>
+                      <span className="text-lg opacity-50">
+                        {s.item.categoryIcon ?? CATEGORY_EMOJI[s.item.category] ?? '📌'}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-ink-500 line-through decoration-ink-300">
+                          {s.item.category === 'custom' && s.item.categoryLabel
+                            ? `${s.item.categoryLabel} · `
+                            : ''}
+                          {s.item.title}
+                        </p>
+                        {s.item.content.text && (
+                          <p className="mt-0.5 truncate text-xs text-ink-500/70">{s.item.content.text}</p>
+                        )}
+                      </div>
+                      {effective > 1 ? (
+                        <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-primary-500/15 px-2.5 py-1 text-[10px] font-medium text-primary-700">
+                          <Check size={11} /> 已完成 {k}/{effective} 次
+                        </span>
+                      ) : (
+                        <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-primary-500 px-2.5 py-1 text-[10px] font-medium text-white">
+                          <Check size={11} /> 今日已完成提醒
+                        </span>
                       )}
-                    </div>
-                    <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-primary-500 px-2.5 py-1 text-[10px] font-medium text-white">
-                      <Check size={11} /> 已完成
-                    </span>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
@@ -313,9 +344,15 @@ export function DashboardPage() {
                         <p className="mt-0.5 truncate text-xs text-danger-700/70">{s.item.content.text}</p>
                       )}
                     </div>
-                    <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-danger-500 px-2.5 py-1 text-[10px] font-medium text-white">
-                      ✗ 已错过
-                    </span>
+                    {s.status === 'skipped' ? (
+                      <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-ink-300 px-2.5 py-1 text-[10px] font-medium text-white">
+                        ↷ 已跳过
+                      </span>
+                    ) : (
+                      <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-danger-500 px-2.5 py-1 text-[10px] font-medium text-white">
+                        ✗ 已错过
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>

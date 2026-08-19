@@ -1,15 +1,29 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { EmergencyContact } from '../contacts/emergency-contact.entity';
+import { Reminder } from '../reminders/reminder.entity';
+import { ReminderLog } from '../reminders/reminder-log.entity';
 import { Device } from './device.entity';
 import { DevicesController } from './devices.controller';
+import { NotificationsController } from './notifications.controller';
+import { MissedScanner } from './missed-scanner';
 import { PushService } from './push.service';
 import { NotificationLog } from './notification-log.entity';
 import { Notification } from './notification.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Device, Notification, NotificationLog])],
-  controllers: [DevicesController],
-  providers: [PushService],
+  imports: [
+    TypeOrmModule.forFeature([
+      Device,
+      Notification,
+      NotificationLog,
+      Reminder,
+      ReminderLog,
+      EmergencyContact,
+    ]),
+  ],
+  controllers: [DevicesController, NotificationsController],
+  providers: [PushService, MissedScanner],
   exports: [PushService],
 })
 export class NotificationsModule {}

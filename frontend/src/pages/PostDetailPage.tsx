@@ -1,0 +1,170 @@
+import { ChevronLeft, Heart, MessageCircle, Send, Star, Users } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { errorMessage } from '../services/http';
+import { socialApi, Post } from '../services/api/api.social';
+
+interface Comment {
+  id: string;
+  content: string;
+  createdAt: string;
+}
+
+/**
+ * P-12 帖子详情（评论/点赞/收藏/加入计划）
+ */
+export function PostDetailPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [post, setPost] = useState<Post | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentText, setCommentText] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!id) return;
+    try {
+      const [p, c] = await Promise.all([socialApi.getPost(id), socialApi.comments(id)]);
+      setPost(p);
+      setComments(c.items);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const submitComment = async () => {
+    if (!id || !commentText.trim()) return;
+    await socialApi.comment(id, commentText.trim());
+    setCommentText('');
+    void load();
+  };
+
+  if (loading) {
+    return <div className="flex min-h-dvh items-center justify-center text-sm text-ink-500">加载中…</div>;
+  }
+
+  return (
+    <div className="mx-auto max-w-md pb-24">
+      <header className="sticky top-0 z-10 flex items-center gap-2 bg-bg/95 px-4 py-3 backdrop-blur">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex h-11 w-11 items-center justify-center text-ink-700"
+          aria-label="返回"
+        >
+          <ChevronLeft size={22} />
+        </button>
+        <h1 className="flex-1 text-lg font-semibold">帖子详情</h1>
+      </header>
+
+      <main className="px-4 pt-3">
+        {error && (
+          <p className="mb-3 rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
+        )}
+        {post && (
+          <div className="rounded-card bg-surface p-4 shadow-sm">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-50 text-sm font-medium text-primary-600">
+                {post.author.username.slice(0, 1).toUpperCase()}
+              </span>
+              <p className="text-sm font-medium">@{post.author.username}</p>
+            </div>
+            <p className="mt-3 text-sm leading-relaxed">{post.content}</p>
+            {post.planSnapshot && (
+              <div className="mt-3 rounded-btn bg-primary-50/60 px-3.5 py-3">
+                <p className="text-xs font-medium text-primary-700">📋 包含可加入的提醒计划</p>
+                <button
+                  onClick={async () => {
+                    if (post.myJoined) {
+                      await socialApi.leave(post.id);
+                    } else {
+                      await socialApi.join(post.id);
+                    }
+                    void load();
+                  }}
+                  className={`mt-2 w-full rounded-btn py-2.5 text-sm font-medium ${
+                    post.myJoined ? 'bg-ink-100 text-ink-700' : 'bg-primary-500 text-white'
+                  }`}
+                >
+                  {post.myJoined ? '✓ 已加入（点击退出）' : '一键加入计划'}
+                </button>
+              </div>
+            )}
+            <div className="mt-3 flex items-center gap-4 border-t border-ink-100 pt-3 text-xs text-ink-500">
+              <button
+                onClick={async () => {
+                  await socialApi.like(post.id);
+                  void load();
+                }}
+                className={`flex items-center gap-1 ${post.myLiked ? 'text-danger-500' : ''}`}
+              >
+                <Heart size={15} fill={post.myLiked ? 'currentColor' : 'none'} /> {post.likesCount}
+              </button>
+              <span className="flex items-center gap-1">
+                <MessageCircle size={15} /> {post.commentsCount}
+              </span>
+              <button
+                onClick={async () => {
+                  await socialApi.favorite(post.id);
+                  void load();
+                }}
+                className={`flex items-center gap-1 ${post.myFavorited ? 'text-accent-700' : ''}`}
+              >
+                <Star size={15} fill={post.myFavorited ? 'currentColor' : 'none'} /> 收藏
+              </button>
+              <span className="ml-auto flex items-center gap-1 text-primary-600">
+                <Users size={14} /> {post.joinedCount} 人已加入
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* 评论列表 */}
+        <h2 className="mt-5 px-1 text-sm font-medium">评论（{comments.length}）</h2>
+        <ul className="mt-2 space-y-2">
+          {comments.length === 0 && (
+            <p className="rounded-card bg-surface p-6 text-center text-xs text-ink-300 shadow-sm">
+              还没有评论，来说两句吧
+            </p>
+          )}
+          {comments.map((c) => (
+            <li key={c.id} className="rounded-card bg-surface px-4 py-3 shadow-sm">
+              <p className="text-sm leading-relaxed">{c.content}</p>
+              <p className="mt-1 text-[10px] text-ink-300">评论 · {new Date(c.createdAt).toLocaleString('zh-CN', { hour12: false }).slice(0, 16)}</p>
+            </li>
+          ))}
+        </ul>
+      </main>
+
+      {/* 评论输入栏 */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-ink-100 bg-surface px-4 py-3">
+        <div className="mx-auto flex max-w-md items-center gap-2">
+          <input
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void submitComment();
+            }}
+            maxLength={500}
+            placeholder="写下你的评论…"
+            className="flex-1 rounded-full border border-ink-100 px-4 py-2.5 text-sm outline-none focus:border-primary-400"
+          />
+          <button
+            onClick={() => void submitComment()}
+            disabled={!commentText.trim()}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-500 text-white disabled:opacity-40"
+            aria-label="发送评论"
+          >
+            <Send size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

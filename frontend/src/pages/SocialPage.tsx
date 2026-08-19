@@ -1,24 +1,313 @@
-import { Compass } from 'lucide-react';
+import { Bell, Heart, MessageCircle, PenSquare, Star, Users } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
+import { errorMessage } from '../services/http';
+import { socialApi, Post, PlanTemplate, Group } from '../services/api/api.social';
+import { notificationsApi } from '../services/api/api.social';
+
+function fmtTime(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  if (diff < 3_600_000) return `${Math.max(1, Math.floor(diff / 60_000))} 分钟前`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`;
+  return `${d.getMonth() + 1}月${d.getDate()}日`;
+}
 
 /**
- * P-11 社区首页（骨架）
- * M4 接入：帖子流、官方计划入口、一键加入计划
+ * P-11 社区首页（FR-601~606, FR-609）
+ * 帖子流 + 官方计划 + 兴趣小组 + 一键加入
  */
 export function SocialPage() {
+  const navigate = useNavigate();
+  const [tab, setTab] = useState<'feed' | 'templates' | 'groups'>('feed');
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [templates, setTemplates] = useState<PlanTemplate[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [unread, setUnread] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [showComposer, setShowComposer] = useState(false);
+  const [composerText, setComposerText] = useState('');
+  const [joining, setJoining] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const [p, t, g, n] = await Promise.all([
+        socialApi.listPosts(),
+        socialApi.templates(),
+        socialApi.groups(),
+        notificationsApi.list(),
+      ]);
+      setPosts(p.items);
+      setTemplates(t);
+      setGroups(g);
+      setUnread(n.unread);
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const toggleLike = async (post: Post) => {
+    await socialApi.like(post.id);
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === post.id
+          ? { ...p, myLiked: !p.myLiked, likesCount: p.likesCount + (p.myLiked ? -1 : 1) }
+          : p,
+      ),
+    );
+  };
+
+  const toggleFavorite = async (post: Post) => {
+    await socialApi.favorite(post.id);
+    setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, myFavorited: !p.myFavorited } : p)));
+  };
+
+  const joinPost = async (post: Post) => {
+    setJoining(post.id);
+    try {
+      if (post.myJoined) {
+        await socialApi.leave(post.id);
+      } else {
+        await socialApi.join(post.id);
+      }
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === post.id
+            ? { ...p, myJoined: !p.myJoined, joinedCount: p.joinedCount + (p.myJoined ? -1 : 1) }
+            : p,
+        ),
+      );
+    } finally {
+      setJoining(null);
+    }
+  };
+
+  const joinTemplate = async (t: PlanTemplate) => {
+    await socialApi.joinTemplate(t.id);
+    window.dispatchEvent(new CustomEvent('cuckoo:reminders-changed'));
+    setError(null);
+    alert(`已加入「${t.title}」，可在提醒列表查看`);
+  };
+
+  const joinGroup = async (g: Group) => {
+    await socialApi.joinGroup(g.id);
+    void load();
+  };
+
+  const publish = async () => {
+    if (!composerText.trim()) return;
+    try {
+      await socialApi.createPost({ content: composerText.trim() });
+      setComposerText('');
+      setShowComposer(false);
+      void load();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  };
+
   return (
     <div className="mx-auto max-w-md pb-20">
-      <header className="px-4 pt-6">
-        <h1 className="text-xl font-semibold">社交</h1>
-        <p className="mt-1 text-sm text-ink-500">分享计划，和伙伴一起坚持</p>
+      <header className="flex items-center justify-between px-4 pt-6">
+        <div>
+          <h1 className="text-xl font-semibold">社交</h1>
+          <p className="mt-1 text-sm text-ink-500">分享计划，一起坚持</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/notifications')}
+            className="relative flex h-10 w-10 items-center justify-center rounded-full bg-surface text-ink-700 shadow-sm"
+            aria-label="通知"
+          >
+            <Bell size={18} />
+            {unread > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger-500 px-1 text-[9px] font-bold text-white">
+                {unread > 99 ? '99+' : unread}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setShowComposer(true)}
+            className="flex h-10 items-center gap-1 rounded-full bg-primary-500 px-4 text-sm font-medium text-white"
+          >
+            <PenSquare size={15} /> 发布
+          </button>
+        </div>
       </header>
 
-      <main className="px-4">
-        <div className="mt-4 flex flex-col items-center rounded-card bg-surface p-10 text-ink-300 shadow-sm">
-          <Compass size={36} strokeWidth={1.2} />
-          <p className="mt-3 text-sm">社区建设中（M4 里程碑接入）</p>
-        </div>
+      {/* 分类 tab */}
+      <div className="mt-3 flex gap-1 px-4">
+        {([
+          ['feed', '动态'],
+          ['templates', '官方计划'],
+          ['groups', '小组'],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`rounded-full px-4 py-2 text-sm transition-colors ${
+              tab === key ? 'bg-primary-500 font-medium text-white' : 'bg-surface text-ink-700 shadow-sm'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <main className="px-4 pt-4">
+        {error && (
+          <p className="mb-3 rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
+        )}
+
+        {tab === 'feed' && (
+          <ul className="space-y-3">
+            {posts.length === 0 && (
+              <div className="rounded-card bg-surface p-10 text-center text-sm text-ink-500 shadow-sm">
+                还没有动态，发布第一条吧
+              </div>
+            )}
+            {posts.map((post) => (
+              <li key={post.id} className="rounded-card bg-surface p-4 shadow-sm">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-50 text-sm font-medium text-primary-600">
+                    {post.author.username.slice(0, 1).toUpperCase()}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">@{post.author.username}</p>
+                    <p className="text-[10px] text-ink-300">{fmtTime(post.createdAt)}</p>
+                  </div>
+                  {post.type === 'official_plan' && (
+                    <span className="rounded-full bg-accent-100 px-2 py-0.5 text-[10px] text-accent-700">官方</span>
+                  )}
+                </div>
+
+                <p className="mt-3 text-sm leading-relaxed">{post.content}</p>
+
+                {post.planSnapshot && (
+                  <div className="mt-3 rounded-btn bg-primary-50/60 px-3.5 py-3">
+                    <p className="text-xs font-medium text-primary-700">
+                      📋 包含可加入的提醒计划
+                    </p>
+                    <button
+                      onClick={() => void joinPost(post)}
+                      disabled={joining === post.id}
+                      className={`mt-2 w-full rounded-btn py-2.5 text-sm font-medium transition-colors ${
+                        post.myJoined
+                          ? 'bg-ink-100 text-ink-700'
+                          : 'bg-primary-500 text-white'
+                      }`}
+                    >
+                      {post.myJoined ? '✓ 已加入（点击退出）' : '一键加入计划'}
+                    </button>
+                  </div>
+                )}
+
+                <div className="mt-3 flex items-center gap-4 border-t border-ink-100 pt-3 text-xs text-ink-500">
+                  <button
+                    onClick={() => void toggleLike(post)}
+                    className={`flex items-center gap-1 ${post.myLiked ? 'text-danger-500' : ''}`}
+                  >
+                    <Heart size={15} fill={post.myLiked ? 'currentColor' : 'none'} />
+                    {post.likesCount}
+                  </button>
+                  <button onClick={() => navigate(`/posts/${post.id}`)} className="flex items-center gap-1">
+                    <MessageCircle size={15} /> {post.commentsCount}
+                  </button>
+                  <button
+                    onClick={() => void toggleFavorite(post)}
+                    className={`flex items-center gap-1 ${post.myFavorited ? 'text-accent-700' : ''}`}
+                  >
+                    <Star size={15} fill={post.myFavorited ? 'currentColor' : 'none'} /> 收藏
+                  </button>
+                  <span className="ml-auto flex items-center gap-1 text-primary-600">
+                    <Users size={14} /> {post.joinedCount} 人已加入
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {tab === 'templates' && (
+          <ul className="space-y-3">
+            {templates.map((t) => (
+              <li key={t.id} className="rounded-card bg-surface p-4 shadow-sm">
+                <p className="text-sm font-medium">{t.title}</p>
+                <p className="mt-1 text-xs leading-relaxed text-ink-500">{t.description}</p>
+                <button
+                  onClick={() => void joinTemplate(t)}
+                  className="mt-3 w-full rounded-btn bg-primary-500 py-2.5 text-sm font-medium text-white"
+                >
+                  一键加入
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {tab === 'groups' && (
+          <ul className="space-y-3">
+            {groups.map((g) => (
+              <li key={g.id} className="rounded-card bg-surface p-4 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-50 text-lg">
+                    {g.name.slice(0, 1)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{g.name}</p>
+                    <p className="truncate text-xs text-ink-500">{g.description}</p>
+                  </div>
+                  <span className="text-xs text-ink-500">{g.memberCount} 人</span>
+                  <button
+                    onClick={() => void joinGroup(g)}
+                    className="rounded-full bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-600"
+                  >
+                    加入
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </main>
+
+      {/* 发布弹窗 */}
+      {showComposer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-8">
+          <div className="w-full max-w-sm rounded-card bg-surface p-5 shadow-xl">
+            <h3 className="text-base font-semibold">发布动态</h3>
+            <textarea
+              value={composerText}
+              onChange={(e) => setComposerText(e.target.value)}
+              rows={4}
+              maxLength={2000}
+              placeholder="分享你的计划或坚持心得…"
+              className="mt-3 w-full resize-none rounded-btn border border-ink-100 p-3 text-sm outline-none focus:border-primary-400"
+            />
+            <div className="mt-4 flex gap-3">
+              <button
+                onClick={() => setShowComposer(false)}
+                className="flex-1 rounded-btn bg-ink-100 py-3 text-sm font-medium text-ink-700"
+              >
+                取消
+              </button>
+              <button
+                onClick={publish}
+                disabled={!composerText.trim()}
+                className="flex-1 rounded-btn bg-primary-500 py-3 text-sm font-medium text-white disabled:opacity-50"
+              >
+                发布
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </div>

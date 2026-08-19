@@ -15,6 +15,8 @@ import { StatsPage } from '../pages/StatsPage';
 import { PomodoroPage } from '../pages/PomodoroPage';
 import { ExercisesPage } from '../pages/ExercisesPage';
 import { WaterSettingsPage } from '../pages/WaterSettingsPage';
+import { NotificationsPage } from '../pages/NotificationsPage';
+import { PostDetailPage } from '../pages/PostDetailPage';
 import { useAuthStore } from '../stores/authStore';
 
 /**
@@ -119,6 +121,22 @@ export function App() {
           element={
             <RequireAuth>
               <WaterSettingsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <RequireAuth>
+              <NotificationsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/posts/:id"
+          element={
+            <RequireAuth>
+              <PostDetailPage />
             </RequireAuth>
           }
         />

@@ -13,6 +13,7 @@ import { MedicinesModule } from './modules/medicines/medicines.module';
 import { StatsModule } from './modules/stats/stats.module';
 import { ExercisesModule } from './modules/exercises/exercises.module';
 import { FilesModule } from './modules/files/files.module';
+import { SocialModule } from './modules/social/social.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { User } from './modules/users/user.entity';
 import { UserSetting } from './modules/users/user-setting.entity';
@@ -29,6 +30,7 @@ import { NotificationLog } from './modules/notifications/notification-log.entity
 import { Device } from './modules/notifications/device.entity';
 import { Exercise } from './modules/exercises/exercise.entity';
 import { SensitiveWord } from './modules/social/sensitive-word.entity';
+import { Group, GroupMember, GroupPost } from './modules/social/group.entity';
 import { SeedModule } from './seed/seed.module';
 
 /**
@@ -71,6 +73,9 @@ import { SeedModule } from './seed/seed.module';
           Device,
           Exercise,
           SensitiveWord,
+          Group,
+          GroupMember,
+          GroupPost,
         ],
         // M0-M1 阶段用 synchronize 快速建表；生产切换 PostgreSQL 后改用 migration
         synchronize: config.get<string>('env') !== 'production',
@@ -85,6 +90,7 @@ import { SeedModule } from './seed/seed.module';
     StatsModule,
     ExercisesModule,
     FilesModule,
+    SocialModule,
     NotificationsModule,
   ],
   providers: [

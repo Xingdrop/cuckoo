@@ -14,6 +14,7 @@ import { MedicineLogsPage } from '../pages/MedicineLogsPage';
 import { StatsPage } from '../pages/StatsPage';
 import { PomodoroPage } from '../pages/PomodoroPage';
 import { ExercisesPage } from '../pages/ExercisesPage';
+import { WaterSettingsPage } from '../pages/WaterSettingsPage';
 import { useAuthStore } from '../stores/authStore';
 
 /**
@@ -110,6 +111,14 @@ export function App() {
           element={
             <RequireAuth>
               <PomodoroPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/water-settings"
+          element={
+            <RequireAuth>
+              <WaterSettingsPage />
             </RequireAuth>
           }
         />

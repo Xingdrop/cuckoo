@@ -2,6 +2,7 @@ import { ChevronRight, Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { errorMessage } from '../services/http';
 import { remindersApi } from '../services/api/api.reminders';
 import type { Reminder, ReminderCategory } from '../types';
@@ -52,6 +53,7 @@ export function ReminderListPage() {
   const [items, setItems] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Reminder | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const created = (location.state as { created?: Reminder } | null)?.created;
@@ -85,10 +87,11 @@ export function ReminderListPage() {
     window.dispatchEvent(new CustomEvent('cuckoo:reminders-changed'));
   };
 
-  const remove = async (r: Reminder) => {
-    if (!window.confirm(`删除提醒「${r.title}」？`)) return;
-    await remindersApi.remove(r.id);
-    setItems((prev) => prev.filter((x) => x.id !== r.id));
+  const remove = async () => {
+    if (!deleteTarget) return;
+    await remindersApi.remove(deleteTarget.id);
+    setItems((prev) => prev.filter((x) => x.id !== deleteTarget.id));
+    setDeleteTarget(null);
     window.dispatchEvent(new CustomEvent('cuckoo:reminders-changed'));
   };
 
@@ -123,13 +126,13 @@ export function ReminderListPage() {
             <ChevronRight size={16} className="shrink-0 text-ink-300" />
           </button>
           <button
-            onClick={() => navigate('/reminders/new', { state: { preset: { category: 'water' } } })}
+            onClick={() => navigate('/water-settings')}
             className="flex items-center gap-2.5 rounded-card bg-surface p-3.5 text-left shadow-sm"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">💧</span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">喝水提醒</span>
-              <span className="block text-[11px] text-ink-500">水量/目标/提醒</span>
+              <span className="block truncate text-sm font-medium">喝水管理</span>
+              <span className="block text-[11px] text-ink-500">开关/水量/目标</span>
             </span>
             <ChevronRight size={16} className="shrink-0 text-ink-300" />
           </button>
@@ -217,26 +220,28 @@ export function ReminderListPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="mt-3 flex items-center justify-end gap-1 border-t border-ink-100 pt-2">
+                  <div className="mt-3 grid grid-cols-3 gap-2 border-t border-ink-100 pt-3">
                     <button
                       onClick={() => navigate(`/reminders/${r.id}/edit`)}
-                      className="flex h-11 min-w-16 items-center justify-center gap-1 rounded-md px-3 text-xs text-ink-700"
+                      className="flex h-10 items-center justify-center gap-1 rounded-btn bg-primary-50 text-xs font-medium text-primary-600 transition-colors hover:bg-primary-100"
                     >
-                      <Pencil size={14} /> 编辑
+                      <Pencil size={13} /> 编辑
                     </button>
                     <button
-                      onClick={() => remove(r)}
-                      className="flex h-11 min-w-16 items-center justify-center gap-1 rounded-md px-3 text-xs text-danger-500"
+                      onClick={() => setDeleteTarget(r)}
+                      className="flex h-10 items-center justify-center gap-1 rounded-btn bg-danger-500/10 text-xs font-medium text-danger-500 transition-colors hover:bg-danger-500/20"
                     >
-                      <Trash2 size={14} /> 删除
+                      <Trash2 size={13} /> 删除
                     </button>
                     <button
-                      onClick={() => toggleActive(r)}
-                      className={`flex h-11 min-w-16 items-center justify-center gap-1 rounded-md px-3 text-xs ${
-                        r.isActive ? 'text-ink-700' : 'text-primary-600'
+                      onClick={() => void toggleActive(r)}
+                      className={`flex h-10 items-center justify-center gap-1 rounded-btn text-xs font-medium transition-colors ${
+                        r.isActive
+                          ? 'bg-ink-100/70 text-ink-700 hover:bg-ink-100'
+                          : 'bg-primary-500/10 text-primary-600 hover:bg-primary-500/20'
                       }`}
                     >
-                      <Power size={14} /> {r.isActive ? '停用' : '启用'}
+                      <Power size={13} /> {r.isActive ? '停用' : '启用'}
                     </button>
                   </div>
                 </li>
@@ -245,6 +250,15 @@ export function ReminderListPage() {
           </ul>
         )}
       </main>
+
+      {/* 删除确认弹窗 */}
+      <ConfirmModal
+        open={deleteTarget !== null}
+        title="删除提醒"
+        message={`确定删除「${deleteTarget?.title ?? ''}」吗？删除后无法恢复。`}
+        onConfirm={() => void remove()}
+        onCancel={() => setDeleteTarget(null)}
+      />
 
       <BottomNav />
     </div>

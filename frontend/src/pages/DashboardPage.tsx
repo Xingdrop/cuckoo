@@ -225,7 +225,13 @@ export function DashboardPage() {
 
         {/* 喝水进度（今天） */}
         {selected === today && stats && (
-          <section className="mt-3 rounded-card bg-surface p-4 shadow-sm">
+          <section
+            className={`mt-3 rounded-card p-4 shadow-sm transition-colors ${
+              stats.water.rate >= 100
+                ? 'bg-gradient-to-r from-primary-500/15 to-primary-100/40 ring-2 ring-primary-500/60'
+                : 'bg-surface'
+            }`}
+          >
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">💧 今日喝水</p>
               <div className="flex items-center gap-2">
@@ -250,7 +256,10 @@ export function DashboardPage() {
               />
             </div>
             {stats.water.rate >= 100 && (
-              <p className="mt-2 text-xs font-medium text-primary-600">✓ 今日喝水目标已达成</p>
+              <p className="mt-2 flex items-center gap-1 text-sm font-semibold text-primary-700">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 text-[11px] text-white">✓</span>
+                今日喝水目标已达成，继续保持！
+              </p>
             )}
           </section>
         )}

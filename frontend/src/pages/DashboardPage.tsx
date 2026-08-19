@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { useAuthStore } from '../stores/authStore';
 import { remindersApi } from '../services/api/api.reminders';
-import { dateHead, dayLabel, lunarInfo, navKeys, shiftKey, todayKey } from '../utils/calendar';
+import { dateHead, lunarInfo, shiftKey, todayKey } from '../utils/calendar';
 import type { CalendarItem } from '../types';
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -70,18 +70,14 @@ export function DashboardPage() {
     else if (dx < -50) setSelected((s) => shiftKey(s, 1)); // 左滑 → 后一天
   };
 
-  const now = new Date();
-  const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
   // 展开时间线：未完成（按时间）+ 已完成（按时间）
-  const isToday = selected === today;
   const slots = items.flatMap((item) =>
     item.times.map((t) => ({
       time: t.time,
       status: t.status,
       item,
       isDone: t.status === 'completed' || t.status === 'challenge_completed',
-      isUpcoming: isToday ? t.status === null && t.time >= nowTime : t.status === null,
+      isUpcoming: t.status === null,
     })),
   );
   const pendingSlots = slots
@@ -96,7 +92,6 @@ export function DashboardPage() {
   const rate = totalPlanned > 0 ? Math.round((totalDone / totalPlanned) * 100) : 0;
 
   const lunar = lunarInfo(selected);
-  const navs = navKeys(today);
 
   return (
     <div
@@ -142,27 +137,6 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* 快捷日期导航 */}
-        <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {navs.map((n) => (
-            <button
-              key={n.key}
-              onClick={() => setSelected(n.key)}
-              className={`shrink-0 rounded-full px-3.5 py-2 text-xs transition-colors ${
-                selected === n.key
-                  ? 'bg-primary-500 font-medium text-white'
-                  : n.key === today
-                    ? 'bg-primary-50 text-primary-600'
-                    : 'bg-surface text-ink-700 shadow-sm'
-              }`}
-            >
-              {n.label}
-              <span className={`ml-1 ${selected === n.key ? 'text-white/70' : 'text-ink-500/60'}`}>
-                {Number(n.key.slice(5, 7))}/{Number(n.key.slice(8))}
-              </span>
-            </button>
-          ))}
-        </div>
       </header>
 
       <main className="px-4">
@@ -170,7 +144,7 @@ export function DashboardPage() {
         <section className="mt-4 rounded-card bg-surface p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-ink-500">{dayLabel(selected, today)}完成率</p>
+              <p className="text-sm text-ink-500">完成率</p>
               <p className="mt-1 text-3xl font-bold text-primary-600">{rate}%</p>
               <p className="mt-1 text-xs text-ink-500">{totalDone} / {totalPlanned} 已完成</p>
             </div>
@@ -183,7 +157,7 @@ export function DashboardPage() {
         {/* 当日提醒时间线 */}
         <section className="mt-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-medium">{dayLabel(selected, today)}提醒</h2>
+            <h2 className="text-base font-medium">当日提醒</h2>
             <button
               onClick={() => navigate('/reminders/new')}
               className="flex h-11 items-center gap-1 text-sm text-primary-600"
@@ -201,7 +175,7 @@ export function DashboardPage() {
             </div>
           ) : slots.length === 0 ? (
             <div className="mt-3 rounded-card bg-surface p-8 text-center text-sm text-ink-500 shadow-sm">
-              {selected === today ? '今天还没有提醒' : '这一天没有安排提醒'}
+              暂无提醒
               {selected === today && (
                 <button
                   onClick={() => navigate('/reminders/new')}
@@ -234,11 +208,16 @@ export function DashboardPage() {
                       <p className="mt-0.5 truncate text-xs text-ink-500">{s.item.content.text}</p>
                     )}
                   </div>
-                  {doneCount(s.item) > 0 && (
-                    <span className="shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-[10px] text-primary-600">
-                      今日已提醒 {doneCount(s.item)}/{s.item.todayTotal} 次
-                    </span>
-                  )}
+                  {(() => {
+                    const k = doneCount(s.item);
+                    const m = s.item.todayTotal - k;
+                    if (m <= 0) return null;
+                    return (
+                      <span className="shrink-0 rounded-full bg-accent-100 px-2 py-0.5 text-[10px] font-medium text-accent-700">
+                        未完成 {m}/{s.item.todayTotal} 次
+                      </span>
+                    );
+                  })()}
                 </li>
               ))}
             </ul>

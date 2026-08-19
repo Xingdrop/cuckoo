@@ -126,18 +126,45 @@ describe('UT-SCH-06 每月 31 日遇小月顺延', () => {
   });
 });
 
-describe('UT-SCH-07 每 N 小时', () => {
-  it('每 6 小时', () => {
-    const start = new Date('2026-08-20T00:00:00Z');
+describe('UT-SCH-07 每 N 小时（每日循环）', () => {
+  it('当天从 startDate 时刻起每 1 小时', () => {
+    // startDate 09:00 北京，from 09:30 北京 → 10:00 北京
+    const start = new Date('2026-08-20T01:00:00Z'); // 09:00 北京
     const next = computeNextTrigger(
-      { type: RepeatType.INTERVAL, intervalValue: 6, intervalUnit: IntervalUnit.HOUR },
-      new Date('2026-08-20T04:00:00Z'),
+      { type: RepeatType.INTERVAL, intervalValue: 1, intervalUnit: IntervalUnit.HOUR },
+      new Date('2026-08-20T01:30:00Z'), // 09:30 北京
       start,
       null,
       TZ,
     );
-    // 档位: 00:00Z, 06:00Z, 12:00Z...；from=04:00Z 之后最近为 06:00Z
-    expect(next?.toISOString()).toBe('2026-08-20T06:00:00.000Z');
+    expect(next?.toISOString()).toBe('2026-08-20T02:00:00.000Z'); // 10:00 北京
+  });
+
+  it('每 6 小时跨午夜重置到次日 startTime', () => {
+    // startDate 20:00 北京，from 21:00 北京 → 当天 02:00 北京次日（20:00+6h=02:00 已过午夜）
+    const start = new Date('2026-08-20T12:00:00Z'); // 20:00 北京
+    const next = computeNextTrigger(
+      { type: RepeatType.INTERVAL, intervalValue: 6, intervalUnit: IntervalUnit.HOUR },
+      new Date('2026-08-20T13:00:00Z'), // 21:00 北京
+      start,
+      null,
+      TZ,
+    );
+    // 20:00→02:00（跨天）→ 当天无 >21:00 的档（02:00 已过）→ 次日 20:00
+    expect(next?.toISOString()).toBe('2026-08-21T12:00:00.000Z');
+  });
+
+  it('每 2 小时 23:00 之后 → 次日 startTime', () => {
+    // startDate 08:00 北京，from 23:30 北京 → 当天 08:00+2h*8=00:00（次日）已过 → 次日 08:00
+    const start = new Date('2026-08-20T00:00:00Z'); // 08:00 北京
+    const next = computeNextTrigger(
+      { type: RepeatType.INTERVAL, intervalValue: 2, intervalUnit: IntervalUnit.HOUR },
+      new Date('2026-08-20T15:30:00Z'), // 23:30 北京
+      start,
+      null,
+      TZ,
+    );
+    expect(next?.toISOString()).toBe('2026-08-21T00:00:00.000Z'); // 次日 08:00 北京
   });
 });
 

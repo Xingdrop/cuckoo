@@ -163,7 +163,7 @@ export class RemindersService {
         case RepeatType.INTERVAL: {
           const unit = rule.intervalUnit ?? IntervalUnit.DAY;
           if (unit === IntervalUnit.HOUR) {
-            matched = true; // 按小时提醒每天都可能触发
+            matched = true; // 按小时：每天从 startTime 起循环
           } else {
             const sd = toLocal(r.startDate, timezone);
             const days = Math.round(
@@ -179,8 +179,24 @@ export class RemindersService {
       if (!matched) continue;
 
       // 2. 该日期的时间点
-      const times: string[] =
-        r.times && r.times.length > 0 ? r.times : [toLocalTimeStr(r.startDate, timezone)];
+      let times: string[];
+      if (r.times && r.times.length > 0) {
+        times = r.times;
+      } else if (r.repeatRule.type === RepeatType.INTERVAL && r.repeatRule.intervalUnit === IntervalUnit.HOUR) {
+        // 按小时：当天从 startTime 起每 N 小时的时间点
+        const stepMs = (r.repeatRule.intervalValue ?? 1) * 3_600_000;
+        const sd = toLocal(r.startDate, timezone);
+        const dayEnd = localToUtc(timezone, y, m, d + 1, 0, 0).getTime();
+        times = [];
+        let t = localToUtc(timezone, y, m, d, sd.hour, sd.minute).getTime();
+        while (t < dayEnd) {
+          times.push(toLocalTimeStr(new Date(t), timezone));
+          t += stepMs;
+        }
+        if (times.length === 0) times = [toLocalTimeStr(r.startDate, timezone)];
+      } else {
+        times = [toLocalTimeStr(r.startDate, timezone)];
+      }
       const dayLogs = logs.filter((l) => l.reminderId === r.id);
 
       result.push({

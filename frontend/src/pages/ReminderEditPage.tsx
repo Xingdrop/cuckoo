@@ -38,6 +38,11 @@ export function ReminderEditPage() {
   const [categoryIcon, setCategoryIcon] = useState('📌');
   const [title, setTitle] = useState('');
   const [time, setTime] = useState('08:00');
+  /** 单次提醒日期（YYYY-MM-DD，once 适用） */
+  const [onceDate, setOnceDate] = useState(() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+  });
   /** 每日多时间点（daily/weekly 适用），保留与单时间兼容 */
   const [times, setTimes] = useState<string[]>(['08:00']);
   const [repeatType, setRepeatType] = useState<RepeatType>('daily');
@@ -71,6 +76,9 @@ export function ReminderEditPage() {
         if (r.times && r.times.length > 0) {
           setTimes(r.times);
         }
+        if (r.repeatRule.type === 'once') {
+          setOnceDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+        }
         setRepeatType(r.repeatRule.type);
         setDaysOfWeek(r.repeatRule.daysOfWeek ?? [1, 2, 3, 4, 5]);
         setDayOfMonth(r.repeatRule.dayOfMonth ?? 1);
@@ -102,10 +110,11 @@ export function ReminderEditPage() {
       return;
     }
 
-    // 本地时间 → ISO（用户时区由后端按用户配置处理）
+    // 本地时间 → ISO（用户时区由后端按用户配置处理）；once 用所选日期
     const [h, m] = time.split(':').map(Number);
     const now = new Date();
-    const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
+    const day = repeatType === 'once' ? onceDate.split('-').map(Number) : [now.getFullYear(), now.getMonth() + 1, now.getDate()];
+    const startDate = new Date(day[0], day[1] - 1, day[2], h, m);
 
     // daily/weekly 支持多时间点；其余类型用单时间
     const useTimes =
@@ -287,6 +296,20 @@ export function ReminderEditPage() {
             </>
           ) : (
             <>
+              {repeatType === 'once' && (
+                <div className="mb-2">
+                  <label htmlFor="onceDate" className="text-sm font-medium text-ink-700">
+                    提醒日期
+                  </label>
+                  <input
+                    id="onceDate"
+                    type="date"
+                    value={onceDate}
+                    onChange={(e) => setOnceDate(e.target.value)}
+                    className="mt-2 w-full rounded-btn border border-ink-100 bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary-400"
+                  />
+                </div>
+              )}
               <label htmlFor="time" className="text-sm font-medium text-ink-700">
                 提醒时间
               </label>

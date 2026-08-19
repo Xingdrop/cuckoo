@@ -71,6 +71,15 @@ export class RemindersController {
     return this.remindersService.today(userId);
   }
 
+  @Get('calendar')
+  @ApiOperation({ summary: '指定日期规划（日期切换视图）' })
+  calendar(
+    @CurrentUser('sub') userId: string,
+    @Query('date') date: string,
+  ) {
+    return this.remindersService.calendar(userId, date);
+  }
+
   @Post()
   @ApiOperation({ summary: '创建提醒（FR-201/202/203）' })
   create(@CurrentUser('sub') userId: string, @Body() dto: CreateReminderDto) {

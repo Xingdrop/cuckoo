@@ -99,6 +99,14 @@ export class Reminder {
   @Column({ type: 'text' })
   category: ReminderCategory;
 
+  /** 自定义分类名称（category=custom 时，默认"自定义"） */
+  @Column({ type: 'varchar', nullable: true })
+  categoryLabel: string | null;
+
+  /** 自定义分类图标（emoji） */
+  @Column({ type: 'varchar', nullable: true })
+  categoryIcon: string | null;
+
   @Column({ type: 'varchar' })
   title: string;
 

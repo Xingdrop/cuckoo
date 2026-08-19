@@ -9,6 +9,7 @@ import type {
   ReminderLog,
   ReminderLogStatus,
   ReminderMethod,
+  CalendarItem,
   RepeatRule,
   TodayReminder,
 } from '../../types';
@@ -35,6 +36,10 @@ export const remindersApi = {
 
   /** 今日概览：将触发 + 已执行（含次数） */
   today: () => http.get<TodayReminder[]>('/reminders/today').then((r) => r.data),
+
+  /** 指定日期规划（日期切换视图） */
+  calendar: (date: string) =>
+    http.get<CalendarItem[]>('/reminders/calendar', { params: { date } }).then((r) => r.data),
 
   get: (id: string) => http.get<Reminder>(`/reminders/${id}`).then((r) => r.data),
 

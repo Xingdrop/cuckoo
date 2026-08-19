@@ -27,6 +27,7 @@ interface Props {
  */
 export function ReminderOverlay({ reminder, onAction }: Props) {
   const [showDelay, setShowDelay] = useState(false);
+  const [customMinutes, setCustomMinutes] = useState('');
   const [busy, setBusy] = useState(false);
 
   const act = async (status: 'completed' | 'delayed' | 'skipped', minutes?: number) => {
@@ -35,6 +36,13 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
   };
 
   const maxDelayCount = reminder.delaySettings.maxDelayCount ?? 3;
+  const customEnabled = reminder.delaySettings.customEnabled ?? true;
+
+  const submitCustom = async () => {
+    const m = Number(customMinutes);
+    if (!Number.isInteger(m) || m < 1 || m > 1440) return;
+    await act('delayed', m);
+  };
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex flex-col bg-primary-900 text-white">
@@ -77,6 +85,26 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
                 </button>
               ))}
             </div>
+            {customEnabled && (
+              <div className="mt-3 flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={1440}
+                  value={customMinutes}
+                  onChange={(e) => setCustomMinutes(e.target.value)}
+                  placeholder="自定义分钟"
+                  className="w-full rounded-btn bg-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none"
+                />
+                <button
+                  disabled={busy || !customMinutes}
+                  onClick={submitCustom}
+                  className="shrink-0 rounded-btn bg-white/20 px-4 py-2.5 text-sm transition-colors hover:bg-white/30 disabled:opacity-50"
+                >
+                  确定
+                </button>
+              </div>
+            )}
             <button
               onClick={() => setShowDelay(false)}
               className="mt-3 w-full py-2 text-sm text-white/60"

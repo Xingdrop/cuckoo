@@ -41,21 +41,25 @@ export function useReminderScheduler() {
     }
   };
 
-  // 轮询 + 首次加载
+  // 轮询 + 首次加载 + 事件刷新（创建/编辑/删除后即时感知）
   useEffect(() => {
     if (!user) return;
     void load();
-    const interval = setInterval(() => void load(true), 30_000);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => void load(true), 15_000);
+    const onChanged = () => void load(true);
+    window.addEventListener('cuckoo:reminders-changed', onChanged);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('cuckoo:reminders-changed', onChanged);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   // 调度：下一个到期提醒
   useEffect(() => {
-    if (!user || activeRef.current) return; // 弹窗打开时不重复调度
+    if (!user || activeRef.current) return;
     const next = pickNextReminder(reminders, new Date());
     if (!next) return;
-
     const delay = new Date(next.nextTriggerAt!).getTime() - Date.now();
     // 最多延迟 24h（超过说明数据异常，等下一轮轮询）
     if (delay > 86_400_000) return;

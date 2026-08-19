@@ -62,7 +62,7 @@ describe('UT-FE-01 调度引擎（与后端同源一致性）', () => {
 
 describe('pickNextReminder（本地调度选下一个）', () => {
   const base: Reminder = {
-    id: 'r1', userId: 'u1', category: 'water', title: 't',
+    id: 'r1', userId: 'u1', category: 'water', categoryLabel: null, categoryIcon: null, title: 't',
     repeatRule: { type: 'daily' }, startDate: '2026-08-18T00:00:00Z', times: null, endDate: null,
     nextTriggerAt: null, content: {}, method: {}, delaySettings: {}, challenge: {},
     medicineId: null, isActive: true, createdAt: '', updatedAt: '',

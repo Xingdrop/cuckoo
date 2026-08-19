@@ -65,6 +65,12 @@ class UpdateSettingsDto {
   @Min(0)
   @Max(10)
   maxDelayCount?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(100)
+  @Max(10000)
+  waterGoalMl?: number;
 }
 
 @ApiTags('用户')

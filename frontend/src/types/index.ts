@@ -23,6 +23,8 @@ export interface UserSettings {
   missedThresholdMinutes: number;
   showSkipButton: boolean;
   maxDelayCount: number;
+  /** 每日喝水目标（ml） */
+  waterGoalMl: number;
 }
 
 export interface AuthResponse {

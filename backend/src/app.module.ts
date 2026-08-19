@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
+import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import configuration from './config/configuration';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -44,6 +45,7 @@ import { SeedModule } from './seed/seed.module';
       load: [configuration],
       envFilePath: ['.env'],
     }),
+    ScheduleModule.forRoot(),
     JwtModule.registerAsync({
       global: true,
       inject: [ConfigService],

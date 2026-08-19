@@ -55,6 +55,29 @@ export function lunarInfo(key: string): { lunar: string; festival: string | null
   };
 }
 
+/** 节日 → 合理图标 */
+export function festivalIcon(name: string): string {
+  if (name.includes('春节') || name.includes('元宵')) return '🏮';
+  if (name.includes('端午')) return '🛶';
+  if (name.includes('中秋')) return '🌕';
+  if (name.includes('七夕')) return '🌌';
+  if (name.includes('国庆')) return '🎆';
+  if (name.includes('元旦') || name.includes('新年')) return '🎊';
+  if (name.includes('圣诞')) return '🎄';
+  if (name.includes('清明')) return '🌿';
+  if (name.includes('重阳')) return '🌼';
+  if (name.includes('劳动')) return '💪';
+  if (name.includes('妇女')) return '🌸';
+  if (name.includes('儿童')) return '🎈';
+  if (name.includes('教师')) return '📚';
+  if (name.includes('父亲')) return '👨';
+  if (name.includes('母亲')) return '👩';
+  if (name.includes('腊八')) return '🥣';
+  if (name.includes('小年')) return '🧹';
+  if (name.includes('情人节')) return '💝';
+  return '🎉';
+}
+
 /** 快捷导航序列：3天前/前天/昨天/今天/明天/后天/3天后 */
 export function navKeys(today: string): { key: string; label: string }[] {
   return [-3, -2, -1, 0, 1, 2, 3].map((off) => ({

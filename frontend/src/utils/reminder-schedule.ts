@@ -153,7 +153,49 @@ export function computeNextTrigger(
     case 'interval': {
       const unit = rule.intervalUnit ?? ('day' as IntervalUnit);
       const value = Math.max(1, rule.intervalValue ?? 1);
-      const stepMs = unit === 'hour' ? value * 3_600_000 : value * 86_400_000;
+      // 按小时：每天从 startDate 时刻起每 N 小时循环（到午夜重置）
+      if (unit === 'hour') {
+        const stepMs = value * 3_600_000;
+        const fromLocal = toLocal(from, timezone);
+        const startLocal = toLocal(startDate, timezone);
+        const dayBase = localToUtc(
+          timezone,
+          fromLocal.year,
+          fromLocal.month,
+          fromLocal.day,
+          startLocal.hour,
+          startLocal.minute,
+        ).getTime();
+        const dayEnd = localToUtc(
+          timezone,
+          fromLocal.year,
+          fromLocal.month,
+          fromLocal.day + 1,
+          0,
+          0,
+        ).getTime();
+        let next: number;
+        if (dayBase > from.getTime()) {
+          next = dayBase;
+        } else {
+          const gap = Math.max(1, Math.ceil((from.getTime() - dayBase) / stepMs));
+          next = dayBase + gap * stepMs;
+        }
+        if (next >= dayEnd) {
+          next = localToUtc(
+            timezone,
+            fromLocal.year,
+            fromLocal.month,
+            fromLocal.day + 1,
+            startLocal.hour,
+            startLocal.minute,
+          ).getTime();
+        }
+        const nextDate = new Date(next);
+        return endDate && nextDate > endDate ? null : nextDate;
+      }
+      // 按天/周：从 startDate 起每 N 天/周（绝对间隔）
+      const stepMs = unit === 'week' ? value * 7 * 86_400_000 : value * 86_400_000;
       const first = new Date(startDate);
       if (first > from && (!endDate || first <= endDate)) return first;
       const gap = Math.ceil((from.getTime() - first.getTime()) / stepMs);

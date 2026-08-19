@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { useAuthStore } from '../stores/authStore';
 import { remindersApi } from '../services/api/api.reminders';
-import { dateHead, lunarInfo, shiftKey, todayKey } from '../utils/calendar';
+import { dateHead, festivalIcon, lunarInfo, shiftKey, todayKey } from '../utils/calendar';
 import type { CalendarItem } from '../types';
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -71,20 +71,26 @@ export function DashboardPage() {
   };
 
   // 展开时间线：未完成（按时间）+ 已完成（按时间）
+  const now = new Date();
+  const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   const slots = items.flatMap((item) =>
     item.times.map((t) => ({
       time: t.time,
       status: t.status,
       item,
       isDone: t.status === 'completed' || t.status === 'challenge_completed',
-      isUpcoming: t.status === null,
+      // 已错过：仅今天，时间已过且未完成
+      isMissed: selected === today && t.status === null && t.time < nowTime,
     })),
   );
   const pendingSlots = slots
-    .filter((s) => !s.isDone && s.isUpcoming)
+    .filter((s) => !s.isDone && !s.isMissed)
     .sort((a, b) => a.time.localeCompare(b.time));
   const doneSlots = slots
     .filter((s) => s.isDone)
+    .sort((a, b) => a.time.localeCompare(b.time));
+  const missedSlots = slots
+    .filter((s) => s.isMissed)
     .sort((a, b) => a.time.localeCompare(b.time));
 
   const totalDone = doneSlots.length;
@@ -102,15 +108,16 @@ export function DashboardPage() {
       {/* 顶部日期头 */}
       <header className="px-4 pt-5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center">
             <button
               onClick={() => setSelected((s) => shiftKey(s, -1))}
-              className="flex h-11 w-11 items-center justify-center text-ink-700"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-700 hover:bg-ink-100"
               aria-label="前一天"
             >
               <ChevronLeft size={20} />
             </button>
-            <div className="text-center">
+            {/* 固定宽度：日期文字变化不导致按钮偏移 */}
+            <div className="w-48 shrink-0 text-center">
               <p className="text-lg font-semibold">
                 {dateHead(selected)}
                 {selected === today && (
@@ -119,14 +126,14 @@ export function DashboardPage() {
                   </span>
                 )}
               </p>
-              <p className="mt-0.5 text-xs text-ink-500">
-                {lunar.festival ? `🎉 ${lunar.festival} · ` : ''}
+              <p className="mt-0.5 truncate text-xs text-ink-500">
+                {lunar.festival ? `${festivalIcon(lunar.festival)} ${lunar.festival} · ` : ''}
                 {lunar.lunar}
               </p>
             </div>
             <button
               onClick={() => setSelected((s) => shiftKey(s, 1))}
-              className="flex h-11 w-11 items-center justify-center text-ink-700"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-700 hover:bg-ink-100"
               aria-label="后一天"
             >
               <ChevronRight size={20} />
@@ -211,10 +218,18 @@ export function DashboardPage() {
                   {(() => {
                     const k = doneCount(s.item);
                     const m = s.item.todayTotal - k;
-                    if (m <= 0) return null;
                     return (
-                      <span className="shrink-0 rounded-full bg-accent-100 px-2 py-0.5 text-[10px] font-medium text-accent-700">
-                        未完成 {m}/{s.item.todayTotal} 次
+                      <span className="flex shrink-0 items-center gap-1">
+                        {k > 0 && (
+                          <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-medium text-primary-600">
+                            已完成 {k}/{s.item.todayTotal} 次
+                          </span>
+                        )}
+                        {m > 0 && (
+                          <span className="rounded-full bg-accent-100 px-2 py-0.5 text-[10px] font-medium text-accent-700">
+                            未完成 {m}/{s.item.todayTotal} 次
+                          </span>
+                        )}
                       </span>
                     );
                   })()}
@@ -258,6 +273,48 @@ export function DashboardPage() {
                     </div>
                     <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-primary-500 px-2.5 py-1 text-[10px] font-medium text-white">
                       <Check size={11} /> 已完成
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* 已错过分组（今天已过未完成，醒目红色） */}
+          {!loading && !error && missedSlots.length > 0 && (
+            <div className="mt-5">
+              <div className="flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-danger-500 text-[10px] font-bold text-white">
+                  !
+                </span>
+                <h3 className="text-xs font-medium uppercase tracking-wide text-danger-700">
+                  已错过（{missedSlots.length}）
+                </h3>
+                <span className="h-px flex-1 bg-danger-500/30" />
+              </div>
+              <ul className="mt-2 space-y-2">
+                {missedSlots.map((s, i) => (
+                  <li
+                    key={`m-${s.item.reminderId}-${s.time}-${i}`}
+                    className="flex items-center gap-3 rounded-card border-l-4 border-danger-500/70 bg-danger-500/5 px-4 py-3"
+                  >
+                    <span className="w-14 text-right text-sm font-semibold text-danger-700">{s.time}</span>
+                    <span className="text-lg opacity-60">
+                      {s.item.categoryIcon ?? CATEGORY_EMOJI[s.item.category] ?? '📌'}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-danger-700">
+                        {s.item.category === 'custom' && s.item.categoryLabel
+                          ? `${s.item.categoryLabel} · `
+                          : ''}
+                        {s.item.title}
+                      </p>
+                      {s.item.content.text && (
+                        <p className="mt-0.5 truncate text-xs text-danger-700/70">{s.item.content.text}</p>
+                      )}
+                    </div>
+                    <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-danger-500 px-2.5 py-1 text-[10px] font-medium text-white">
+                      ✗ 已错过
                     </span>
                   </li>
                 ))}

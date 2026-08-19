@@ -45,6 +45,8 @@ const TEST_REMINDER: Reminder = {
   id: 'test-reminder',
   userId: '',
   category: 'water',
+  categoryLabel: null,
+  categoryIcon: null,
   title: '这是一条测试提醒',
   repeatRule: { type: 'once' },
   startDate: new Date().toISOString(),

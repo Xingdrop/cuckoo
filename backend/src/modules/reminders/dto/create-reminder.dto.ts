@@ -123,6 +123,18 @@ export class CreateReminderDto {
   @IsEnum(ReminderCategory)
   category: ReminderCategory;
 
+  /** 自定义分类名称（category=custom 时生效） */
+  @IsOptional()
+  @IsString()
+  @MaxLength(12)
+  categoryLabel?: string;
+
+  /** 自定义分类图标（emoji） */
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  categoryIcon?: string;
+
   @IsString()
   @MinLength(1)
   @MaxLength(50)

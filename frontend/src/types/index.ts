@@ -72,6 +72,10 @@ export interface Reminder {
   id: string;
   userId: string;
   category: ReminderCategory;
+  /** 自定义分类名称（category=custom 时） */
+  categoryLabel: string | null;
+  /** 自定义分类图标（emoji） */
+  categoryIcon: string | null;
   title: string;
   repeatRule: RepeatRule;
   startDate: string;
@@ -92,6 +96,8 @@ export interface Reminder {
 /** 今日概览项（GET /reminders/today） */
 export interface TodayReminder extends Reminder {
   todayLogs: { id: string; scheduledTime: string; status: ReminderLogStatus }[];
+  /** 今日计划总次数（多时间点 = 时间点数量，其余 = 1） */
+  todayTotal: number;
 }
 
 export type ReminderLogStatus =
@@ -127,4 +133,16 @@ export interface ApiErrorBody {
   code: string;
   message: string;
   details?: unknown;
+}
+
+/** 指定日期规划项（GET /reminders/calendar） */
+export interface CalendarItem {
+  reminderId: string;
+  title: string;
+  category: ReminderCategory;
+  categoryLabel: string | null;
+  categoryIcon: string | null;
+  content: ReminderContent;
+  times: { time: string; status: ReminderLogStatus | null }[];
+  todayTotal: number;
 }

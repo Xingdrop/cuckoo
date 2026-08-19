@@ -82,12 +82,14 @@ export function ReminderListPage() {
   const toggleActive = async (r: Reminder) => {
     const updated = await remindersApi.setActive(r.id, !r.isActive);
     setItems((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+    window.dispatchEvent(new CustomEvent('cuckoo:reminders-changed'));
   };
 
   const remove = async (r: Reminder) => {
     if (!window.confirm(`删除提醒「${r.title}」？`)) return;
     await remindersApi.remove(r.id);
     setItems((prev) => prev.filter((x) => x.id !== r.id));
+    window.dispatchEvent(new CustomEvent('cuckoo:reminders-changed'));
   };
 
   return (
@@ -131,11 +133,14 @@ export function ReminderListPage() {
           <ul className="space-y-3">
             {items.map((r) => {
               const meta = CATEGORY_META[r.category];
+              const icon = r.categoryIcon ?? meta.emoji;
+              const label = r.category === 'custom' && r.categoryLabel ? r.categoryLabel : meta.label;
+              void label; // 分类名暂用于 title 侧备注（M2 列表筛选增强）
               return (
                 <li key={r.id} className="rounded-card bg-surface p-4 shadow-sm">
                   <div className="flex items-center gap-3">
                     <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-50 text-lg">
-                      {meta.emoji}
+                      {icon}
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className={`truncate text-sm font-medium ${r.isActive ? '' : 'text-ink-300'}`}>

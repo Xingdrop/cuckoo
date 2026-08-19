@@ -1,10 +1,11 @@
-import { Check, ChevronDown, Plus, TrendingUp } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { Check, ChevronLeft, ChevronRight, Plus, TrendingUp } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { useAuthStore } from '../stores/authStore';
 import { remindersApi } from '../services/api/api.reminders';
-import type { TodayReminder } from '../types';
+import { dateHead, dayLabel, lunarInfo, navKeys, shiftKey, todayKey } from '../utils/calendar';
+import type { CalendarItem } from '../types';
 
 const CATEGORY_EMOJI: Record<string, string> = {
   medication: '💊',
@@ -15,79 +16,161 @@ const CATEGORY_EMOJI: Record<string, string> = {
   custom: '📌',
 };
 
-function fmtTime(iso: string): string {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
-/** 完成的次数（completed / challenge_completed） */
-function doneCount(r: TodayReminder): number {
-  return r.todayLogs.filter((l) => l.status === 'completed' || l.status === 'challenge_completed').length;
+/** 完成的次数 */
+function doneCount(item: CalendarItem): number {
+  return item.times.filter(
+    (t) => t.status === 'completed' || t.status === 'challenge_completed',
+  ).length;
 }
 
 /**
- * P-03 今日看板（FR-701 基础版 + 多时间点）
- * - 未到提醒：按时间升序（今日已提醒过的显示"已提醒 n 次"徽标）
- * - 已完成提醒：暗色 + ✓ 标识，按完成时间排在未到提醒下方；多次完成折叠
+ * P-03 今日看板（日期切换版）
+ * - 顶部：日期 + 农历/节日 + 快捷导航（3天前~3天后）+ 左右滑动切换
+ * - 未到时间点：正常色按时间排列（已提醒过的显示 k/n 徽标）
+ * - 已完成时间点：暗色 + ✓ + 绿色边框，排在下方的"已完成"分组
  */
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
-  const [items, setItems] = useState<TodayReminder[]>([]);
+  const today = todayKey();
+  const [selected, setSelected] = useState(today);
+  const [items, setItems] = useState<CalendarItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const touchX = useRef<number | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      setItems(await remindersApi.today());
-    } catch {
-      setError('加载失败，请刷新重试');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const load = useCallback(
+    async (date: string) => {
+      try {
+        setItems(await remindersApi.calendar(date));
+      } catch {
+        setError('加载失败，请刷新重试');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    setLoading(true);
+    setError(null);
+    void load(selected);
+  }, [selected, load]);
+
+  // 左右滑动切换日期（横向位移 > 50px）
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchX.current = e.touches[0].clientX;
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchX.current;
+    touchX.current = null;
+    if (dx > 50) setSelected((s) => shiftKey(s, -1)); // 右滑 → 前一天
+    else if (dx < -50) setSelected((s) => shiftKey(s, 1)); // 左滑 → 后一天
+  };
 
   const now = new Date();
-  const hasUpcoming = (r: TodayReminder) =>
-    Boolean(r.nextTriggerAt) && new Date(r.nextTriggerAt!) > now;
-  const hasDone = (r: TodayReminder) => doneCount(r) > 0;
+  const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-  // 未到：下次触发在未来（含今日已提醒过的，显示徽标）
-  const pending = items
-    .filter(hasUpcoming)
-    .sort((a, b) => new Date(a.nextTriggerAt!).getTime() - new Date(b.nextTriggerAt!).getTime());
-  // 已完成：今日全部完成、无未到时间点 → 按最后完成时间升序排下方
-  const done = items
-    .filter((r) => hasDone(r) && !hasUpcoming(r))
-    .sort(
-      (a, b) =>
-        new Date(a.todayLogs[a.todayLogs.length - 1].scheduledTime).getTime() -
-        new Date(b.todayLogs[b.todayLogs.length - 1].scheduledTime).getTime(),
-    );
+  // 展开时间线：未完成（按时间）+ 已完成（按时间）
+  const isToday = selected === today;
+  const slots = items.flatMap((item) =>
+    item.times.map((t) => ({
+      time: t.time,
+      status: t.status,
+      item,
+      isDone: t.status === 'completed' || t.status === 'challenge_completed',
+      isUpcoming: isToday ? t.status === null && t.time >= nowTime : t.status === null,
+    })),
+  );
+  const pendingSlots = slots
+    .filter((s) => !s.isDone && s.isUpcoming)
+    .sort((a, b) => a.time.localeCompare(b.time));
+  const doneSlots = slots
+    .filter((s) => s.isDone)
+    .sort((a, b) => a.time.localeCompare(b.time));
 
-  const totalDone = items.reduce((sum, r) => sum + doneCount(r), 0);
-  const totalPlanned = pending.length + done.length;
+  const totalDone = doneSlots.length;
+  const totalPlanned = slots.length;
   const rate = totalPlanned > 0 ? Math.round((totalDone / totalPlanned) * 100) : 0;
 
+  const lunar = lunarInfo(selected);
+  const navs = navKeys(today);
+
   return (
-    <div className="mx-auto max-w-md pb-20">
-      <header className="px-4 pt-6">
-        <h1 className="text-xl font-semibold">今日</h1>
-        <p className="mt-1 text-sm text-ink-500">
-          {user ? `你好，${user.username} · 准时提醒，温柔守护` : '准时提醒，温柔守护'}
-        </p>
+    <div
+      className="mx-auto max-w-md pb-20"
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
+      {/* 顶部日期头 */}
+      <header className="px-4 pt-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setSelected((s) => shiftKey(s, -1))}
+              className="flex h-11 w-11 items-center justify-center text-ink-700"
+              aria-label="前一天"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="text-center">
+              <p className="text-lg font-semibold">
+                {dateHead(selected)}
+                {selected === today && (
+                  <span className="ml-1.5 rounded-full bg-primary-500 px-2 py-0.5 align-middle text-[10px] text-white">
+                    今天
+                  </span>
+                )}
+              </p>
+              <p className="mt-0.5 text-xs text-ink-500">
+                {lunar.festival ? `🎉 ${lunar.festival} · ` : ''}
+                {lunar.lunar}
+              </p>
+            </div>
+            <button
+              onClick={() => setSelected((s) => shiftKey(s, 1))}
+              className="flex h-11 w-11 items-center justify-center text-ink-700"
+              aria-label="后一天"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+          <div className="flex items-center gap-1 text-sm text-ink-700">
+            <span className="text-ink-500">@{user?.username}</span>
+          </div>
+        </div>
+
+        {/* 快捷日期导航 */}
+        <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {navs.map((n) => (
+            <button
+              key={n.key}
+              onClick={() => setSelected(n.key)}
+              className={`shrink-0 rounded-full px-3.5 py-2 text-xs transition-colors ${
+                selected === n.key
+                  ? 'bg-primary-500 font-medium text-white'
+                  : n.key === today
+                    ? 'bg-primary-50 text-primary-600'
+                    : 'bg-surface text-ink-700 shadow-sm'
+              }`}
+            >
+              {n.label}
+              <span className={`ml-1 ${selected === n.key ? 'text-white/70' : 'text-ink-500/60'}`}>
+                {Number(n.key.slice(5, 7))}/{Number(n.key.slice(8))}
+              </span>
+            </button>
+          ))}
+        </div>
       </header>
 
       <main className="px-4">
-        {/* 完成率卡片 */}
+        {/* 完成率卡片（所选日期） */}
         <section className="mt-4 rounded-card bg-surface p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-ink-500">今日完成率</p>
+              <p className="text-sm text-ink-500">{dayLabel(selected, today)}完成率</p>
               <p className="mt-1 text-3xl font-bold text-primary-600">{rate}%</p>
               <p className="mt-1 text-xs text-ink-500">{totalDone} / {totalPlanned} 已完成</p>
             </div>
@@ -97,10 +180,10 @@ export function DashboardPage() {
           </div>
         </section>
 
-        {/* 今日提醒 */}
+        {/* 当日提醒时间线 */}
         <section className="mt-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-medium">今日提醒</h2>
+            <h2 className="text-base font-medium">{dayLabel(selected, today)}提醒</h2>
             <button
               onClick={() => navigate('/reminders/new')}
               className="flex h-11 items-center gap-1 text-sm text-primary-600"
@@ -116,73 +199,91 @@ export function DashboardPage() {
             <div className="mt-3 rounded-card bg-surface p-8 text-center text-sm text-ink-500 shadow-sm">
               加载中…
             </div>
-          ) : items.length === 0 ? (
+          ) : slots.length === 0 ? (
             <div className="mt-3 rounded-card bg-surface p-8 text-center text-sm text-ink-500 shadow-sm">
-              今天还没有提醒
-              <button
-                onClick={() => navigate('/reminders/new')}
-                className="mt-3 block w-full rounded-btn bg-primary-500 py-3 text-sm font-medium text-white"
-              >
-                创建今日提醒
-              </button>
+              {selected === today ? '今天还没有提醒' : '这一天没有安排提醒'}
+              {selected === today && (
+                <button
+                  onClick={() => navigate('/reminders/new')}
+                  className="mt-3 block w-full rounded-btn bg-primary-500 py-3 text-sm font-medium text-white"
+                >
+                  创建今日提醒
+                </button>
+              )}
             </div>
           ) : (
             <ul className="mt-3 space-y-2">
-              {/* 未到提醒（正常色） */}
-              {pending.map((r) => {
-                const n = doneCount(r);
-                return (
-                  <li key={r.id} className="flex items-center gap-3 rounded-card bg-surface px-4 py-3 shadow-sm">
-                    <span className="w-14 text-right text-sm font-semibold text-primary-600">
-                      {fmtTime(r.nextTriggerAt!)}
+              {/* 未到时间点 */}
+              {pendingSlots.map((s, i) => (
+                <li
+                  key={`p-${s.item.reminderId}-${s.time}-${i}`}
+                  className="flex items-center gap-3 rounded-card bg-surface px-4 py-3 shadow-sm"
+                >
+                  <span className="w-14 text-right text-sm font-semibold text-primary-600">{s.time}</span>
+                  <span className="text-lg">
+                    {s.item.categoryIcon ?? CATEGORY_EMOJI[s.item.category] ?? '📌'}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">
+                      {s.item.category === 'custom' && s.item.categoryLabel
+                        ? `${s.item.categoryLabel} · `
+                        : ''}
+                      {s.item.title}
+                    </p>
+                    {s.item.content.text && (
+                      <p className="mt-0.5 truncate text-xs text-ink-500">{s.item.content.text}</p>
+                    )}
+                  </div>
+                  {doneCount(s.item) > 0 && (
+                    <span className="shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-[10px] text-primary-600">
+                      今日已提醒 {doneCount(s.item)}/{s.item.todayTotal} 次
                     </span>
-                    <span className="text-lg">{CATEGORY_EMOJI[r.category] ?? '📌'}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{r.title}</p>
-                      {r.content.text && (
-                        <p className="mt-0.5 truncate text-xs text-ink-500">{r.content.text}</p>
-                      )}
-                    </div>
-                    {n > 0 && (
-                      <span className="shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-[10px] text-primary-600">
-                        今日已提醒 {n} 次
-                      </span>
-                    )}
-                  </li>
-                );
-              })}
-
-              {/* 已完成提醒（暗色 + ✓，排在下方） */}
-              {done.map((r) => {
-                const n = doneCount(r);
-                const lastTime = fmtTime(r.todayLogs[r.todayLogs.length - 1].scheduledTime);
-                return (
-                  <li
-                    key={r.id}
-                    className="flex items-center gap-3 rounded-card bg-ink-100/50 px-4 py-3"
-                  >
-                    <span className="w-14 text-right text-sm font-semibold text-ink-500">{lastTime}</span>
-                    <span className="text-lg opacity-50">{CATEGORY_EMOJI[r.category] ?? '📌'}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-ink-500 line-through">{r.title}</p>
-                      {r.content.text && (
-                        <p className="mt-0.5 truncate text-xs text-ink-500/70">{r.content.text}</p>
-                      )}
-                    </div>
-                    {n > 1 ? (
-                      <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-primary-500/10 px-2 py-0.5 text-[10px] text-primary-600">
-                        <Check size={11} /> 今日已提醒 {n} 次
-                        <ChevronDown size={11} />
-                      </span>
-                    ) : (
-                      <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-primary-500 px-2 py-0.5 text-[10px] text-white">
-                        <Check size={11} /> 已完成
-                      </span>
-                    )}
-                  </li>
-                );
-              })}
+                  )}
+                </li>
+              ))}
             </ul>
+          )}
+
+          {/* 已完成分组 */}
+          {!loading && !error && doneSlots.length > 0 && (
+            <div className="mt-5">
+              <div className="flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 text-[10px] text-white">
+                  <Check size={12} />
+                </span>
+                <h3 className="text-xs font-medium uppercase tracking-wide text-ink-500">
+                  已完成（{doneSlots.length}）
+                </h3>
+                <span className="h-px flex-1 bg-ink-100" />
+              </div>
+              <ul className="mt-2 space-y-2">
+                {doneSlots.map((s, i) => (
+                  <li
+                    key={`d-${s.item.reminderId}-${s.time}-${i}`}
+                    className="flex items-center gap-3 rounded-card border-l-4 border-primary-500/60 bg-ink-100/60 px-4 py-3 opacity-80"
+                  >
+                    <span className="w-14 text-right text-sm font-semibold text-ink-500">{s.time}</span>
+                    <span className="text-lg opacity-50">
+                      {s.item.categoryIcon ?? CATEGORY_EMOJI[s.item.category] ?? '📌'}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-ink-500 line-through decoration-ink-300">
+                        {s.item.category === 'custom' && s.item.categoryLabel
+                          ? `${s.item.categoryLabel} · `
+                          : ''}
+                        {s.item.title}
+                      </p>
+                      {s.item.content.text && (
+                        <p className="mt-0.5 truncate text-xs text-ink-500/70">{s.item.content.text}</p>
+                      )}
+                    </div>
+                    <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-primary-500 px-2.5 py-1 text-[10px] font-medium text-white">
+                      <Check size={11} /> 已完成
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </section>
       </main>

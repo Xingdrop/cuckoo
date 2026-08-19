@@ -19,9 +19,26 @@ import { AckReminderDto } from './dto/ack-reminder.dto';
 import { CreateReminderDto } from './dto/create-reminder.dto';
 import { UpdateReminderDto } from './dto/update-reminder.dto';
 import { ReminderLog, ReminderLogStatus } from './reminder-log.entity';
-import { Reminder, RepeatType } from './reminder.entity';
+import {
+  IntervalUnit,
+  Reminder,
+  ReminderCategory,
+  ReminderContent,
+  RepeatType,
+} from './reminder.entity';
 
 const DEFAULT_TZ = 'Asia/Shanghai';
+
+/** 月的最后一天（dayOfMonth > 28 时顺延） */
+function lastDayOfMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+/** 绝对时间 → 用户时区 HH:mm */
+function toLocalTimeStr(d: Date | string, timezone: string): string {
+  const l = toLocal(d, timezone);
+  return `${String(l.hour).padStart(2, '0')}:${String(l.minute).padStart(2, '0')}`;
+}
 
 @Injectable()
 export class RemindersService {
@@ -50,6 +67,8 @@ export class RemindersService {
       id: randomUUID(),
       userId,
       category: dto.category,
+      categoryLabel: dto.categoryLabel ?? null,
+      categoryIcon: dto.categoryIcon ?? null,
       title: dto.title,
       repeatRule: dto.repeatRule,
       startDate,
@@ -85,10 +104,107 @@ export class RemindersService {
   }
 
   /**
-   * 今日概览（看板数据源）：
-   * 返回今日"相关"的提醒（今日将触发 或 今日已有执行记录），附今日执行日志。
-   * 前端据此展示：未到提醒 + 已完成提醒（含"已提醒 n 次"折叠）。
+   * 指定日期的规划视图（日历/日期切换）：
+   * 对每个活动提醒计算该日期（用户时区）应触发的时间点 + 完成状态。
+   * date 格式 YYYY-MM-DD（用户本地日期）。
    */
+  async calendar(userId: string, dateStr: string) {
+    const timezone = await this.getUserTimezone(userId);
+    const [y, m, d] = dateStr.split('-').map(Number);
+    if (!y || !m || !d) {
+      throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '日期格式须为 YYYY-MM-DD' });
+    }
+    const dayStart = localToUtc(timezone, y, m, d, 0, 0);
+    const nextDayStart = localToUtc(timezone, y, m, d + 1, 0, 0);
+    const dayLocal = toLocal(dayStart, timezone);
+
+    const reminders = await this.reminderRepo.find({
+      where: { userId, isActive: true },
+    });
+    const logs = await this.logRepo.find({
+      where: { userId, scheduledTime: Between(dayStart, nextDayStart) },
+      order: { scheduledTime: 'ASC' },
+    });
+
+    const result: {
+      reminderId: string;
+      title: string;
+      category: ReminderCategory;
+      categoryLabel: string | null;
+      categoryIcon: string | null;
+      content: ReminderContent;
+      times: { time: string; status: string | null }[];
+      todayTotal: number;
+    }[] = [];
+
+    for (const r of reminders) {
+      // 1. 该日期是否匹配重复规则
+      const rule = r.repeatRule;
+      let matched = false;
+      switch (rule.type) {
+        case RepeatType.ONCE: {
+          const sd = toLocal(r.startDate, timezone);
+          matched = sd.year === y && sd.month === m && sd.day === d;
+          break;
+        }
+        case RepeatType.DAILY:
+          matched = true;
+          break;
+        case RepeatType.WEEKLY: {
+          const days = rule.daysOfWeek ?? [];
+          matched = days.length === 0 ? true : days.includes(dayLocal.weekday);
+          break;
+        }
+        case RepeatType.MONTHLY: {
+          const target = Math.min(rule.dayOfMonth ?? 1, lastDayOfMonth(y, m));
+          matched = dayLocal.day === target;
+          break;
+        }
+        case RepeatType.INTERVAL: {
+          const unit = rule.intervalUnit ?? IntervalUnit.DAY;
+          if (unit === IntervalUnit.HOUR) {
+            matched = true; // 按小时提醒每天都可能触发
+          } else {
+            const sd = toLocal(r.startDate, timezone);
+            const days = Math.round(
+              (dayStart.getTime() - localToUtc(timezone, sd.year, sd.month, sd.day, 0, 0).getTime()) /
+                86_400_000,
+            );
+            const step = unit === IntervalUnit.WEEK ? (rule.intervalValue ?? 1) * 7 : (rule.intervalValue ?? 1);
+            matched = days >= 0 && days % step === 0;
+          }
+          break;
+        }
+      }
+      if (!matched) continue;
+
+      // 2. 该日期的时间点
+      const times: string[] =
+        r.times && r.times.length > 0 ? r.times : [toLocalTimeStr(r.startDate, timezone)];
+      const dayLogs = logs.filter((l) => l.reminderId === r.id);
+
+      result.push({
+        reminderId: r.id,
+        title: r.title,
+        category: r.category,
+        categoryLabel: r.categoryLabel,
+        categoryIcon: r.categoryIcon,
+        content: r.content,
+        times: times.map((t) => {
+          const [hh, mm] = t.split(':').map(Number);
+          const slot = localToUtc(timezone, y, m, d, hh, mm);
+          // 与 logs 匹配（同一天同一时刻只可能一条，取状态）
+          const log = dayLogs.find((l) => Math.abs(l.scheduledTime.getTime() - slot.getTime()) < 60_000);
+          return { time: t, status: log ? log.status : null };
+        }),
+        todayTotal: times.length,
+      });
+    }
+
+    // 按第一个时间点排序
+    result.sort((a, b) => a.times[0].time.localeCompare(b.times[0].time));
+    return result;
+  }
   async today(userId: string) {
     const timezone = await this.getUserTimezone(userId);
     const reminders = await this.reminderRepo.find({
@@ -117,7 +233,12 @@ export class RemindersService {
         const next = r.nextTriggerAt ? new Date(r.nextTriggerAt) : null;
         const willTriggerToday = next !== null && next >= todayStart && next < tomorrowStart;
         if (todayLogs.length === 0 && !willTriggerToday) return null;
-        return { ...r, todayLogs };
+        return {
+          ...r,
+          todayLogs,
+          // 今日计划总次数（多时间点提醒 = 时间点数量，其余 = 1）
+          todayTotal: r.times && r.times.length > 0 ? r.times.length : 1,
+        };
       })
       .filter((x): x is NonNullable<typeof x> => x !== null);
   }

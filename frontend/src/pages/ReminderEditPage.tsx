@@ -34,6 +34,8 @@ export function ReminderEditPage() {
   const navigate = useNavigate();
 
   const [category, setCategory] = useState<ReminderCategory>('water');
+  const [categoryLabel, setCategoryLabel] = useState('');
+  const [categoryIcon, setCategoryIcon] = useState('📌');
   const [title, setTitle] = useState('');
   const [time, setTime] = useState('08:00');
   /** 每日多时间点（daily/weekly 适用），保留与单时间兼容 */
@@ -58,6 +60,8 @@ export function ReminderEditPage() {
       .get(id)
       .then((r) => {
         setCategory(r.category);
+        setCategoryLabel(r.categoryLabel ?? '');
+        setCategoryIcon(r.categoryIcon ?? '📌');
         setTitle(r.title);
         // startDate 存 UTC，回填须用本地时间分量（否则跨时区显示错误）
         const d = new Date(r.startDate);
@@ -114,6 +118,9 @@ export function ReminderEditPage() {
 
     const body = {
       category,
+      ...(category === 'custom' && categoryLabel.trim()
+        ? { categoryLabel: categoryLabel.trim(), categoryIcon: categoryIcon.trim() || '📌' }
+        : {}),
       title: title.trim(),
       repeatRule: {
         type: repeatType,
@@ -136,6 +143,7 @@ export function ReminderEditPage() {
       } else {
         saved = await remindersApi.create(body);
       }
+      window.dispatchEvent(new CustomEvent('cuckoo:reminders-changed'));
       navigate('/reminders', { state: { created: saved } });
     } catch (err) {
       setError(errorMessage(err));
@@ -189,11 +197,33 @@ export function ReminderEditPage() {
                     : 'bg-surface text-ink-700 shadow-sm'
                 }`}
               >
-                <span>{c.emoji}</span>
-                {c.label}
+                <span>{category === c.value && c.value === 'custom' && categoryIcon ? categoryIcon : c.emoji}</span>
+                {category === c.value && c.value === 'custom' && categoryLabel.trim()
+                  ? categoryLabel.trim()
+                  : c.label}
               </button>
             ))}
           </div>
+          {category === 'custom' && (
+            <div className="mt-3 flex gap-2">
+              <input
+                type="text"
+                value={categoryIcon}
+                onChange={(e) => setCategoryIcon(e.target.value)}
+                maxLength={4}
+                placeholder="图标（emoji）"
+                className="w-20 rounded-btn border border-ink-100 bg-surface px-3 py-2.5 text-center text-sm outline-none focus:border-primary-400"
+              />
+              <input
+                type="text"
+                value={categoryLabel}
+                onChange={(e) => setCategoryLabel(e.target.value)}
+                maxLength={12}
+                placeholder="分类名称，如：护眼"
+                className="w-full rounded-btn border border-ink-100 bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary-400"
+              />
+            </div>
+          )}
         </section>
 
         {/* 标题 */}

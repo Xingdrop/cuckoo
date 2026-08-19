@@ -48,6 +48,8 @@ export interface ReminderContent {
   imageUrls?: string[];
   videoUrl?: string;
   jumpTo?: string;
+  /** 每次喝水量（ml，water 分类） */
+  waterAmountMl?: number;
 }
 
 export interface ReminderMethod {
@@ -139,6 +141,7 @@ export interface ApiErrorBody {
 /** 指定日期规划项（GET /reminders/calendar） */
 export interface CalendarItem {
   reminderId: string;
+  nextTriggerAt: string | null;
   title: string;
   category: ReminderCategory;
   categoryLabel: string | null;

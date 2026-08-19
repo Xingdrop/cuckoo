@@ -1,11 +1,10 @@
-import { CalendarCheck, Home, Settings, Users } from 'lucide-react';
+import { CalendarCheck, Home, Users } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 
 const tabs = [
   { to: '/today', label: '今日', icon: Home },
   { to: '/reminders', label: '提醒', icon: CalendarCheck },
   { to: '/social', label: '社交', icon: Users },
-  { to: '/settings', label: '设置', icon: Settings },
 ];
 
 /** 底部导航（PWA 移动端主导航，安全区适配） */

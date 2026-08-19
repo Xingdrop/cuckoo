@@ -1,4 +1,4 @@
-import { CalendarClock, ChevronRight, Minus, Plus, Pill } from 'lucide-react';
+import { CalendarClock, ChevronLeft, ChevronRight, Minus, Plus, Pill } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -56,10 +56,17 @@ export function MedicinesPage() {
 
   return (
     <div className="mx-auto max-w-md pb-20">
-      <header className="flex items-center justify-between px-4 pt-6">
-        <div>
-          <h1 className="text-xl font-semibold">药品</h1>
-          <p className="mt-1 text-sm text-ink-500">管理用药与库存</p>
+      <header className="flex items-center gap-2 px-4 pt-5">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex h-11 w-11 items-center justify-center text-ink-700"
+          aria-label="返回"
+        >
+          <ChevronLeft size={22} />
+        </button>
+        <div className="flex-1">
+          <h1 className="text-lg font-semibold">药品</h1>
+          <p className="text-xs text-ink-500">管理用药与库存</p>
         </div>
         <button
           onClick={() => navigate('/medicines/new')}

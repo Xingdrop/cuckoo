@@ -1,4 +1,4 @@
-import { Dumbbell, Pencil, Pill, Plus, Power, Timer, Trash2 } from 'lucide-react';
+import { ChevronRight, Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -99,39 +99,63 @@ export function ReminderListPage() {
           <h1 className="text-xl font-semibold">提醒</h1>
           <p className="mt-1 text-sm text-ink-500">管理你的所有计划</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate('/medicines')}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-ink-700 shadow-sm"
-            aria-label="药品管理"
-          >
-            <Pill size={20} />
-          </button>
-          <button
-            onClick={() => navigate('/exercises')}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-ink-700 shadow-sm"
-            aria-label="微运动库"
-          >
-            <Dumbbell size={20} />
-          </button>
-          <button
-            onClick={() => navigate('/pomodoro')}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-ink-700 shadow-sm"
-            aria-label="番茄钟"
-          >
-            <Timer size={20} />
-          </button>
-          <button
-            onClick={() => navigate('/reminders/new')}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-500 text-white shadow-sm"
-            aria-label="新建提醒"
-          >
-            <Plus size={22} />
-          </button>
-        </div>
+        <button
+          onClick={() => navigate('/reminders/new')}
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-500 text-white shadow-sm"
+          aria-label="新建提醒"
+        >
+          <Plus size={22} />
+        </button>
       </header>
 
       <main className="px-4 pt-4">
+        {/* 快捷功能区（+ 号下方一排长块） */}
+        <div className="mb-4 grid grid-cols-2 gap-2">
+          <button
+            onClick={() => navigate('/medicines')}
+            className="flex items-center gap-2.5 rounded-card bg-surface p-3.5 text-left shadow-sm"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">💊</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium">药物管理</span>
+              <span className="block text-[11px] text-ink-500">药品/库存/历史</span>
+            </span>
+            <ChevronRight size={16} className="shrink-0 text-ink-300" />
+          </button>
+          <button
+            onClick={() => navigate('/reminders/new', { state: { preset: { category: 'water' } } })}
+            className="flex items-center gap-2.5 rounded-card bg-surface p-3.5 text-left shadow-sm"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">💧</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium">喝水提醒</span>
+              <span className="block text-[11px] text-ink-500">水量/目标/提醒</span>
+            </span>
+            <ChevronRight size={16} className="shrink-0 text-ink-300" />
+          </button>
+          <button
+            onClick={() => navigate('/exercises')}
+            className="flex items-center gap-2.5 rounded-card bg-surface p-3.5 text-left shadow-sm"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">🏃</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium">锻炼库</span>
+              <span className="block text-[11px] text-ink-500">50+ 微运动</span>
+            </span>
+            <ChevronRight size={16} className="shrink-0 text-ink-300" />
+          </button>
+          <button
+            onClick={() => navigate('/pomodoro')}
+            className="flex items-center gap-2.5 rounded-card bg-surface p-3.5 text-left shadow-sm"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">🍅</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium">番茄钟</span>
+              <span className="block text-[11px] text-ink-500">25+5 专注循环</span>
+            </span>
+            <ChevronRight size={16} className="shrink-0 text-ink-300" />
+          </button>
+        </div>
         {toast && (
           <div className="mb-3 rounded-btn bg-primary-50 px-4 py-3 text-sm text-primary-700">
             ✅ 提醒已创建，下次触发：{formatFullTime(toast.nextTriggerAt)}

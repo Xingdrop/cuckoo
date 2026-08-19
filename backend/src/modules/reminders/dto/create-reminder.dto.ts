@@ -59,6 +59,13 @@ export class ReminderContentDto {
   @MaxLength(200)
   text?: string;
 
+  /** 每次喝水量（ml，water 分类） */
+  @IsOptional()
+  @IsInt()
+  @Min(50)
+  @Max(1000)
+  waterAmountMl?: number;
+
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(9)
@@ -128,6 +135,13 @@ export class CreateReminderDto {
   @IsString()
   @MaxLength(12)
   categoryLabel?: string;
+
+  /** 喝水每日目标（ml，water 分类时保存到用户设置） */
+  @IsOptional()
+  @IsInt()
+  @Min(100)
+  @Max(10000)
+  waterGoalMl?: number;
 
   /** 自定义分类图标（emoji） */
   @IsOptional()

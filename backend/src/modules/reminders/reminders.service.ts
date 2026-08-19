@@ -16,6 +16,7 @@ import {
 import { Medicine } from '../medicines/medicine.entity';
 import { Notification, NotificationType } from '../notifications/notification.entity';
 import { User } from '../users/user.entity';
+import { UserSetting } from '../users/user-setting.entity';
 import { AckReminderDto } from './dto/ack-reminder.dto';
 import { CreateReminderDto } from './dto/create-reminder.dto';
 import { UpdateReminderDto } from './dto/update-reminder.dto';
@@ -50,6 +51,8 @@ export class RemindersService {
     private readonly logRepo: Repository<ReminderLog>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(UserSetting)
+    private readonly settingRepo: Repository<UserSetting>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -66,6 +69,10 @@ export class RemindersService {
   /** 创建提醒：计算首次 nextTriggerAt（调度引擎依赖） */
   async create(userId: string, dto: CreateReminderDto) {
     const timezone = await this.getUserTimezone(userId);
+    // 喝水目标同步到用户设置
+    if (dto.waterGoalMl) {
+      await this.settingRepo.update({ userId }, { waterGoalMl: dto.waterGoalMl });
+    }
     const startDate = new Date(dto.startDate);
     const endDate = dto.endDate ? new Date(dto.endDate) : null;
 
@@ -134,6 +141,7 @@ export class RemindersService {
 
     const result: {
       reminderId: string;
+      nextTriggerAt: Date | null;
       title: string;
       category: ReminderCategory;
       categoryLabel: string | null;
@@ -207,6 +215,7 @@ export class RemindersService {
 
       result.push({
         reminderId: r.id,
+        nextTriggerAt: r.nextTriggerAt,
         title: r.title,
         category: r.category,
         categoryLabel: r.categoryLabel,
@@ -357,7 +366,10 @@ export class RemindersService {
         medicineId: reminder.medicineId,
         medicineNameSnapshot: null,
         category: reminder.category,
-        amount: 0,
+        amount:
+          reminder.category === 'water'
+            ? (reminder.content as ReminderContent & { waterAmountMl?: number }).waterAmountMl ?? 200
+            : 0,
         stockDeducted: 0,
       });
 

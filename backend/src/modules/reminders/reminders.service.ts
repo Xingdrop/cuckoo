@@ -58,6 +58,11 @@ export class RemindersService {
     return user?.timezone ?? DEFAULT_TZ;
   }
 
+  /** 供统计模块读取用户时区 */
+  async getUserTimezoneSafe(userId: string): Promise<string> {
+    return this.getUserTimezone(userId);
+  }
+
   /** 创建提醒：计算首次 nextTriggerAt（调度引擎依赖） */
   async create(userId: string, dto: CreateReminderDto) {
     const timezone = await this.getUserTimezone(userId);
@@ -109,7 +114,7 @@ export class RemindersService {
    * 对每个活动提醒计算该日期（用户时区）应触发的时间点 + 完成状态。
    * date 格式 YYYY-MM-DD（用户本地日期）。
    */
-  async calendar(userId: string, dateStr: string) {
+  async dayPlan(userId: string, dateStr: string) {
     const timezone = await this.getUserTimezone(userId);
     const [y, m, d] = dateStr.split('-').map(Number);
     if (!y || !m || !d) {
@@ -351,6 +356,8 @@ export class RemindersService {
         photoUrl: dto.photoUrl ?? null,
         medicineId: reminder.medicineId,
         medicineNameSnapshot: null,
+        category: reminder.category,
+        amount: 0,
         stockDeducted: 0,
       });
 
@@ -421,6 +428,32 @@ export class RemindersService {
 
       return { ok: true, log, duplicate: false };
     });
+  }
+
+  /**
+   * 喝水手动记录（FR-403）：写入 ReminderLog(status=manual, category=water, amount=ml)。
+   * 用于看板快捷 +200ml 等操作。
+   */
+  async waterLog(userId: string, amountMl: number) {
+    if (!Number.isInteger(amountMl) || amountMl <= 0 || amountMl > 5000) {
+      throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '水量须为 1~5000ml 的整数' });
+    }
+    const log = this.logRepo.create({
+      id: randomUUID(),
+      reminderId: null,
+      userId,
+      scheduledTime: new Date(),
+      actualTime: new Date(),
+      status: ReminderLogStatus.MANUAL,
+      delayMinutes: 0,
+      photoUrl: null,
+      medicineId: null,
+      medicineNameSnapshot: null,
+      category: 'water',
+      amount: amountMl,
+      stockDeducted: 0,
+    });
+    return this.logRepo.save(log);
   }
 
   /** 手动延迟（独立接口，前端弹窗延迟按钮用；与 ack 分离避免误写完成记录） */

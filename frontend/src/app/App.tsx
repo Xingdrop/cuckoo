@@ -11,6 +11,9 @@ import { SocialPage } from '../pages/SocialPage';
 import { MedicinesPage } from '../pages/MedicinesPage';
 import { MedicineEditPage } from '../pages/MedicineEditPage';
 import { MedicineLogsPage } from '../pages/MedicineLogsPage';
+import { StatsPage } from '../pages/StatsPage';
+import { PomodoroPage } from '../pages/PomodoroPage';
+import { ExercisesPage } from '../pages/ExercisesPage';
 import { useAuthStore } from '../stores/authStore';
 
 /**
@@ -91,6 +94,30 @@ export function App() {
           element={
             <RequireAuth>
               <MedicineLogsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/stats"
+          element={
+            <RequireAuth>
+              <StatsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/pomodoro"
+          element={
+            <RequireAuth>
+              <PomodoroPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/exercises"
+          element={
+            <RequireAuth>
+              <ExercisesPage />
             </RequireAuth>
           }
         />

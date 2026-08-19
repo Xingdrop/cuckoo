@@ -77,7 +77,7 @@ export class RemindersController {
     @CurrentUser('sub') userId: string,
     @Query('date') date: string,
   ) {
-    return this.remindersService.calendar(userId, date);
+    return this.remindersService.dayPlan(userId, date);
   }
 
   @Post()

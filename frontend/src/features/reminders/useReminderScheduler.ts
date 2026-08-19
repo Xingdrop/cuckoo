@@ -73,8 +73,12 @@ export function useReminderScheduler() {
     };
   }, [reminders, user]);
 
-  /** 弹窗操作：完成/延迟/跳过 → ack（幂等）→ 关闭 → 重载 */
-  const handleAction = async (status: 'completed' | 'delayed' | 'skipped', minutes?: number) => {
+  /** 弹窗操作：完成/延迟/跳过/拍照完成 → ack（幂等）→ 关闭 → 重载 */
+  const handleAction = async (
+    status: 'completed' | 'delayed' | 'skipped' | 'challenge_completed',
+    minutes?: number,
+    photoUrl?: string,
+  ) => {
     const current = activeRef.current;
     if (!current?.nextTriggerAt) return;
     try {
@@ -84,6 +88,7 @@ export function useReminderScheduler() {
         await remindersApi.ack(current.id, {
           status,
           scheduledTime: current.nextTriggerAt,
+          photoUrl,
         });
       }
     } catch {

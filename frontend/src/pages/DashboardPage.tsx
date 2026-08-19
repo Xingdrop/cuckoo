@@ -1,4 +1,4 @@
-import { BarChart3, Check, ChevronLeft, ChevronRight, Plus, TrendingUp } from 'lucide-react';
+import { BarChart3, Check, ChevronLeft, ChevronRight, Plus, Settings, TrendingUp } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -40,6 +40,7 @@ function untilLabel(dateKey: string, time: string): string {
   const diffMs = new Date(y, m - 1, d, hh, mm).getTime() - Date.now();
   if (diffMs <= 0) return '';
   const mins = Math.floor(diffMs / 60_000);
+  if (mins < 1) return '即将提醒';
   if (mins < 60) return `${mins} 分钟后`;
   const hours = Math.floor(mins / 60);
   const rem = mins % 60;
@@ -109,6 +110,7 @@ export function DashboardPage() {
       item,
       isDone: t.status === 'completed' || t.status === 'challenge_completed',
       // 已错过：missed/skipped 状态，或（未完成 且 时间已过：今天已过 / 历史日期）
+      // delayed（延迟执行中）不算错过，显示在待办
       isMissed:
         t.status === 'missed' ||
         t.status === 'skipped' ||
@@ -172,13 +174,20 @@ export function DashboardPage() {
               <ChevronRight size={20} />
             </button>
           </div>
-          <div className="flex items-center gap-1 text-sm text-ink-700">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => navigate('/stats')}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-surface text-primary-600 shadow-sm"
               aria-label="统计"
             >
               <BarChart3 size={18} />
+            </button>
+            <button
+              onClick={() => navigate('/settings')}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-surface text-ink-700 shadow-sm"
+              aria-label="设置"
+            >
+              <Settings size={18} />
             </button>
           </div>
         </div>
@@ -240,6 +249,9 @@ export function DashboardPage() {
                 style={{ width: `${stats.water.rate}%` }}
               />
             </div>
+            {stats.water.rate >= 100 && (
+              <p className="mt-2 text-xs font-medium text-primary-600">✓ 今日喝水目标已达成</p>
+            )}
           </section>
         )}
 
@@ -298,10 +310,18 @@ export function DashboardPage() {
                     )}
                   </div>
                   {(() => {
-                    const label = untilLabel(selected, s.time);
+                    // 间隔优先用真实 nextTriggerAt（延迟后的动态时间）
+                    let label = '';
+                    if (s.item.nextTriggerAt) {
+                      const d = new Date(s.item.nextTriggerAt);
+                      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                      const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                      label = untilLabel(key, time);
+                    }
+                    if (!label) label = untilLabel(selected, s.time);
                     return label ? (
-                      <span className="shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-medium text-primary-600">
-                        ⏰ {label}
+                      <span className="shrink-0 rounded-full bg-primary-500/15 px-2.5 py-1 text-[11px] font-medium text-primary-700">
+                        {label}
                       </span>
                     ) : null;
                   })()}

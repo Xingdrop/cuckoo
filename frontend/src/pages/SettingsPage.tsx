@@ -1,4 +1,4 @@
-import { Bell, BellRing, LogOut } from 'lucide-react';
+import { Bell, BellRing, ChevronLeft, LogOut } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -131,9 +131,18 @@ export function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-md pb-20">
-      <header className="px-4 pt-6">
-        <h1 className="text-xl font-semibold">设置</h1>
-        {user && <p className="mt-1 text-sm text-ink-500">@{user.username}</p>}
+      <header className="sticky top-0 z-10 flex items-center gap-2 bg-bg/95 px-4 py-3 backdrop-blur">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex h-11 w-11 items-center justify-center text-ink-700"
+          aria-label="返回"
+        >
+          <ChevronLeft size={22} />
+        </button>
+        <div>
+          <h1 className="text-lg font-semibold">设置</h1>
+          {user && <p className="text-xs text-ink-500">@{user.username}</p>}
+        </div>
       </header>
 
       <main className="space-y-4 px-4 pt-4">

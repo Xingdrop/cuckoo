@@ -17,6 +17,9 @@ const CATEGORIES: { value: ReminderCategory; label: string; emoji: string }[] = 
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
+/** 自定义分类预设图标 */
+const CUSTOM_ICONS = ['📌', '💊', '🏃', '💧', '😴', '💼', '👁️', '🧠', '🦷', '🍎', '📖', '🎯', '🌿', '💪', '❤️', '🧘'];
+
 const REPEAT_OPTIONS: { value: RepeatType; label: string }[] = [
   { value: 'once', label: '单次' },
   { value: 'daily', label: '每天' },
@@ -55,6 +58,9 @@ export function ReminderEditPage() {
   const [intervalUnit, setIntervalUnit] = useState<IntervalUnit>('day');
   const [contentText, setContentText] = useState('');
   const [challengeEnabled, setChallengeEnabled] = useState(false);
+  /** 喝水设置（water 分类）：每次水量 / 每日目标 */
+  const [waterAmount, setWaterAmount] = useState(200);
+  const [waterGoal, setWaterGoal] = useState(2000);
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [medicineId, setMedicineId] = useState<string>('');
   const [delayEnabled, setDelayEnabled] = useState(true);
@@ -108,6 +114,8 @@ export function ReminderEditPage() {
         setIntervalUnit(r.repeatRule.intervalUnit ?? 'day');
         setContentText(r.content.text ?? '');
         setChallengeEnabled(r.challenge.enabled ?? false);
+        const wa = (r.content as { waterAmountMl?: number }).waterAmountMl;
+        if (wa) setWaterAmount(wa);
         setMedicineId(r.medicineId ?? '');
         setDelayEnabled(Boolean(r.delaySettings.maxDelayCount));
         setMaxDelayCount(r.delaySettings.maxDelayCount ?? 3);
@@ -162,7 +170,17 @@ export function ReminderEditPage() {
       },
       startDate: startDate.toISOString(),
       ...(cleanTimes ? { times: cleanTimes } : {}),
-      content: contentText.trim() ? { text: contentText.trim() } : {},
+      content: contentText.trim()
+        ? {
+            text: contentText.trim(),
+            ...(category === 'water' ? { waterAmountMl: waterAmount } : {}),
+          }
+        : category === 'water'
+          ? { waterAmountMl: waterAmount }
+          : {},
+      ...(category === 'water'
+        ? { waterGoalMl: waterGoal }
+        : {}),
       challenge: { enabled: challengeEnabled, allowGallery: true },
       ...(category === 'medication' && medicineId ? { medicineId } : {}),
       delaySettings: delayEnabled ? { presetOptions: [5, 10, 15, 30], customEnabled: true, maxDelayCount } : {},
@@ -259,20 +277,29 @@ export function ReminderEditPage() {
             <div className="mt-3 flex gap-2">
               <input
                 type="text"
-                value={categoryIcon}
-                onChange={(e) => setCategoryIcon(e.target.value)}
-                maxLength={4}
-                placeholder="图标（emoji）"
-                className="w-20 rounded-btn border border-ink-100 bg-surface px-3 py-2.5 text-center text-sm outline-none focus:border-primary-400"
-              />
-              <input
-                type="text"
                 value={categoryLabel}
                 onChange={(e) => setCategoryLabel(e.target.value)}
                 maxLength={12}
                 placeholder="分类名称，如：护眼"
                 className="w-full rounded-btn border border-ink-100 bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary-400"
               />
+              <div className="w-full">
+                <p className="text-xs text-ink-500">选择图标</p>
+                <div className="mt-1.5 grid grid-cols-8 gap-1.5">
+                  {CUSTOM_ICONS.map((icon) => (
+                    <button
+                      key={icon}
+                      type="button"
+                      onClick={() => setCategoryIcon(icon)}
+                      className={`flex h-9 items-center justify-center rounded-lg text-base transition-colors ${
+                        categoryIcon === icon ? 'bg-primary-500/15 ring-2 ring-primary-500' : 'bg-bg'
+                      }`}
+                    >
+                      {icon}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </section>
@@ -458,6 +485,46 @@ export function ReminderEditPage() {
             className="mt-2 w-full resize-none rounded-btn border border-ink-100 bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary-400"
           />
         </section>
+
+        {/* 喝水设置（water 分类） */}
+        {category === 'water' && (
+          <section className="rounded-card bg-surface p-4 shadow-sm">
+            <p className="text-sm font-medium">喝水设置</p>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm text-ink-700">每次喝水量</label>
+                <div className="mt-1 flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min={50}
+                    max={1000}
+                    step={50}
+                    value={waterAmount}
+                    onChange={(e) => setWaterAmount(Number(e.target.value) || 200)}
+                    className="w-full rounded-btn border border-ink-100 px-3 py-2 text-sm outline-none focus:border-primary-400"
+                  />
+                  <span className="text-xs text-ink-500">ml</span>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm text-ink-700">每日目标</label>
+                <div className="mt-1 flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min={500}
+                    max={5000}
+                    step={100}
+                    value={waterGoal}
+                    onChange={(e) => setWaterGoal(Number(e.target.value) || 2000)}
+                    className="w-full rounded-btn border border-ink-100 px-3 py-2 text-sm outline-none focus:border-primary-400"
+                  />
+                  <span className="text-xs text-ink-500">ml</span>
+                </div>
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-ink-500">确认喝水后自动累计到今日目标（看板实时更新）</p>
+          </section>
+        )}
 
         {/* 延迟设置 */}
         <section className="rounded-card bg-surface p-4 shadow-sm">

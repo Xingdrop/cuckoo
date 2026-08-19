@@ -27,6 +27,8 @@ export interface CreateReminderInput {
   challenge?: ChallengeSettings;
   medicineId?: string;
   isActive?: boolean;
+  /** 喝水每日目标（water 分类） */
+  waterGoalMl?: number;
 }
 
 /** 提醒 API（FR-201~209） */

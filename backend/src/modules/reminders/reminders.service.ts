@@ -14,6 +14,7 @@ import {
   toLocal,
 } from '../../common/reminder-schedule';
 import { Medicine } from '../medicines/medicine.entity';
+import { Notification, NotificationType } from '../notifications/notification.entity';
 import { User } from '../users/user.entity';
 import { AckReminderDto } from './dto/ack-reminder.dto';
 import { CreateReminderDto } from './dto/create-reminder.dto';
@@ -359,9 +360,33 @@ export class RemindersService {
         });
         if (medicine) {
           log.medicineNameSnapshot = medicine.name;
+          // M2 库存扣减（事务内）：确认服药 → 扣减 → 预警 → 站内通知
           if (isCompleted && medicine.deductionPerUse > 0) {
-            // M2 库存扣减将在此事务内扩展（stock 扣减 + 预警判定）
+            if (medicine.stock < medicine.deductionPerUse) {
+              throw new BadRequestException({
+                code: 'STOCK_EXCEEDED',
+                message: `${medicine.name} 库存不足：当前仅剩 ${medicine.stock} ${medicine.dosage ?? '份'}`,
+              });
+            }
+            const newStock = medicine.stock - medicine.deductionPerUse;
+            await manager.getRepository(Medicine).update(
+              { id: medicine.id, userId },
+              { stock: newStock },
+            );
             log.stockDeducted = medicine.deductionPerUse;
+            // 库存预警：扣减后 ≤ 阈值 → 站内通知
+            if (medicine.notifyOnLowStock && newStock <= medicine.threshold && medicine.threshold > 0) {
+              await manager.getRepository(Notification).save(
+                manager.getRepository(Notification).create({
+                  id: randomUUID(),
+                  userId,
+                  type: NotificationType.LOW_STOCK,
+                  title: '库存预警',
+                  content: `${medicine.name} 库存仅剩 ${newStock} ${medicine.dosage ?? '份'}，请及时补充`,
+                  linkUrl: '/medicines',
+                }),
+              );
+            }
           }
         }
       }

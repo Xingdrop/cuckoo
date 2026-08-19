@@ -28,12 +28,13 @@ export class ReminderLog {
   @PrimaryColumn('text')
   id: string;
 
-  @Column('text')
-  reminderId: string;
+  /** 关联提醒（PRN/手动记录可为空） */
+  @Column('text', { nullable: true })
+  reminderId: string | null;
 
-  @ManyToOne(() => Reminder, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Reminder, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'reminderId' })
-  reminder: Reminder;
+  reminder: Reminder | null;
 
   @Index()
   @Column('text')

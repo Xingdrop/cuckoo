@@ -119,6 +119,7 @@ export interface ReminderLog {
   photoUrl: string | null;
   medicineId: string | null;
   stockDeducted: number;
+  medicineNameSnapshot: string | null;
 }
 
 // ---- API 通用 ----
@@ -145,4 +146,22 @@ export interface CalendarItem {
   content: ReminderContent;
   times: { time: string; status: ReminderLogStatus | null }[];
   todayTotal: number;
+}
+
+/** 药品（M2） */
+export interface Medicine {
+  id: string;
+  userId: string;
+  name: string;
+  dosage: string | null;
+  administration: string | null;
+  stock: number;
+  threshold: number;
+  expiryDate: string | null;
+  instructions: string | null;
+  photoUrl: string | null;
+  deductionPerUse: number;
+  notifyOnLowStock: boolean;
+  createdAt: string;
+  updatedAt: string;
 }

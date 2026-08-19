@@ -3,7 +3,8 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { errorMessage } from '../services/http';
 import { remindersApi } from '../services/api/api.reminders';
-import type { IntervalUnit, ReminderCategory, RepeatType } from '../types';
+import { medicinesApi } from '../services/api/api.medicines';
+import type { IntervalUnit, Medicine, ReminderCategory, RepeatType } from '../types';
 
 const CATEGORIES: { value: ReminderCategory; label: string; emoji: string }[] = [
   { value: 'medication', label: '吃药', emoji: '💊' },
@@ -52,11 +53,21 @@ export function ReminderEditPage() {
   const [intervalUnit, setIntervalUnit] = useState<IntervalUnit>('day');
   const [contentText, setContentText] = useState('');
   const [challengeEnabled, setChallengeEnabled] = useState(false);
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [medicineId, setMedicineId] = useState<string>('');
   const [delayEnabled, setDelayEnabled] = useState(true);
   const [maxDelayCount, setMaxDelayCount] = useState(3);
   const [loading, setLoading] = useState(isEdit);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 加载药品列表（medication 分类关联用）
+  useEffect(() => {
+    medicinesApi
+      .list()
+      .then(setMedicines)
+      .catch(() => undefined);
+  }, []);
 
   // 编辑模式：加载已有数据
   useEffect(() => {
@@ -86,6 +97,7 @@ export function ReminderEditPage() {
         setIntervalUnit(r.repeatRule.intervalUnit ?? 'day');
         setContentText(r.content.text ?? '');
         setChallengeEnabled(r.challenge.enabled ?? false);
+        setMedicineId(r.medicineId ?? '');
         setDelayEnabled(Boolean(r.delaySettings.maxDelayCount));
         setMaxDelayCount(r.delaySettings.maxDelayCount ?? 3);
       })
@@ -141,6 +153,7 @@ export function ReminderEditPage() {
       ...(cleanTimes ? { times: cleanTimes } : {}),
       content: contentText.trim() ? { text: contentText.trim() } : {},
       challenge: { enabled: challengeEnabled, allowGallery: true },
+      ...(category === 'medication' && medicineId ? { medicineId } : {}),
       delaySettings: delayEnabled ? { presetOptions: [5, 10, 15, 30], customEnabled: true, maxDelayCount } : {},
     };
 
@@ -213,6 +226,24 @@ export function ReminderEditPage() {
               </button>
             ))}
           </div>
+          {category === 'medication' && medicines.length > 0 && (
+            <div className="mt-3">
+              <label className="text-sm font-medium text-ink-700">关联药品</label>
+              <select
+                value={medicineId}
+                onChange={(e) => setMedicineId(e.target.value)}
+                className="mt-2 w-full rounded-btn border border-ink-100 bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary-400"
+              >
+                <option value="">不关联</option>
+                {medicines.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    💊 {m.name}（余 {m.stock}）
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-ink-500">确认服药后自动扣减库存</p>
+            </div>
+          )}
           {category === 'custom' && (
             <div className="mt-3 flex gap-2">
               <input

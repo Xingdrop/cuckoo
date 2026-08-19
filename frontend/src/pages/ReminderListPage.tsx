@@ -1,4 +1,4 @@
-import { Pencil, Plus, Power, Trash2 } from 'lucide-react';
+import { Pencil, Pill, Plus, Power, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -99,13 +99,22 @@ export function ReminderListPage() {
           <h1 className="text-xl font-semibold">提醒</h1>
           <p className="mt-1 text-sm text-ink-500">管理你的所有计划</p>
         </div>
-        <button
-          onClick={() => navigate('/reminders/new')}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-500 text-white shadow-sm"
-          aria-label="新建提醒"
-        >
-          <Plus size={22} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/medicines')}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-ink-700 shadow-sm"
+            aria-label="药品管理"
+          >
+            <Pill size={20} />
+          </button>
+          <button
+            onClick={() => navigate('/reminders/new')}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-500 text-white shadow-sm"
+            aria-label="新建提醒"
+          >
+            <Plus size={22} />
+          </button>
+        </div>
       </header>
 
       <main className="px-4 pt-4">

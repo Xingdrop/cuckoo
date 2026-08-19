@@ -8,6 +8,9 @@ import { ReminderEditPage } from '../pages/ReminderEditPage';
 import { ReminderListPage } from '../pages/ReminderListPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { SocialPage } from '../pages/SocialPage';
+import { MedicinesPage } from '../pages/MedicinesPage';
+import { MedicineEditPage } from '../pages/MedicineEditPage';
+import { MedicineLogsPage } from '../pages/MedicineLogsPage';
 import { useAuthStore } from '../stores/authStore';
 
 /**
@@ -56,6 +59,38 @@ export function App() {
           element={
             <RequireAuth>
               <ReminderEditPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/medicines"
+          element={
+            <RequireAuth>
+              <MedicinesPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/medicines/new"
+          element={
+            <RequireAuth>
+              <MedicineEditPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/medicines/:id/edit"
+          element={
+            <RequireAuth>
+              <MedicineEditPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/medicines/:id/logs"
+          element={
+            <RequireAuth>
+              <MedicineLogsPage />
             </RequireAuth>
           }
         />

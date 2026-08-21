@@ -11,7 +11,7 @@
 | 前端 | React 19 + TypeScript + Vite + Tailwind CSS + Zustand + Recharts（PWA） |
 | 后端 | NestJS 11 + TypeORM + SQLite（可迁移 PostgreSQL）+ JWT + Web Push |
 | 测试 | Vitest / Jest / Playwright / Supertest |
-| 质量 | ARK 视觉 UI 评审（tools/ui_review.py） |
+| 质量 | 多模态 AI 视觉评审（.zcode/skills/ui-review，内置视觉直接读图，无外部 Key） |
 
 ## 目录结构
 
@@ -20,7 +20,7 @@ docs/       项目文档（需求分析 / 技术方案 / 项目计划与验收 /
 frontend/   Web PWA 前端
 backend/    NestJS API 后端（.env.example 为可转移参数入口）
 tools/      开发工具（UI 评审、脚本）
-Plugin/     下载的第三方插件包（ui-theme-designer，已安装至 .zcode/skills/）
+Plugin/     下载的第三方插件包（已评估：Vercel 系 skill 已安装至 .zcode/skills/；ui-theme-designer 为 SAP 专用、vercel-optimize 仅适用 Vercel 部署，均不适用）
 ```
 
 ## 快速启动
@@ -49,4 +49,4 @@ npm run dev                   # http://localhost:5173（/api 自动代理到 300
 
 - 任何 key/token 严禁硬编码，一律走 `backend/.env`（模板 `.env.example`）
 - 新增可转移参数须同步 `.env.example` 与《技术方案设计.md》§9
-- 页面开发完成后截图 → `tools/ui_review.py` 视觉评审（评分 ≥ 8 门禁）
+- 页面开发完成后截图 → 按 `.zcode/skills/ui-review` 用内置多模态直接读图评审（评分 ≥ 8 门禁）

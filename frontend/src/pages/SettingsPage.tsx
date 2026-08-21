@@ -6,7 +6,7 @@ import { ReminderOverlay } from '../features/reminders/ReminderOverlay';
 import { authApi } from '../services/api/api.auth';
 import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
-import { checkPushSubscribed, isPushSupported, pushFailMessage, subscribePush } from '../utils/push';
+import { checkPushSubscribed, isPushSupported, pushFailMessage, subscribePush, unsubscribePush } from '../utils/push';
 import type { Reminder, UserSettings } from '../types';
 
 /** 设置开关行：checkbox 样式（accent 主题色） */
@@ -103,7 +103,7 @@ export function SettingsPage() {
     setError(null);
     try {
       if (pushEnabled) {
-        await import('../utils/push').then((m) => m.unsubscribePush());
+        await unsubscribePush();
         setPushEnabled(false);
       } else {
         const result = await subscribePush();

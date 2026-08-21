@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
 import { DataSource, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
+import { PushService } from '../notifications/push.service';
 import { Notification, NotificationType } from '../notifications/notification.entity';
 import { ReminderLog, ReminderLogStatus } from '../reminders/reminder-log.entity';
 import { CreateMedicineDto } from './dto/create-medicine.dto';
@@ -29,6 +30,7 @@ export class MedicinesService {
     private readonly notifRepo: Repository<Notification>,
     private readonly dataSource: DataSource,
     private readonly audit: AuditService,
+    private readonly push: PushService,
   ) {}
 
   async create(userId: string, dto: CreateMedicineDto) {
@@ -100,7 +102,7 @@ export class MedicinesService {
       reminderId?: string | null;
     } = {},
   ) {
-    return this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       const medicineRepo = manager.getRepository(Medicine);
       const logRepo = manager.getRepository(ReminderLog);
       const notifRepo = manager.getRepository(Notification);
@@ -154,6 +156,17 @@ export class MedicinesService {
 
       return { medicine, lowStock };
     });
+
+    // 4. 低库存 Web Push（通道 B；事务外发送，避免长事务）
+    if (result.lowStock) {
+      await this.push.sendToUser(userId, {
+        title: '库存预警',
+        body: `${result.medicine.name} 库存仅剩 ${result.medicine.stock} ${result.medicine.dosage ?? '份'}，请及时补充`,
+        url: '/medicines',
+      });
+    }
+
+    return result;
   }
 
   /** PRN 按需服药记录（不关联提醒，直接扣库存 + 记录） */

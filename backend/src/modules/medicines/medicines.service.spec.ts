@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
+import { PushService } from '../notifications/push.service';
 import { EmergencyContact } from '../contacts/emergency-contact.entity';
 import { Device } from '../notifications/device.entity';
 import { Notification, NotificationType } from '../notifications/notification.entity';
@@ -63,6 +64,7 @@ describe('MedicinesService（UT-STK）', () => {
         { provide: getRepositoryToken(Notification), useValue: dataSource.getRepository(Notification) },
         { provide: DataSource, useValue: dataSource },
         { provide: AuditService, useValue: { record: jest.fn() } },
+        { provide: PushService, useValue: { sendToUser: jest.fn().mockResolvedValue({ sent: 0, skipped: true }) } },
       ],
     }).compile();
     service = module.get(MedicinesService);

@@ -3,10 +3,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { EmergencyContact } from '../contacts/emergency-contact.entity';
 import { Reminder } from '../reminders/reminder.entity';
 import { ReminderLog } from '../reminders/reminder-log.entity';
+import { UserSetting } from '../users/user-setting.entity';
 import { Device } from './device.entity';
 import { DevicesController } from './devices.controller';
 import { NotificationsController } from './notifications.controller';
 import { MissedScanner } from './missed-scanner';
+import { ReminderPushScanner } from './reminder-push-scanner';
 import { PushService } from './push.service';
 import { NotificationLog } from './notification-log.entity';
 import { Notification } from './notification.entity';
@@ -20,10 +22,11 @@ import { Notification } from './notification.entity';
       Reminder,
       ReminderLog,
       EmergencyContact,
+      UserSetting,
     ]),
   ],
   controllers: [DevicesController, NotificationsController],
-  providers: [PushService, MissedScanner],
+  providers: [PushService, MissedScanner, ReminderPushScanner],
   exports: [PushService],
 })
 export class NotificationsModule {}

@@ -1,9 +1,11 @@
 import { registerSW } from 'virtual:pwa-register';
 import { http } from '../services/http';
+import { urlBase64ToUint8Array } from './push-utils';
 
 /**
  * Web Push 订阅管理（FR-802：页面关闭时提醒兜底）。
  * 流程：注册 SW → 请求通知权限 → PushManager.subscribe(VAPID) → POST /devices
+ * 推送展示由自定义 SW（src/sw.ts 的 push/notificationclick 事件）负责。
  */
 
 let swReady: Promise<ServiceWorkerRegistration> | null = null;
@@ -48,7 +50,8 @@ export async function subscribePush(): Promise<PushResult> {
     if (!subscription) {
       subscription = await sw.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: data.publicKey,
+        // 规范要求 BufferSource：base64url 字符串需转换为 Uint8Array（Safari/旧 Chromium 兼容）
+        applicationServerKey: urlBase64ToUint8Array(data.publicKey),
       });
     }
     const sub = subscription.toJSON() as {

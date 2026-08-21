@@ -2,17 +2,21 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
-import { LessThan, Repository } from 'typeorm';
+import { In, LessThan, Repository } from 'typeorm';
 import { Interval } from '@nestjs/schedule';
 import { ReminderLog, ReminderLogStatus } from '../reminders/reminder-log.entity';
 import { Reminder } from '../reminders/reminder.entity';
 import { EmergencyContact } from '../contacts/emergency-contact.entity';
+import { UserSetting } from '../users/user-setting.entity';
 import { Notification, NotificationType } from './notification.entity';
 import { NotificationLog, NotificationChannel, NotificationStatus } from './notification-log.entity';
+import { PushService } from './push.service';
+
+const DEFAULT_MISSED_THRESHOLD_MINUTES = 30;
 
 /**
- * 漏服扫描（FR-307）：每分钟扫描超时未响应的提醒 → 置 missed → 通知本人 + 亲友。
- * 服务端权威判定（页面关闭也生效）。
+ * 漏服扫描（FR-307）：每分钟扫描超时未响应的提醒 → 置 missed → 通知本人（含 Push）+ 亲友。
+ * 服务端权威判定（页面关闭也生效）；阈值取用户级 UserSetting.missedThresholdMinutes（默认 30）。
  */
 @Injectable()
 export class MissedScanner {
@@ -29,6 +33,9 @@ export class MissedScanner {
     private readonly notifLogRepo: Repository<NotificationLog>,
     @InjectRepository(EmergencyContact)
     private readonly contactRepo: Repository<EmergencyContact>,
+    @InjectRepository(UserSetting)
+    private readonly settingRepo: Repository<UserSetting>,
+    private readonly push: PushService,
     private readonly config: ConfigService,
   ) {}
 
@@ -44,6 +51,13 @@ export class MissedScanner {
         },
       });
 
+      // 用户级漏服阈值（批量加载一次，避免 N+1）
+      const userIds = [...new Set(overdue.map((r) => r.userId))];
+      const settings = await this.settingRepo.find({ where: { userId: In(userIds) } });
+      const thresholdByUser = new Map(
+        settings.map((s) => [s.userId, s.missedThresholdMinutes ?? DEFAULT_MISSED_THRESHOLD_MINUTES]),
+      );
+
       for (const reminder of overdue) {
         const next = reminder.nextTriggerAt!;
         const responded = await this.logRepo.findOne({
@@ -51,8 +65,10 @@ export class MissedScanner {
         });
         if (responded) continue; // 已有响应（完成/延迟/跳过），不判定
 
-        // 阈值检查（默认 30 分钟，超过才判定漏服）
-        if (now.getTime() - next.getTime() < 30 * 60_000) continue;
+        // 阈值检查（用户级 missedThresholdMinutes，默认 30 分钟）
+        const thresholdMs =
+          (thresholdByUser.get(reminder.userId) ?? DEFAULT_MISSED_THRESHOLD_MINUTES) * 60_000;
+        if (now.getTime() - next.getTime() < thresholdMs) continue;
 
         // 置 missed + 写日志（幂等：同 reminder+scheduledTime）
         const existing = await this.logRepo.findOne({
@@ -78,7 +94,7 @@ export class MissedScanner {
           }),
         );
 
-        // 通知本人
+        // 通知本人（站内）
         await this.notifRepo.save(
           this.notifRepo.create({
             id: randomUUID(),
@@ -89,6 +105,13 @@ export class MissedScanner {
             linkUrl: '/today',
           }),
         );
+
+        // 本人 Push（通道 B；页面关闭也能收到）
+        await this.push.sendToUser(reminder.userId, {
+          title: '提醒已错过',
+          body: `「${reminder.title}」已超时未完成`,
+          url: '/today',
+        });
 
         // 亲友通知（仅通知开启 receiveMissed 的）
         const contacts = await this.contactRepo.find({

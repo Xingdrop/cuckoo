@@ -13,6 +13,13 @@ export default defineConfig({
       // 开发环境也注册 Service Worker（否则 Web Push 订阅在 dev 下不可用）
       devOptions: { enabled: true },
       includeAssets: ['icons/*.svg'],
+      // 自定义 SW（src/sw.ts）：处理 push / notificationclick 事件（页面关闭时提醒兜底，FR-210）
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,ico}'],
+      },
       manifest: {
         name: '布谷 Cuckoo',
         short_name: '布谷',
@@ -24,16 +31,6 @@ export default defineConfig({
         icons: [
           { src: '/icons/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' },
           { src: '/icons/icon-512.svg', sizes: '512x512', type: 'image/svg+xml' },
-        ],
-      },
-      workbox: {
-        // 运行时缓存 API 读请求（GET），写请求走网络
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
-            handler: 'NetworkFirst',
-            options: { cacheName: 'cuckoo-api', networkTimeoutSeconds: 5 },
-          },
         ],
       },
     }),

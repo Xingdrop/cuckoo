@@ -3,9 +3,11 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import configuration from './config/configuration';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { CuckooThrottlerGuard } from './common/guards/cuckoo-throttler.guard';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -16,6 +18,7 @@ import { ExercisesModule } from './modules/exercises/exercises.module';
 import { FilesModule } from './modules/files/files.module';
 import { SocialModule } from './modules/social/social.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { AuditModule } from './modules/audit/audit.module';
 import { User } from './modules/users/user.entity';
 import { UserSetting } from './modules/users/user-setting.entity';
 import { Reminder } from './modules/reminders/reminder.entity';
@@ -32,6 +35,7 @@ import { Device } from './modules/notifications/device.entity';
 import { Exercise } from './modules/exercises/exercise.entity';
 import { SensitiveWord } from './modules/social/sensitive-word.entity';
 import { Group, GroupMember, GroupPost } from './modules/social/group.entity';
+import { AuditLog } from './modules/audit/audit-log.entity';
 import { SeedModule } from './seed/seed.module';
 
 /**
@@ -46,6 +50,10 @@ import { SeedModule } from './seed/seed.module';
       envFilePath: ['.env'],
     }),
     ScheduleModule.forRoot(),
+    // 全局限流（文档 §6.2/§7.3：普通接口 100 次/分/用户；登录/注册在 controller 层 @Throttle 收紧为 5 次/分/IP）
+    ThrottlerModule.forRoot({
+      throttlers: [{ name: 'default', ttl: 60_000, limit: 100 }],
+    }),
     JwtModule.registerAsync({
       global: true,
       inject: [ConfigService],
@@ -78,9 +86,14 @@ import { SeedModule } from './seed/seed.module';
           Group,
           GroupMember,
           GroupPost,
+          AuditLog,
         ],
         // M0-M1 阶段用 synchronize 快速建表；生产切换 PostgreSQL 后改用 migration
         synchronize: config.get<string>('env') !== 'production',
+        // DB_WAL=true 时启用 SQLite WAL 模式（配置此前为死代码，2026-08 修复接入）
+        ...(config.get<boolean>('db.wal')
+          ? { prepareDatabase: (db: { pragma: (s: string) => unknown }) => void db.pragma('journal_mode = WAL') }
+          : {}),
       }),
     }),
     HealthModule,
@@ -94,10 +107,13 @@ import { SeedModule } from './seed/seed.module';
     FilesModule,
     SocialModule,
     NotificationsModule,
+    AuditModule,
   ],
   providers: [
     // 全局 JWT 鉴权：所有接口默认需要登录，@Public() 例外
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // 全局限流（必须在 JwtAuthGuard 之后注册，以便按 userId 限流）
+    { provide: APP_GUARD, useClass: CuckooThrottlerGuard },
   ],
 })
 export class AppModule {}

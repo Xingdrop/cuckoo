@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditModule } from '../audit/audit.module';
 import { Medicine } from '../medicines/medicine.entity';
 import { User } from '../users/user.entity';
 import { UserSetting } from '../users/user-setting.entity';
@@ -9,7 +10,7 @@ import { RemindersController } from './reminders.controller';
 import { RemindersService } from './reminders.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Reminder, ReminderLog, User, UserSetting, Medicine])],
+  imports: [TypeOrmModule.forFeature([Reminder, ReminderLog, User, UserSetting, Medicine]), AuditModule],
   controllers: [RemindersController],
   providers: [RemindersService],
   exports: [RemindersService],

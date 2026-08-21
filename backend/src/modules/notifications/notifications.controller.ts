@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Patch, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Repository } from 'typeorm';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Notification } from './notification.entity';
@@ -21,7 +21,7 @@ class PageQueryDto {
 
 class ReadDto {
   @IsOptional()
-  @IsInt()
+  @IsString()
   id?: string;
 }
 

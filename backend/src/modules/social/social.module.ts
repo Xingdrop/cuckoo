@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditModule } from '../audit/audit.module';
 import { Reminder } from '../reminders/reminder.entity';
 import { Group, GroupMember, GroupPost } from './group.entity';
 import { Interaction } from './interaction.entity';
@@ -23,6 +24,7 @@ import { SocialService } from './social.service';
       GroupMember,
       GroupPost,
     ]),
+    AuditModule,
   ],
   controllers: [SocialController],
   providers: [SocialService],

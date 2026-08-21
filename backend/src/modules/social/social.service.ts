@@ -9,11 +9,17 @@ import { randomUUID } from 'node:crypto';
 import { DataSource, In, Repository } from 'typeorm';
 import { Reminder } from '../reminders/reminder.entity';
 import { computeNextTrigger } from '../../common/reminder-schedule';
+import { filterSensitiveWords } from '../../common/sensitive-words';
+import { AuditService } from '../audit/audit.service';
 import { Interaction, InteractionType } from './interaction.entity';
 import { PlanJoinRecord } from './plan-join-record.entity';
 import { PlanTemplate, PlanTemplateStatus } from './plan-template.entity';
 import { Post, PostStatus, PostType } from './post.entity';
+import { SensitiveWord } from './sensitive-word.entity';
 import { Group, GroupMember, GroupPost } from './group.entity';
+
+/** 帖子正文长度上限（与前端输入框一致） */
+const POST_CONTENT_MAX = 2000;
 
 /**
  * 社交模块（FR-601~609）
@@ -38,8 +44,23 @@ export class SocialService {
     private readonly memberRepo: Repository<GroupMember>,
     @InjectRepository(GroupPost)
     private readonly groupPostRepo: Repository<GroupPost>,
+    @InjectRepository(SensitiveWord)
+    private readonly sensitiveWordRepo: Repository<SensitiveWord>,
     private readonly dataSource: DataSource,
+    private readonly audit: AuditService,
   ) {}
+
+  /** 敏感词缓存（词库小且运营低频更新；进程生命周期内缓存） */
+  private sensitiveWordsCache: string[] | null = null;
+
+  /** 加载敏感词并过滤文本（FR-607：命中词替换为 **） */
+  private async filterContent(text: string): Promise<string> {
+    if (!this.sensitiveWordsCache) {
+      const words = await this.sensitiveWordRepo.find();
+      this.sensitiveWordsCache = words.map((w) => w.word);
+    }
+    return filterSensitiveWords(text, this.sensitiveWordsCache);
+  }
 
   // ============ 帖子 ============
 
@@ -96,11 +117,18 @@ export class SocialService {
       planSnapshot?: Record<string, unknown> | null;
     },
   ) {
+    if (!dto.content?.trim() || dto.content.length > POST_CONTENT_MAX) {
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message: `帖子内容 1~${POST_CONTENT_MAX} 字`,
+      });
+    }
+    const content = await this.filterContent(dto.content.trim());
     const post = this.postRepo.create({
       id: randomUUID(),
       userId,
       type: dto.type ?? PostType.USER_PLAN,
-      content: dto.content,
+      content,
       mediaUrls: dto.mediaUrls ?? [],
       planSnapshot: dto.planSnapshot ?? null,
     });
@@ -114,6 +142,7 @@ export class SocialService {
       throw new BadRequestException({ code: 'FORBIDDEN', message: '只能删除自己的帖子' });
     }
     await this.postRepo.softDelete(postId);
+    void this.audit.record('post.delete', userId, { targetType: 'post', targetId: postId });
     return { success: true };
   }
 
@@ -158,13 +187,14 @@ export class SocialService {
     if (!content.trim() || content.length > 500) {
       throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '评论 1~500 字' });
     }
+    const filtered = await this.filterContent(content.trim());
     const comment = await this.interactionRepo.save(
       this.interactionRepo.create({
         id: randomUUID(),
         postId,
         userId,
         type: InteractionType.COMMENT,
-        content: content.trim(),
+        content: filtered,
       }),
     );
     await this.postRepo.increment({ id: postId }, 'commentsCount', 1);

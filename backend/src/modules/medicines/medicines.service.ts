@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
 import { DataSource, Repository } from 'typeorm';
+import { AuditService } from '../audit/audit.service';
 import { Notification, NotificationType } from '../notifications/notification.entity';
 import { ReminderLog, ReminderLogStatus } from '../reminders/reminder-log.entity';
 import { CreateMedicineDto } from './dto/create-medicine.dto';
@@ -27,6 +28,7 @@ export class MedicinesService {
     @InjectRepository(Notification)
     private readonly notifRepo: Repository<Notification>,
     private readonly dataSource: DataSource,
+    private readonly audit: AuditService,
   ) {}
 
   async create(userId: string, dto: CreateMedicineDto) {
@@ -71,6 +73,7 @@ export class MedicinesService {
   async remove(userId: string, id: string) {
     await this.findOne(userId, id);
     await this.medicineRepo.softDelete({ id, userId });
+    void this.audit.record('medicine.delete', userId, { targetType: 'medicine', targetId: id });
     return { success: true };
   }
 

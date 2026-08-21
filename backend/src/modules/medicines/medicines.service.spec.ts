@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { AuditService } from '../audit/audit.service';
 import { EmergencyContact } from '../contacts/emergency-contact.entity';
 import { Device } from '../notifications/device.entity';
 import { Notification, NotificationType } from '../notifications/notification.entity';
@@ -61,6 +62,7 @@ describe('MedicinesService（UT-STK）', () => {
         { provide: getRepositoryToken(ReminderLog), useValue: dataSource.getRepository(ReminderLog) },
         { provide: getRepositoryToken(Notification), useValue: dataSource.getRepository(Notification) },
         { provide: DataSource, useValue: dataSource },
+        { provide: AuditService, useValue: { record: jest.fn() } },
       ],
     }).compile();
     service = module.get(MedicinesService);

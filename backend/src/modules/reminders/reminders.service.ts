@@ -14,6 +14,7 @@ import {
   toLocal,
 } from '../../common/reminder-schedule';
 import { Medicine } from '../medicines/medicine.entity';
+import { AuditService } from '../audit/audit.service';
 import { Notification, NotificationType } from '../notifications/notification.entity';
 import { User } from '../users/user.entity';
 import { UserSetting } from '../users/user-setting.entity';
@@ -54,6 +55,7 @@ export class RemindersService {
     @InjectRepository(UserSetting)
     private readonly settingRepo: Repository<UserSetting>,
     private readonly dataSource: DataSource,
+    private readonly audit: AuditService,
   ) {}
 
   private async getUserTimezone(userId: string): Promise<string> {
@@ -309,6 +311,7 @@ export class RemindersService {
   async remove(userId: string, id: string) {
     const reminder = await this.findOne(userId, id);
     await this.reminderRepo.softDelete(reminder.id);
+    void this.audit.record('reminder.delete', userId, { targetType: 'reminder', targetId: id });
     return { success: true };
   }
 

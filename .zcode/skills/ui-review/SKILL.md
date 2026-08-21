@@ -1,45 +1,56 @@
 ---
 name: ui-review
-description: 使用火山方舟豆包视觉模型（ARK API）对布谷 APP 界面截图进行 AI 视觉评审。适用于：前端页面开发完成后截图评审 UI 美观度/一致性/可用性、页面改版前后对比、批量评审多页面、向评审模型提供页面上下文说明。使用前需配置 ARK_API_KEY。
+description: 使用内置多模态视觉能力对布谷 APP 界面截图进行 AI 视觉评审（无需任何 API Key 或外部脚本）。适用于：前端页面开发完成后截图评审 UI 美观度/一致性/可用性、页面改版前后对比、批量评审多页面、向评审模型提供页面上下文说明。
 ---
 
-# UI 视觉评审（火山方舟豆包）
+# UI 视觉评审（内置多模态视觉）
 
 对布谷 APP 前端页面截图进行 AI 视觉评审，输出结构化改进建议，作为前端开发的质量门禁之一。
 
+> 本 skill 使用运行中的多模态模型直接读取截图图片（`read_image` 能力），**不依赖火山方舟豆包脚本与 ARK_API_KEY**。
+> 旧脚本 `tools/ui_review.py`（ARK 视觉 API）仅作历史遗留，不再作为主流程，文案中出现的 ARK 相关配置视为过时内容。
+
 ## 前置条件
 
-1. 环境变量 `ARK_API_KEY` 必须可用（读取自 `backend/.env` 或系统环境变量）。
-2. 前端页面需先通过 Playwright/浏览器截取 PNG 截图（建议分辨率 390×844，即 iPhone 14 视口，方便评审移动端布局）。
+1. 前端页面需先通过浏览器/Playwright 截取 PNG 截图（建议分辨率 390×844，即 iPhone 14 视口，方便评审移动端布局）。
+2. 无需任何环境变量；无需调用 `tools/ui_review.py`。
 
 ## 评审流程
 
 ### 1. 准备截图
 
 - 开发中页面：用 `webapp-testing` skill 或 Playwright 截图，保存到 `tools/screenshots/` 目录。
-- 截图命名建议：`页面名-版本号.png`，如 `reminder-create-v1.png`。
+- 截图命名建议：`页面名-版本号.png`，如 `reminder-create-v2.png`。
 
 ### 2. 单张评审
 
-```bash
-python tools/ui_review.py tools/screenshots/reminder-create-v1.png "创建提醒页面：分类选择、时间设置、重复规则、标题输入"
+用 read_image 读取截图并附带页面上下文文字进行评审，例如：
+
+```
+read_image: tools/screenshots/reminder-create-v2.png
+评审提示（附加）：「创建提醒页面：分类选择、时间设置、重复规则、标题输入。请按视觉评审规范输出分级问题清单与 1-10 评分，重点关注移动端 390×844 布局、对比度、触摸目标、信息层级与设计一致性。」
 ```
 
 ### 3. 批量评审（改版对比/全页面体检）
 
-```bash
-python tools/ui_review.py --dir tools/screenshots -o tools/screenshots/review-report.md
-```
+逐张读取 `tools/screenshots/` 下的截图（每张附带页面说明），汇总为统一报告：
 
-### 4. 模型选择
+- 输出 `tools/screenshots/review-report.md`，含每页评分与【严重/一般/建议】问题清单
+- 报告末尾给出：全部页面平均分、需返工的页面清单
 
-- 默认 `doubao-seed-2-0-pro-260215`（评审质量高）
-- 批量/快速评审可用 `ARK_MODEL=doubao-seed-2-0-lite-260215` 提速
-- 排查模型是否开通：`python tools/ui_review.py --list-models`
+### 4. 评审维度（每张截图必须覆盖）
+
+| 维度 | 检查点 |
+|---|---|
+| 布局与层级 | 390×844 视口下是否溢出/挤压；信息层级是否清晰；卡片间距/圆角/阴影是否统一 |
+| 设计一致性 | 是否使用 tokens.css 设计变量（主色 #3E8E7E 系）；色彩、字体、图标风格是否与全站一致 |
+| 可读性 | 字号/行高；文字与背景对比度（WCAG AA：正文 ≥ 4.5:1）；关键文字不被截断 |
+| 交互与无障碍 | 触摸目标 ≥ 44px；可点击元素有足够空间；表单校验提示可见；状态可见性 |
+| 内容完整性 | 空态/加载态/错误态是否呈现；数字/状态文案正确；emoji/图标渲染正常 |
 
 ## 评审报告解读与落地
 
-模型输出按【严重/一般/建议】分级问题清单 + 1-10 评分。处理规则：
+输出按【严重/一般/建议】分级问题清单 + 1-10 评分。处理规则：
 
 | 评分 | 处理 |
 |------|------|
@@ -53,4 +64,4 @@ python tools/ui_review.py --dir tools/screenshots -o tools/screenshots/review-re
 
 - 截图必须是真实渲染结果（浏览器截图），不要用手绘稿或代码截图。
 - 每次评审前确认页面状态一致（同一路由、同一数据），否则评审对比无意义。
-- ARK 为付费 API，批量评审前估算图片数量；单图约消耗 1-2K token。
+- 若需同时评审多张，逐张读取，不要凭记忆虚构未读取页面的内容。

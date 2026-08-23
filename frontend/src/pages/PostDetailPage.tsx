@@ -1,6 +1,7 @@
 import { ChevronLeft, Heart, MessageCircle, Pencil, Send, Star, Trash2, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
 import { socialApi, Post } from '../services/api/api.social';
@@ -27,6 +28,7 @@ export function PostDetailPage() {
   const [joining, setJoining] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -56,19 +58,22 @@ export function PostDetailPage() {
     }
   };
 
-  /** 加入/退出计划：带 loading 防重复点击（修复"点击没反应/卡顿"） */
+  /** 加入/退出计划：乐观更新 + loading（#1：修复"无法退出/点击无反应"） */
   const toggleJoin = async () => {
     if (!post || joining) return;
     setJoining(true);
     setError(null);
+    const nextJoined = !post.myJoined;
+    setPost({ ...post, myJoined: nextJoined, joinedCount: post.joinedCount + (nextJoined ? 1 : -1) });
     try {
-      if (post.myJoined) {
-        await socialApi.leave(post.id);
-      } else {
+      if (nextJoined) {
         await socialApi.join(post.id);
+      } else {
+        await socialApi.leave(post.id);
       }
       void load();
     } catch (e) {
+      setPost({ ...post, myJoined: !nextJoined, joinedCount: post.joinedCount });
       setError(errorMessage(e));
     } finally {
       setJoining(false);
@@ -211,7 +216,7 @@ export function PostDetailPage() {
                 >
                   <Pencil size={13} /> 编辑
                 </button>
-                <button onClick={() => void removePost()} className="flex items-center gap-1 text-danger-500">
+                <button onClick={() => setConfirmDelete(true)} className="flex items-center gap-1 text-danger-500">
                   <Trash2 size={13} /> 删除
                 </button>
               </div>
@@ -265,6 +270,17 @@ export function PostDetailPage() {
           ))}
         </ul>
       </main>
+
+      {/* 删除确认（#7） */}
+      <ConfirmModal
+        open={confirmDelete}
+        title="删除帖子"
+        message="确定删除这条帖子吗？删除后不可恢复。"
+        confirmText="确认删除"
+        cancelText="取消"
+        onConfirm={() => void removePost()}
+        onCancel={() => setConfirmDelete(false)}
+      />
 
       {/* 评论输入栏 */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-ink-100 bg-surface px-4 py-3">

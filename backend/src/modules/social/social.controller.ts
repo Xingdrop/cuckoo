@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
@@ -88,6 +89,12 @@ export class SocialController {
   @ApiOperation({ summary: '删除帖子' })
   removePost(@CurrentUser('sub') userId: string, @Param('id') id: string) {
     return this.socialService.removePost(userId, id);
+  }
+
+  @Patch('posts/:id')
+  @ApiOperation({ summary: '编辑帖子内容（仅作者；敏感词过滤；更新 updatedAt）' })
+  updatePost(@CurrentUser('sub') userId: string, @Param('id') id: string, @Body() dto: CreatePostDto) {
+    return this.socialService.updatePost(userId, id, dto.content);
   }
 
   // ---- 互动 ----

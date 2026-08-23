@@ -18,6 +18,8 @@ export interface Post {
   commentsCount: number;
   joinedCount: number;
   createdAt: string;
+  /** 2026-08：编辑后 updatedAt > createdAt（显示"已编辑"） */
+  updatedAt?: string;
   author: PostAuthor;
   myLiked: boolean;
   myFavorited: boolean;
@@ -53,6 +55,8 @@ export const socialApi = {
     type?: string;
     planSnapshot?: Record<string, unknown> | null;
   }) => http.post<Post>('/posts', body).then((r) => r.data),
+  updatePost: (id: string, content: string) =>
+    http.patch<Post>(`/posts/${id}`, { content }).then((r) => r.data),
   removePost: (id: string) => http.delete(`/posts/${id}`).then((r) => r.data),
 
   // 互动

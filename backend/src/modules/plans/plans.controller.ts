@@ -60,6 +60,12 @@ export class PlansController {
     return this.plansService.findOne(userId, id);
   }
 
+  @Get(':id/snapshot')
+  @ApiOperation({ summary: '计划快照（供发布帖子引用：planSnapshot 结构）' })
+  snapshot(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    return this.plansService.buildSnapshot(userId, id);
+  }
+
   @Patch(':id')
   @ApiOperation({ summary: '更新计划（名称/描述/启停）' })
   update(@CurrentUser('sub') userId: string, @Param('id') id: string, @Body() dto: UpdatePlanDto) {

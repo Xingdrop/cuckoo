@@ -91,6 +91,8 @@ export interface Reminder {
   planId?: string | null;
   /** 所属计划名（2026-08：来自"我的计划"） */
   planName?: string | null;
+  /** 计划提醒被用户修改过（2026-08：显示"已修改"徽标） */
+  modifiedFromPlan?: boolean;
   content: ReminderContent;
   method: ReminderMethod;
   delaySettings: DelaySettings;

@@ -1,7 +1,8 @@
-import { ChevronLeft, Heart, MessageCircle, Send, Star, Users } from 'lucide-react';
+import { ChevronLeft, Heart, MessageCircle, Pencil, Send, Star, Trash2, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { errorMessage } from '../services/http';
+import { useAuthStore } from '../stores/authStore';
 import { socialApi, Post } from '../services/api/api.social';
 
 interface Comment {
@@ -17,12 +18,15 @@ interface Comment {
 export function PostDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const me = useAuthStore((s) => s.user);
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState('');
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -71,6 +75,27 @@ export function PostDetailPage() {
     }
   };
 
+  const saveEdit = async () => {
+    if (!post || !editText.trim()) return;
+    try {
+      await socialApi.updatePost(post.id, editText.trim());
+      setEditing(false);
+      void load();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  };
+
+  const removePost = async () => {
+    if (!post) return;
+    try {
+      await socialApi.removePost(post.id);
+      navigate(-1);
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  };
+
   if (loading) {
     return <div className="flex min-h-dvh items-center justify-center text-sm text-ink-500">加载中…</div>;
   }
@@ -108,8 +133,57 @@ export function PostDetailPage() {
               >
                 @{post.author.username}
               </button>
+              <span className="ml-auto text-[10px] text-ink-300">
+                {new Date(post.createdAt).toLocaleString('zh-CN', { hour12: false }).slice(0, 16)}
+                {post.updatedAt &&
+                new Date(post.updatedAt).getTime() - new Date(post.createdAt).getTime() > 60_000
+                  ? ' · 已编辑'
+                  : ''}
+              </span>
             </div>
-            <p className="mt-3 text-sm leading-relaxed">{post.content}</p>
+
+            {editing ? (
+              <div className="mt-3">
+                <textarea
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  rows={4}
+                  maxLength={2000}
+                  className="w-full resize-none rounded-btn border border-ink-100 p-3 text-sm outline-none focus:border-primary-400"
+                />
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={() => setEditing(false)}
+                    className="flex-1 rounded-btn bg-ink-100 py-2.5 text-xs font-medium text-ink-700"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={() => void saveEdit()}
+                    disabled={!editText.trim()}
+                    className="flex-1 rounded-btn bg-primary-500 py-2.5 text-xs font-medium text-white disabled:opacity-50"
+                  >
+                    保存修改
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-3 text-sm leading-relaxed">{post.content}</p>
+            )}
+
+            {/* 帖子图片（#5：容器 overflow-hidden 防止底部被裁切遮挡） */}
+            {post.mediaUrls.length > 0 && (
+              <div
+                className={`mt-3 overflow-hidden rounded-btn ${
+                  post.mediaUrls.length === 1 ? '' : 'grid grid-cols-2 gap-1'
+                }`}
+              >
+                {post.mediaUrls.slice(0, 4).map((u) => (
+                  <img key={u} src={u} alt="帖子图片" className="h-40 w-full object-cover" loading="lazy" />
+                ))}
+              </div>
+            )}
+
             {post.planSnapshot && (
               <div className="mt-3 rounded-btn bg-primary-50/60 px-3.5 py-2.5">
                 <p className="text-xs font-medium text-primary-700">📋 包含可加入的提醒计划</p>
@@ -124,6 +198,25 @@ export function PostDetailPage() {
                 </button>
               </div>
             )}
+
+            {/* 自己帖子：编辑/删除（#10） */}
+            {post.userId === me?.id && !editing && (
+              <div className="mt-2 flex items-center justify-end gap-3 text-xs">
+                <button
+                  onClick={() => {
+                    setEditText(post.content);
+                    setEditing(true);
+                  }}
+                  className="flex items-center gap-1 text-ink-500"
+                >
+                  <Pencil size={13} /> 编辑
+                </button>
+                <button onClick={() => void removePost()} className="flex items-center gap-1 text-danger-500">
+                  <Trash2 size={13} /> 删除
+                </button>
+              </div>
+            )}
+
             <div className="mt-3 flex items-center gap-4 border-t border-ink-100 pt-3 text-xs text-ink-500">
               <button
                 onClick={async () => {

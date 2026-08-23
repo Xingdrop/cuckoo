@@ -151,6 +151,10 @@ export class Reminder {
   @Column('text', { nullable: true })
   planId: string | null;
 
+  /** 计划提醒被用户修改过（2026-08：列表显示"已修改"徽标） */
+  @Column({ type: 'boolean', default: false })
+  modifiedFromPlan: boolean;
+
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 

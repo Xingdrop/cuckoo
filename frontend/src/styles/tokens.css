@@ -67,3 +67,31 @@ a.btn {
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* ============ 达成/浮动动画（2026-08：#2 喝水达成动画） ============ */
+@keyframes pop-in {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes float-up {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+}
+.animate-pop-in {
+  animation: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.water-add-float {
+  animation: float-up 0.9s ease-out forwards;
+}

@@ -1,5 +1,5 @@
-import { X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Play, X } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
 
 /** 判断 URL 是否为视频（#8：帖子支持视频播放） */
 export function isVideoUrl(u: string): boolean {
@@ -13,6 +13,57 @@ interface MediaItem {
 
 function toItems(urls: string[]): MediaItem[] {
   return urls.map((u) => ({ url: u, type: isVideoUrl(u) ? ('video' as const) : ('image' as const) }));
+}
+
+function fmtDuration(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** 视频卡：封面（首帧）+ 时长角标 + 播放/暂停浮层 */
+function VideoTile({ url }: { url: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [duration, setDuration] = useState<string>('');
+
+  return (
+    <div className="relative aspect-video w-full overflow-hidden bg-black">
+      <video
+        ref={ref}
+        src={url}
+        controls={playing}
+        playsInline
+        preload="metadata"
+        className="h-full w-full object-cover"
+        onLoadedMetadata={(e) => {
+          const d = e.currentTarget.duration;
+          if (Number.isFinite(d)) setDuration(fmtDuration(d));
+        }}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+      />
+      {!playing && (
+        <button
+          className="absolute inset-0 flex items-center justify-center bg-black/20"
+          onClick={() => {
+            void ref.current?.play();
+          }}
+          aria-label="播放视频"
+        >
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-primary-600 shadow">
+            <Play size={22} fill="currentColor" />
+          </span>
+        </button>
+      )}
+      {duration && (
+        <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+          {duration}
+        </span>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -34,14 +85,7 @@ export function MediaGrid({ urls, className = '' }: { urls: string[]; className?
       >
         {items.map((m, i) =>
           m.type === 'video' ? (
-            <video
-              key={m.url}
-              src={m.url}
-              controls
-              playsInline
-              preload="metadata"
-              className="aspect-video w-full object-cover bg-black"
-            />
+            <VideoTile key={m.url} url={m.url} />
           ) : (
             <button key={m.url} className="block w-full" onClick={() => setPreview(i)} aria-label="查看大图">
               <img src={m.url} alt="帖子媒体" loading="lazy" className="aspect-video w-full object-cover" />

@@ -1,4 +1,4 @@
-import { ChevronRight, Pencil, Plus, Power, Settings2, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pencil, Plus, Power, Settings2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -64,6 +64,7 @@ export function ReminderListPage() {
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Reminder | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [remindersOpen, setRemindersOpen] = useState(() => localStorage.getItem('cuckoo_reminders_collapsed') !== '1');
   const [filters, setFilters] = useState<Record<ReminderCategory, boolean>>(() => {
     try {
       const raw = localStorage.getItem('cuckoo_reminder_filter');
@@ -207,10 +208,20 @@ export function ReminderListPage() {
           </div>
         ) : (
           <>
-            <p className="mb-2 flex items-center gap-1.5 px-1 text-xs font-medium text-ink-500">
+            {/* #2：全部提醒可折叠 */}
+            <button
+              onClick={() => {
+                setRemindersOpen((v) => !v);
+                localStorage.setItem('cuckoo_reminders_collapsed', remindersOpen ? '1' : '0');
+              }}
+              className="mb-2 flex w-full items-center gap-1.5 px-1 text-left text-xs font-medium text-ink-500"
+              aria-expanded={remindersOpen}
+            >
+              <ChevronDown size={13} className={`transition-transform ${remindersOpen ? '' : '-rotate-90'}`} />
               📌 全部提醒 <span className="text-ink-300">（{items.length}）</span>
-            </p>
-            <ul className="space-y-3">
+            </button>
+            {remindersOpen && (
+              <ul className="space-y-3">
               {visibleItems.map((r) => {
                 const meta = CATEGORY_META[r.category];
                 const icon = r.categoryIcon ?? meta.emoji;
@@ -241,6 +252,12 @@ export function ReminderListPage() {
                         )}
                         {r.content.text && (
                           <p className="mt-0.5 truncate text-xs text-ink-500/70">{r.content.text}</p>
+                        )}
+                        {((r.content.imageUrls?.length ?? 0) > 0 || r.content.videoUrl) && (
+                          <p className="mt-0.5 text-[10px] text-ink-400">
+                            {r.content.videoUrl ? '🎬 视频' : ''}
+                            {(r.content.imageUrls?.length ?? 0) > 0 ? `🖼 ${r.content.imageUrls!.length} 图` : ''}
+                          </p>
                         )}
                       </div>
                       <div className="flex flex-col items-end gap-1.5">
@@ -287,7 +304,8 @@ export function ReminderListPage() {
                   </li>
                 );
               })}
-            </ul>
+              </ul>
+            )}
           </>
         )}
 

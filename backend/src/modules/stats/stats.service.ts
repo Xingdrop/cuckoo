@@ -30,15 +30,18 @@ export class StatsService {
         if (t.status === 'completed' || t.status === 'challenge_completed') done += 1;
       }
     }
-    // 手动喝水（+200ml 等）也计入达成（#3）
+    // 喝水计入达成（2026-08 修正口径：完成当日目标算 1 次，不按次数累加）
     const tz = await this.getTz(userId);
     const [y, m, d] = dateStr.split('-').map(Number);
     const dayStart = localToUtc(tz, y, m, d, 0, 0);
     const nextDay = localToUtc(tz, y, m, d + 1, 0, 0);
-    const manualWater = await this.logRepo.count({
-      where: { userId, category: 'water', status: ReminderLogStatus.MANUAL, scheduledTime: Between(dayStart, nextDay) },
+    const waterLogs = await this.logRepo.find({
+      where: { userId, category: 'water', scheduledTime: Between(dayStart, nextDay) },
     });
-    done += manualWater;
+    const waterMl = waterLogs.reduce((sum, l) => sum + l.amount, 0);
+    const setting = await this.settingRepo.findOne({ where: { userId } });
+    const waterGoalMl = setting?.waterGoalMl ?? 2000;
+    if (waterGoalMl > 0 && waterMl >= waterGoalMl) done += 1;
     return { planned, done, rate: planned > 0 ? Math.round((done / planned) * 100) : 0 };
   }
 

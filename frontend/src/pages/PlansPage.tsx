@@ -1,5 +1,5 @@
-import { ChevronDown, ChevronLeft, Pencil, Plus, Send, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { ChevronDown, ChevronLeft, GripVertical, Pencil, Plus, Send, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -29,6 +29,32 @@ export function PlansPage() {
   const [deletePlan, setDeletePlan] = useState<Plan | null>(null);
   const [renamePlan, setRenamePlan] = useState<Plan | null>(null);
   const [renameText, setRenameText] = useState('');
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [order, setOrder] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('cuckoo_plan_order') ?? '[]') as string[];
+    } catch {
+      return [];
+    }
+  });
+
+  /** 拖拽排序（#4c：本地持久化；新计划追加到末尾） */
+  const orderedPlans = useMemo(() => {
+    const map = new Map(plans.map((p) => [p.id, p]));
+    const ids = order.filter((id) => map.has(id));
+    const rest = plans.filter((p) => !ids.includes(p.id));
+    return [...ids.map((id) => map.get(id)!).filter(Boolean), ...rest];
+  }, [plans, order]);
+
+  const move = (from: string, to: string) => {
+    const ids = orderedPlans.map((p) => p.id);
+    const fi = ids.indexOf(from);
+    const ti = ids.indexOf(to);
+    if (fi < 0 || ti < 0) return;
+    ids.splice(ti, 0, ids.splice(fi, 1)[0]);
+    setOrder(ids);
+    localStorage.setItem('cuckoo_plan_order', JSON.stringify(ids));
+  };
 
   const load = useCallback(async () => {
     try {
@@ -127,12 +153,29 @@ export function PlansPage() {
           <EmptyState>还没有计划——新建一个，或在社区一键加入朋友的计划</EmptyState>
         ) : (
           <ul className="space-y-3">
-            {plans.map((p) => {
+            {orderedPlans.map((p) => {
               const planReminders = reminders.filter((r) => r.planId === p.id);
               const isOpen = expanded === p.id;
               return (
-                <li key={p.id} className="rounded-card bg-surface p-4 shadow-sm">
+                <li
+                  key={p.id}
+                  draggable
+                  onDragStart={() => setDragId(p.id)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => {
+                    if (dragId && dragId !== p.id) move(dragId, p.id);
+                    setDragId(null);
+                  }}
+                  onDragEnd={() => setDragId(null)}
+                  className={`rounded-card bg-surface p-4 shadow-sm ${dragId === p.id ? 'opacity-60 ring-2 ring-primary-400' : ''}`}
+                >
                   <div className="flex items-center gap-3">
+                    <span
+                      className="shrink-0 cursor-grab text-ink-300 active:cursor-grabbing"
+                      title="拖动排序"
+                    >
+                      <GripVertical size={16} />
+                    </span>
                     <button
                       onClick={() => setExpanded(isOpen ? null : p.id)}
                       className="min-w-0 flex-1 text-left"

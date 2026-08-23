@@ -180,7 +180,119 @@ export function ReminderListPage() {
       )}
 
       <main className="px-4 pt-4">
-        {/* 快捷功能区（+ 号下方一排长块） */}
+        {/* ============ 分区一：提醒显示 ============ */}
+        {toast && (
+          <div className="mb-3 rounded-btn bg-primary-50 px-4 py-3 text-sm text-primary-700">
+            ✅ 提醒已创建，下次触发：{formatFullTime(toast.nextTriggerAt)}
+          </div>
+        )}
+        {error && (
+          <p className="mb-3 rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
+        )}
+        {loading ? (
+          <div className="py-16 text-center text-sm text-ink-500">加载中…</div>
+        ) : items.length === 0 ? (
+          <div className="rounded-card bg-surface p-10 text-center text-sm text-ink-300 shadow-sm">
+            暂无提醒
+            <button
+              onClick={() => navigate('/reminders/new')}
+              className="mt-3 block w-full rounded-btn bg-primary-500 py-3 text-sm font-medium text-white"
+            >
+              创建第一个提醒
+            </button>
+          </div>
+        ) : visibleItems.length === 0 ? (
+          <div className="rounded-card bg-surface p-10 text-center text-sm text-ink-300 shadow-sm">
+            当前筛选下没有提醒（点右上角 ⚙ 恢复分类显示）
+          </div>
+        ) : (
+          <>
+            <p className="mb-2 flex items-center gap-1.5 px-1 text-xs font-medium text-ink-500">
+              📌 全部提醒 <span className="text-ink-300">（{items.length}）</span>
+            </p>
+            <ul className="space-y-3">
+              {visibleItems.map((r) => {
+                const meta = CATEGORY_META[r.category];
+                const icon = r.categoryIcon ?? meta.emoji;
+                const label = r.category === 'custom' && r.categoryLabel ? r.categoryLabel : meta.label;
+                void label; // 分类名暂用于 title 侧备注（M2 列表筛选增强）
+                return (
+                  <li key={r.id} className="rounded-card bg-surface p-4 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-50 text-lg">
+                        {icon}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className={`truncate text-sm font-medium ${r.isActive ? '' : 'text-ink-300'}`}>
+                          {r.title}
+                        </p>
+                        <p className="mt-0.5 text-xs text-ink-500">
+                          {formatRepeat(r.repeatRule)} · {formatReminderTime(r)}
+                        </p>
+                        {r.planName && (
+                          <p className="mt-0.5 flex items-center gap-1 text-[10px] text-primary-600">
+                            📋 来自计划：{r.planName}
+                            {r.modifiedFromPlan && (
+                              <span className="rounded-full bg-accent-100 px-1.5 py-0.5 text-[9px] text-accent-700">
+                                已修改
+                              </span>
+                            )}
+                          </p>
+                        )}
+                        {r.content.text && (
+                          <p className="mt-0.5 truncate text-xs text-ink-500/70">{r.content.text}</p>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-1.5">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] ${
+                            r.isActive
+                              ? 'bg-primary-50 text-primary-600'
+                              : 'bg-ink-100 text-ink-500'
+                          }`}
+                        >
+                          {r.isActive ? '● 启用中' : '○ 已停用'}
+                        </span>
+                        <span
+                          className={`text-lg font-semibold ${r.isActive ? 'text-primary-600' : 'text-ink-300'}`}
+                        >
+                          {formatReminderTime(r)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-3 gap-2 border-t border-ink-100 pt-3">
+                      <button
+                        onClick={() => navigate(`/reminders/${r.id}/edit`)}
+                        className="flex h-10 items-center justify-center gap-1 rounded-btn bg-primary-50 text-xs font-medium text-primary-600 transition-colors hover:bg-primary-100"
+                      >
+                        <Pencil size={13} /> 编辑
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget(r)}
+                        className="flex h-10 items-center justify-center gap-1 rounded-btn bg-danger-500/10 text-xs font-medium text-danger-500 transition-colors hover:bg-danger-500/20"
+                      >
+                        <Trash2 size={13} /> 删除
+                      </button>
+                      <button
+                        onClick={() => void toggleActive(r)}
+                        className={`flex h-10 items-center justify-center gap-1 rounded-btn text-xs font-medium transition-colors ${
+                          r.isActive
+                            ? 'bg-ink-100/70 text-ink-700 hover:bg-ink-100'
+                            : 'bg-primary-500/10 text-primary-600 hover:bg-primary-500/20'
+                        }`}
+                      >
+                        <Power size={13} /> {r.isActive ? '停用' : '启用'}
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
+
+        {/* ============ 分区二：服务与管理 ============ */}
+        <p className="mb-2 mt-6 px-1 text-xs font-medium text-ink-500">🧰 服务与管理</p>
         <div className="mb-4 grid grid-cols-2 gap-2">
           <button
             onClick={() => navigate('/medicines')}
@@ -246,111 +358,6 @@ export function ReminderListPage() {
             <ChevronRight size={16} className="shrink-0 text-ink-300" />
           </button>
         </section>
-
-        {toast && (
-          <div className="mb-3 rounded-btn bg-primary-50 px-4 py-3 text-sm text-primary-700">
-            ✅ 提醒已创建，下次触发：{formatFullTime(toast.nextTriggerAt)}
-          </div>
-        )}
-        {error && (
-          <p className="mb-3 rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
-        )}
-        {loading ? (
-          <div className="py-16 text-center text-sm text-ink-500">加载中…</div>
-        ) : items.length === 0 ? (
-          <div className="rounded-card bg-surface p-10 text-center text-sm text-ink-300 shadow-sm">
-            暂无提醒
-            <button
-              onClick={() => navigate('/reminders/new')}
-              className="mt-3 block w-full rounded-btn bg-primary-500 py-3 text-sm font-medium text-white"
-            >
-              创建第一个提醒
-            </button>
-          </div>
-        ) : visibleItems.length === 0 ? (
-          <div className="rounded-card bg-surface p-10 text-center text-sm text-ink-300 shadow-sm">
-            当前筛选下没有提醒（点右上角 ⚙ 恢复分类显示）
-          </div>
-        ) : (
-          <ul className="space-y-3">
-            {visibleItems.map((r) => {
-              const meta = CATEGORY_META[r.category];
-              const icon = r.categoryIcon ?? meta.emoji;
-              const label = r.category === 'custom' && r.categoryLabel ? r.categoryLabel : meta.label;
-              void label; // 分类名暂用于 title 侧备注（M2 列表筛选增强）
-              return (
-                <li key={r.id} className="rounded-card bg-surface p-4 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-50 text-lg">
-                      {icon}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className={`truncate text-sm font-medium ${r.isActive ? '' : 'text-ink-300'}`}>
-                        {r.title}
-                      </p>
-                      <p className="mt-0.5 text-xs text-ink-500">
-                        {formatRepeat(r.repeatRule)} · {formatReminderTime(r)}
-                      </p>
-                      {r.planName && (
-                        <p className="mt-0.5 flex items-center gap-1 text-[10px] text-primary-600">
-                          📋 来自计划：{r.planName}
-                          {r.modifiedFromPlan && (
-                            <span className="rounded-full bg-accent-100 px-1.5 py-0.5 text-[9px] text-accent-700">
-                              已修改
-                            </span>
-                          )}
-                        </p>
-                      )}
-                      {r.content.text && (
-                        <p className="mt-0.5 truncate text-xs text-ink-500/70">{r.content.text}</p>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-1.5">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] ${
-                          r.isActive
-                            ? 'bg-primary-50 text-primary-600'
-                            : 'bg-ink-100 text-ink-500'
-                        }`}
-                      >
-                        {r.isActive ? '● 启用中' : '○ 已停用'}
-                      </span>
-                      <span
-                        className={`text-lg font-semibold ${r.isActive ? 'text-primary-600' : 'text-ink-300'}`}
-                      >
-                        {formatReminderTime(r)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 border-t border-ink-100 pt-3">
-                    <button
-                      onClick={() => navigate(`/reminders/${r.id}/edit`)}
-                      className="flex h-10 items-center justify-center gap-1 rounded-btn bg-primary-50 text-xs font-medium text-primary-600 transition-colors hover:bg-primary-100"
-                    >
-                      <Pencil size={13} /> 编辑
-                    </button>
-                    <button
-                      onClick={() => setDeleteTarget(r)}
-                      className="flex h-10 items-center justify-center gap-1 rounded-btn bg-danger-500/10 text-xs font-medium text-danger-500 transition-colors hover:bg-danger-500/20"
-                    >
-                      <Trash2 size={13} /> 删除
-                    </button>
-                    <button
-                      onClick={() => void toggleActive(r)}
-                      className={`flex h-10 items-center justify-center gap-1 rounded-btn text-xs font-medium transition-colors ${
-                        r.isActive
-                          ? 'bg-ink-100/70 text-ink-700 hover:bg-ink-100'
-                          : 'bg-primary-500/10 text-primary-600 hover:bg-primary-500/20'
-                      }`}
-                    >
-                      <Power size={13} /> {r.isActive ? '停用' : '启用'}
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
       </main>
 
       {/* 删除确认弹窗 */}

@@ -19,7 +19,7 @@ export class StatsService {
     private readonly settingRepo: Repository<UserSetting>,
   ) {}
 
-  /** 某天的完成率（planned=应执行数，done=完成数） */
+  /** 某天的完成率（planned=应执行数，done=完成数 + 手动喝水 #3） */
   private async dayRate(userId: string, dateStr: string) {
     const plan = await this.remindersService.dayPlan(userId, dateStr);
     let planned = 0;
@@ -30,6 +30,15 @@ export class StatsService {
         if (t.status === 'completed' || t.status === 'challenge_completed') done += 1;
       }
     }
+    // 手动喝水（+200ml 等）也计入达成（#3）
+    const tz = await this.getTz(userId);
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dayStart = localToUtc(tz, y, m, d, 0, 0);
+    const nextDay = localToUtc(tz, y, m, d + 1, 0, 0);
+    const manualWater = await this.logRepo.count({
+      where: { userId, category: 'water', status: ReminderLogStatus.MANUAL, scheduledTime: Between(dayStart, nextDay) },
+    });
+    done += manualWater;
     return { planned, done, rate: planned > 0 ? Math.round((done / planned) * 100) : 0 };
   }
 

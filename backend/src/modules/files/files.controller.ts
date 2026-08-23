@@ -1,4 +1,10 @@
-import { BadRequestException, Controller, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { extname } from 'node:path';
@@ -6,23 +12,33 @@ import * as fs from 'node:fs';
 import sharp from 'sharp';
 import { hasValidImageSignature } from '../../common/image-signature';
 
+const VIDEO_EXT = ['.mp4', '.webm'];
+
 /**
- * 文件上传：图片压缩 + 缩略图（拍照打卡/头像/帖子媒体）。
- * 安全：扩展名/MIME 白名单（MulterModule）+ 魔数校验 + sharp 重编码（剥离 EXIF），
- * 处理失败时清理残留文件（避免孤儿文件被 /uploads/ 公开访问）。
+ * 文件上传：图片压缩 + 缩略图（拍照打卡/头像/帖子媒体）| 视频直存（2026-08）。
+ * 图片：扩展名/MIME（MulterModule）+ 魔数 + sharp 重编码（去 EXIF），失败清理。
+ * 视频：扩展名/MIME 校验 + 直存（无转码），返回 url（thumbUrl 为空）。
  */
 @ApiTags('文件')
 @Controller('files')
 export class FilesController {
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
-  @ApiOperation({ summary: '上传图片（拍照打卡等）' })
+  @ApiOperation({ summary: '上传图片/视频（帖子媒体等）' })
   async upload(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '缺少文件' });
     }
 
-    // 魔数校验（第三重：防止伪装扩展名的非图片文件）
+    const ext = extname(file.originalname).toLowerCase();
+    const rel = (p: string) => `/uploads${p.split('uploads')[1].replace(/\\/g, '/')}`;
+
+    // ===== 视频：直接返回（无转码；thumbUrl 为空）=====
+    if (VIDEO_EXT.includes(ext)) {
+      return { url: rel(file.path), thumbUrl: null, type: 'video' };
+    }
+
+    // ===== 图片：魔数校验 + sharp 压缩 =====
     let head: Buffer;
     try {
       head = fs.readFileSync(file.path).subarray(0, 16);
@@ -34,8 +50,6 @@ export class FilesController {
       throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '文件内容不是有效的 jpg/png/webp 图片' });
     }
 
-    // sharp 压缩（去 EXIF）并生成缩略图；任何失败都清理已落盘文件
-    const ext = extname(file.path).toLowerCase();
     const compressedPath = file.path.replace(ext, `${ext}.webp`);
     const thumbPath = file.path.replace(ext, `_thumb${ext}.webp`);
     try {
@@ -49,10 +63,8 @@ export class FilesController {
         .resize({ width: 400, withoutEnlargement: true })
         .webp({ quality: 70 })
         .toFile(thumbPath);
-      // 删除原图（压缩版替代）
       fs.unlinkSync(file.path);
     } catch {
-      // 失败清理：原图 + 可能已生成的压缩产物
       for (const p of [file.path, compressedPath, thumbPath]) {
         try {
           if (fs.existsSync(p)) fs.unlinkSync(p);
@@ -63,10 +75,10 @@ export class FilesController {
       throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '图片处理失败' });
     }
 
-    const rel = (p: string) => `/uploads/${p.split('uploads')[1].replace(/\\/g, '/')}`;
     return {
       url: rel(compressedPath),
       thumbUrl: rel(thumbPath),
+      type: 'image',
     };
   }
 }

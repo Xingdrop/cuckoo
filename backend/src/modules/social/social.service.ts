@@ -392,6 +392,8 @@ export class SocialService {
       } else {
         await reminderRepo.softDelete(join.reminderId);
       }
+      // 删除 JOIN 互动记录（关键！否则 getPost/listPosts 的 myJoined 仍为 true → 前端无法退出）
+      await manager.getRepository(Interaction).delete({ postId, userId, type: InteractionType.JOIN });
       join.isActive = false;
       await joinRepo.update({ id: join.id }, { isActive: false });
       await postRepo.decrement({ id: postId }, 'joinedCount', 1);

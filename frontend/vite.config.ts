@@ -40,6 +40,8 @@ export default defineConfig({
     // 开发环境代理 API 到后端，避免跨域
     proxy: {
       '/api': { target: 'http://localhost:3000', changeOrigin: true },
+      // #8：/uploads 也需代理（dev 下帖子图片/视频否则 404）
+      '/uploads': { target: 'http://localhost:3000', changeOrigin: true },
     },
   },
   test: {

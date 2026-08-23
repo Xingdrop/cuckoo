@@ -9,7 +9,7 @@ import { UserSetting } from '../users/user-setting.entity';
 describe('StatsService（UT-STAT）', () => {
   let service: StatsService;
   let dayPlan: jest.Mock;
-  let logRepo: { find: jest.Mock; findOne: jest.Mock };
+  let logRepo: { find: jest.Mock; findOne: jest.Mock; count: jest.Mock };
   let settingRepo: { find: jest.Mock; findOne: jest.Mock };
   /** 按 dateStr 返回的 dayPlan 形状（真实返回结构） */
   let planByDate: Record<string, ReturnType<typeof makeItem>[]>;
@@ -38,7 +38,12 @@ describe('StatsService（UT-STAT）', () => {
     planByDate = {};
     // 未覆盖日期返回空数组 → planned=0（无安排跳过不中断）
     dayPlan = jest.fn().mockImplementation(async (_u: string, dateStr: string) => planByDate[dateStr] ?? []);
-    logRepo = { find: jest.fn().mockResolvedValue([]), findOne: jest.fn().mockResolvedValue(null) };
+    logRepo = {
+      find: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn().mockResolvedValue(null),
+      // 2026-08 #3：手动喝水计入达成（dayRate 增加 count 查询）
+      count: jest.fn().mockResolvedValue(0),
+    };
     settingRepo = { find: jest.fn().mockResolvedValue([]), findOne: jest.fn().mockResolvedValue(null) };
 
     const module = await Test.createTestingModule({

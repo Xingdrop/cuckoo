@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Patch,
   Put,
+  Res,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
@@ -15,6 +17,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import type { Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UsersService } from './users.service';
 
@@ -100,5 +103,23 @@ export class UsersController {
   @ApiOperation({ summary: '更新通知偏好（FR-104）' })
   updateSettings(@CurrentUser('sub') userId: string, @Body() dto: UpdateSettingsDto) {
     return this.usersService.updateSettings(userId, dto);
+  }
+
+  @Get('me/export')
+  @ApiOperation({ summary: '导出全量数据（FR-105/AC-105，JSON 下载）' })
+  async exportMe(@CurrentUser('sub') userId: string, @Res({ passthrough: true }) res: Response) {
+    const data = await this.usersService.exportData(userId);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="cuckoo-export-${userId.slice(0, 8)}.json"`,
+    );
+    return data;
+  }
+
+  @Delete('me')
+  @ApiOperation({ summary: '注销账号（FR-105/AC-106：软删除 + 数据清理，审计留存）' })
+  deleteMe(@CurrentUser('sub') userId: string) {
+    return this.usersService.deleteAccount(userId);
   }
 }

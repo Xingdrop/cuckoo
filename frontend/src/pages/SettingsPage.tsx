@@ -1,9 +1,11 @@
-import { Bell, BellRing, ChevronLeft, LogOut } from 'lucide-react';
+import { Award, BarChart3, Bell, BellRing, ChevronLeft, Download, LogOut, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { ReminderOverlay } from '../features/reminders/ReminderOverlay';
 import { authApi } from '../services/api/api.auth';
+import { usersApi } from '../services/api/api.users';
 import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
 import { checkPushSubscribed, isPushSupported, pushFailMessage, subscribePush, unsubscribePush } from '../utils/push';
@@ -75,6 +77,7 @@ export function SettingsPage() {
   const [pushEnabled, setPushEnabled] = useState<boolean | null>(null);
   const [pushSupport, setPushSupport] = useState<boolean>(isPushSupported());
   const [showTest, setShowTest] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -120,6 +123,35 @@ export function SettingsPage() {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  /** 导出全量数据（FR-105/AC-105） */
+  const handleExport = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await usersApi.exportData();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** 注销账号（FR-105/AC-106） */
+  const handleDelete = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await usersApi.deleteAccount();
+      logout();
+      navigate('/login', { replace: true });
+    } catch (e) {
+      setError(errorMessage(e));
+      setConfirmDelete(false);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const settingsRows = [
@@ -196,13 +228,55 @@ export function SettingsPage() {
           </button>
         </section>
 
+        {/* 我的数据（M5：报告/成就/导出） */}
+        <section className="divide-y divide-ink-100 rounded-card bg-surface shadow-sm">
+          <h2 className="px-4 py-3 text-sm font-medium">我的数据</h2>
+          <button
+            onClick={() => navigate('/reports')}
+            className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
+          >
+            <BarChart3 size={18} className="shrink-0 text-primary-600" />
+            <div>
+              <p className="text-sm font-medium">周报 / 月报</p>
+              <p className="mt-0.5 text-xs text-ink-500">完成率、分类统计与建议（周一/1 日自动生成）</p>
+            </div>
+          </button>
+          <button
+            onClick={() => navigate('/achievements')}
+            className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
+          >
+            <Award size={18} className="shrink-0 text-primary-600" />
+            <div>
+              <p className="text-sm font-medium">成就墙</p>
+              <p className="mt-0.5 text-xs text-ink-500">连续坚持、用药/锻炼/喝水成就</p>
+            </div>
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={busy}
+            className="flex w-full items-center gap-3 px-4 py-3.5 text-left disabled:opacity-50"
+          >
+            <Download size={18} className="shrink-0 text-primary-600" />
+            <div>
+              <p className="text-sm font-medium">导出我的数据</p>
+              <p className="mt-0.5 text-xs text-ink-500">下载 JSON（提醒/日志/药品/帖子/设置等全量）</p>
+            </div>
+          </button>
+        </section>
+
         {/* 账号 */}
-        <section className="rounded-card bg-surface shadow-sm">
+        <section className="divide-y divide-ink-100 rounded-card bg-surface shadow-sm">
           <button
             onClick={handleLogout}
-            className="flex w-full items-center gap-2 px-4 py-3.5 text-sm text-danger-500"
+            className="flex w-full items-center gap-2 px-4 py-3.5 text-sm text-ink-700"
           >
             <LogOut size={16} /> 退出登录
+          </button>
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="flex w-full items-center gap-2 px-4 py-3.5 text-sm text-danger-500"
+          >
+            <Trash2 size={16} /> 注销账号
           </button>
         </section>
 
@@ -222,6 +296,17 @@ export function SettingsPage() {
           }}
         />
       )}
+
+      {/* 注销确认 */}
+      <ConfirmModal
+        open={confirmDelete}
+        title="确认注销账号？"
+        message="注销后将删除该账号全部数据（提醒/记录/帖子等），审计日志留存；注销后旧登录状态立即失效。"
+        confirmText="确认注销"
+        cancelText="取消"
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

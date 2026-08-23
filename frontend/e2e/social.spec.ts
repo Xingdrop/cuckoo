@@ -1,14 +1,10 @@
 import { expect, test } from '@playwright/test';
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { sharedState } from './helpers';
 
 const API = process.env.API ?? 'http://localhost:3000/api/v1';
 const uniq = () => `e2e${Date.now() % 100000000}`;
 const PASSWORD = 'password123';
-
-async function apiRegister(request: APIRequestContext, username: string) {
-  const res = await request.post(`${API}/auth/register`, { data: { username, password: PASSWORD } });
-  return (await res.json()).token as string;
-}
 
 async function registerPage(page: Page, username: string) {
   await page.goto('/login');
@@ -21,9 +17,8 @@ async function registerPage(page: Page, username: string) {
 }
 
 test('E2E-06 发计划帖 → 另一账号一键加入 → 人数 +1', async ({ page, request }) => {
-  // 账号 A：API 注册 + 发计划帖（token 复用）
-  const a = uniq();
-  const tokenA = await apiRegister(request, a);
+  // 账号 A：复用全局共享账号发计划帖（避免每次运行额外注册触发 5 次/分限流）
+  const tokenA = sharedState().token;
   const postRes = await request.post(`${API}/posts`, {
     headers: { Authorization: `Bearer ${tokenA}` },
     data: {

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { pageAuth } from './helpers';
 
 const uniq = () => `e2e${Date.now() % 100000000}`;
 const PASSWORD = 'password123';
@@ -41,12 +42,8 @@ test('E2E-02 看板计数：完成提醒后今日完成率更新', async ({ page
     },
   );
   const reminder = (await rem.json());
-  // 页面登录（账号已存在，直接登录）
-  await page.goto('/login');
-  await page.fill('#username', username);
-  await page.fill('#password', PASSWORD);
-  await page.locator('form button[type="submit"]').click();
-  await expect(page).toHaveURL(/\/today/);
+  // 页面注入 token 建立会话（复用本用例 API 注册得到的 token，不额外调用 /auth/login，避免限流）
+  await pageAuth(page, token);
   await expect(page.getByText('看板测试')).toBeVisible();
   // API 完成（按"今天 09:00"本地时间上报，与今日看板匹配）→ 刷新看板 → 完成率 100%
   const today0900 = new Date();

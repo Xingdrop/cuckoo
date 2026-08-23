@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
 import { loginSchema, registerSchema } from '../types/schemas';
@@ -141,6 +141,12 @@ export function LoginPage() {
           </button>
         </form>
       </div>
+
+      <p className="mt-6 text-center text-xs text-ink-300">
+        <Link to="/privacy" className="underline-offset-2 hover:underline">
+          隐私政策与健康免责声明
+        </Link>
+      </p>
     </div>
   );
 }

@@ -32,6 +32,7 @@ const PostDetailPage = lazyPage(() => import('../pages/PostDetailPage'), 'PostDe
 const ReportsPage = lazyPage(() => import('../pages/ReportsPage'), 'ReportsPage');
 const ReportPage = lazyPage(() => import('../pages/ReportPage'), 'ReportPage');
 const AchievementsPage = lazyPage(() => import('../pages/AchievementsPage'), 'AchievementsPage');
+const PrivacyPage = lazyPage(() => import('../pages/PrivacyPage'), 'PrivacyPage');
 
 /** 路由 chunk 加载中的全屏骨架 */
 function PageFallback() {
@@ -58,6 +59,7 @@ export function App() {
       <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
           <Route
             path="/today"
             element={

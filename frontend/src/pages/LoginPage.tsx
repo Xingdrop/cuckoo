@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
+import { loginSchema, registerSchema } from '../types/schemas';
 
 /**
  * P-02 登录/注册（FR-101/102）
@@ -24,12 +25,13 @@ export function LoginPage() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (mode === 'register' && password.length < 8) {
-      setError('密码至少 8 位');
-      return;
-    }
-    if (mode === 'register' && password !== confirm) {
-      setError('两次输入的密码不一致');
+    // zod 校验（与后端 DTO 语义对齐，types/schemas.ts）
+    const parsed =
+      mode === 'register'
+        ? registerSchema.safeParse({ username, password, confirm })
+        : loginSchema.safeParse({ username, password });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? '输入有误');
       return;
     }
     setSubmitting(true);

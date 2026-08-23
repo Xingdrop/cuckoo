@@ -1,6 +1,7 @@
 import { Bell, ChevronLeft } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ErrorBanner, EmptyState, LoadingState } from '../components/ui/Feedback';
 import { errorMessage } from '../services/http';
 import { notificationsApi, NotificationItem } from '../services/api/api.social';
 
@@ -70,16 +71,11 @@ export function NotificationsPage() {
       </header>
 
       <main className="px-4 pt-3">
-        {error && (
-          <p className="mb-3 rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
-        )}
+        <ErrorBanner message={error} />
         {loading ? (
-          <div className="py-16 text-center text-sm text-ink-500">加载中…</div>
+          <LoadingState />
         ) : items.length === 0 ? (
-          <div className="rounded-card bg-surface p-10 text-center text-sm text-ink-500 shadow-sm">
-            <Bell size={36} className="mx-auto mb-3 text-ink-300" strokeWidth={1.2} />
-            暂无通知
-          </div>
+          <EmptyState icon={<Bell size={36} strokeWidth={1.2} />}>暂无通知</EmptyState>
         ) : (
           <ul className="space-y-2">
             {items.map((n) => (

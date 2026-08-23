@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { errorMessage } from '../services/http';
+import { errorMessage, tokenStore } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
 import { loginSchema, registerSchema } from '../types/schemas';
 
@@ -19,7 +19,8 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
 
-  if (user) return <Navigate to="/today" replace />;
+  // 仅当会话有效（token 存在）时才跳过登录页；persist 残留 user 但 token 已清 → 显示登录表单
+  if (user && tokenStore.get()) return <Navigate to="/today" replace />;
   const redirect = params.get('redirect') ?? '/today';
 
   const submit = async (e: FormEvent) => {

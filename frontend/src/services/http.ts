@@ -38,8 +38,11 @@ http.interceptors.response.use(
   (error: AxiosError<ApiErrorBody>) => {
     if (error.response?.status === 401) {
       tokenStore.clear();
-      const redirect = encodeURIComponent(window.location.pathname + window.location.search);
-      window.location.href = `/login?redirect=${redirect}`;
+      // 已在 /login 时不再硬跳转：避免 init() 的 getMe 401 触发 location.href 同页重载死循环
+      if (!window.location.pathname.startsWith('/login')) {
+        const redirect = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.href = `/login?redirect=${redirect}`;
+      }
     }
     return Promise.reject(error);
   },

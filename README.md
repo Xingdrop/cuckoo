@@ -25,7 +25,11 @@ Plugin/     下载的第三方插件包（已评估：Vercel 系 skill 已安装
 
 ## 快速启动
 
-```bash
+```powershell
+# 方式一：一键启动（自动清理端口占用 → 启动前后端 → 打开浏览器）
+powershell -ExecutionPolicy Bypass -File tools/scripts/dev-all.ps1
+
+# 方式二：手动
 # 后端
 cd backend
 cp .env.example .env          # 配置环境变量（JWT_SECRET、VAPID 密钥等）

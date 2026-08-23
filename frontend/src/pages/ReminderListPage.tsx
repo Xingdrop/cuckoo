@@ -65,6 +65,7 @@ export function ReminderListPage() {
   const [deleteTarget, setDeleteTarget] = useState<Reminder | null>(null);
   const [creatingPlan, setCreatingPlan] = useState(false);
   const [planName, setPlanName] = useState('');
+  const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const created = (location.state as { created?: Reminder } | null)?.created;
@@ -224,7 +225,10 @@ export function ReminderListPage() {
               {plans.map((p) => (
                 <li key={p.id} className="rounded-card bg-surface px-4 py-3 shadow-sm">
                   <div className="flex items-center gap-2">
-                    <div className="min-w-0 flex-1">
+                    <button
+                      onClick={() => setExpandedPlan((v) => (v === p.id ? null : p.id))}
+                      className="min-w-0 flex-1 text-left"
+                    >
                       <p className="truncate text-sm font-medium">
                         {p.name}
                         {p.sourceType === 'self' ? (
@@ -241,7 +245,7 @@ export function ReminderListPage() {
                         {p.reminderCount ?? 0} 条提醒
                         {p.sourceTitle ? ` · ${p.sourceTitle}` : ''}
                       </p>
-                    </div>
+                    </button>
                     <button
                       onClick={async () => {
                         try {
@@ -263,6 +267,29 @@ export function ReminderListPage() {
                       />
                     </button>
                   </div>
+                  {/* 计划内提醒明细（展开） */}
+                  {expandedPlan === p.id && (
+                    <ul className="mt-2 space-y-1.5 rounded-btn bg-bg px-3 py-2">
+                      {items.filter((r) => r.planId === p.id).length === 0 ? (
+                        <li className="py-1 text-center text-[11px] text-ink-300">
+                          该计划还没有提醒，点击下方「添加提醒」
+                        </li>
+                      ) : (
+                        items
+                          .filter((r) => r.planId === p.id)
+                          .map((r) => (
+                            <li key={r.id} className="flex items-center gap-2 text-xs">
+                              <span className="text-primary-600">{CATEGORY_META[r.category].emoji}</span>
+                              <span className="min-w-0 flex-1 truncate">{r.title}</span>
+                              <span className="shrink-0 text-ink-500">
+                                {formatRepeat(r.repeatRule)}
+                                {r.times?.length ? ` · ${r.repeatRule.type === 'daily' ? r.times.map((t) => t).join('/') : formatReminderTime(r)}` : ' · 不定时'}
+                              </span>
+                            </li>
+                          ))
+                      )}
+                    </ul>
+                  )}
                   <div className="mt-2 flex gap-2 border-t border-ink-100 pt-2">
                     <button
                       onClick={() => navigate(`/reminders/new?planId=${p.id}`)}

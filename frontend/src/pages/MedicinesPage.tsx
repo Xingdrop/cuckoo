@@ -13,6 +13,15 @@ function stockStatus(m: Medicine): { label: string; cls: string } {
   return { label: `余 ${m.stock}`, cls: 'bg-primary-50 text-primary-600' };
 }
 
+/** 有效期临期判断（未来 30 天内到期 → 临期徽标；FR-309 落地） */
+function expiryStatus(m: Medicine): { label: string; cls: string } | null {
+  if (!m.expiryDate) return null;
+  const days = Math.ceil((new Date(m.expiryDate).getTime() - Date.now()) / 86_400_000);
+  if (days < 0) return { label: '已过期', cls: 'bg-danger-500 text-white' };
+  if (days <= 30) return { label: `临期 ${days} 天`, cls: 'bg-warning-500 text-white' };
+  return null;
+}
+
 /**
  * P-07 药品列表（FR-301）
  * 库存/阈值/快捷补货与手动记录/服药历史入口
@@ -95,6 +104,7 @@ export function MedicinesPage() {
           <ul className="space-y-3">
             {items.map((m) => {
               const st = stockStatus(m);
+              const ex = expiryStatus(m);
               return (
                 <li key={m.id} className="rounded-card bg-surface p-4 shadow-sm">
                   <button
@@ -115,6 +125,11 @@ export function MedicinesPage() {
                     <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium ${st.cls}`}>
                       {st.label}
                     </span>
+                    {ex && (
+                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium ${ex.cls}`}>
+                        {ex.label}
+                      </span>
+                    )}
                     <ChevronRight size={16} className="shrink-0 text-ink-300" />
                   </button>
                   <div className="mt-3 flex items-center gap-2 border-t border-ink-100 pt-2.5">

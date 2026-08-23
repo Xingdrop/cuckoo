@@ -34,6 +34,7 @@ const ReportPage = lazyPage(() => import('../pages/ReportPage'), 'ReportPage');
 const AchievementsPage = lazyPage(() => import('../pages/AchievementsPage'), 'AchievementsPage');
 const PrivacyPage = lazyPage(() => import('../pages/PrivacyPage'), 'PrivacyPage');
 const ProfilePage = lazyPage(() => import('../pages/ProfilePage'), 'ProfilePage');
+const FollowListPage = lazyPage(() => import('../pages/FollowListPage'), 'FollowListPage');
 
 /** 路由 chunk 加载中的全屏骨架 */
 function PageFallback() {
@@ -226,6 +227,22 @@ export function App() {
             element={
               <RequireAuth>
                 <ProfilePage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/profile/:id/following"
+            element={
+              <RequireAuth>
+                <FollowListPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/profile/:id/followers"
+            element={
+              <RequireAuth>
+                <FollowListPage />
               </RequireAuth>
             }
           />

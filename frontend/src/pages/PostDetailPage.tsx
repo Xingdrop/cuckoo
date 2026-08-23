@@ -95,10 +95,19 @@ export function PostDetailPage() {
         {post && (
           <div className="rounded-card bg-surface p-4 shadow-sm">
             <div className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-50 text-sm font-medium text-primary-600">
+              <button
+                onClick={() => navigate(`/profile/${post.author.id}`)}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-50 text-sm font-medium text-primary-600"
+                aria-label={`查看 @${post.author.username} 的主页`}
+              >
                 {post.author.username.slice(0, 1).toUpperCase()}
-              </span>
-              <p className="text-sm font-medium">@{post.author.username}</p>
+              </button>
+              <button
+                onClick={() => navigate(`/profile/${post.author.id}`)}
+                className="text-sm font-medium"
+              >
+                @{post.author.username}
+              </button>
             </div>
             <p className="mt-3 text-sm leading-relaxed">{post.content}</p>
             {post.planSnapshot && (

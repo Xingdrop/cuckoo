@@ -15,6 +15,18 @@ export class ProfileController {
     return this.socialService.profile(viewerId, id);
   }
 
+  @Get('users/:id/following')
+  @ApiOperation({ summary: '关注列表' })
+  following(@Param('id') id: string) {
+    return this.socialService.followList(id, 'following');
+  }
+
+  @Get('users/:id/followers')
+  @ApiOperation({ summary: '粉丝列表' })
+  followers(@Param('id') id: string) {
+    return this.socialService.followList(id, 'followers');
+  }
+
   @Post('users/:id/follow')
   @ApiOperation({ summary: '关注/取消关注（幂等 toggle）' })
   follow(@CurrentUser('sub') viewerId: string, @Param('id') id: string) {

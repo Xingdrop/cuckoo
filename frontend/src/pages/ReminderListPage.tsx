@@ -121,7 +121,7 @@ export function ReminderListPage() {
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">💊</span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">药物管理</span>
-              <span className="block text-[11px] text-ink-500">药品/库存/历史</span>
+              <span className="block truncate text-[11px] text-ink-500">药品库存历史</span>
             </span>
             <ChevronRight size={16} className="shrink-0 text-ink-300" />
           </button>
@@ -132,7 +132,7 @@ export function ReminderListPage() {
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">💧</span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">喝水管理</span>
-              <span className="block text-[11px] text-ink-500">开关/水量/目标</span>
+              <span className="block truncate text-[11px] text-ink-500">水量目标设置</span>
             </span>
             <ChevronRight size={16} className="shrink-0 text-ink-300" />
           </button>
@@ -154,7 +154,7 @@ export function ReminderListPage() {
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">🍅</span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">番茄钟</span>
-              <span className="block text-[11px] text-ink-500">25+5 专注循环</span>
+              <span className="block truncate text-[11px] text-ink-500">25+5 循环</span>
             </span>
             <ChevronRight size={16} className="shrink-0 text-ink-300" />
           </button>

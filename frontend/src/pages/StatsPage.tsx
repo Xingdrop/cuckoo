@@ -4,14 +4,14 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { statsApi, DashboardStats, DayStat } from '../services/api/api.stats';
 
-const HEAT_COLORS = ['bg-ink-100', 'bg-primary-100', 'bg-primary-200', 'bg-primary-400', 'bg-primary-600'];
+/** 热力图 4 档颜色映射（M5 完善：0 / 1-49 / 50-99 / 100%） */
+const HEAT_COLORS = ['bg-ink-100', 'bg-primary-200', 'bg-primary-400', 'bg-primary-600'];
 
 function heatColor(rate: number): string {
   if (rate <= 0) return HEAT_COLORS[0];
-  if (rate < 35) return HEAT_COLORS[1];
-  if (rate < 65) return HEAT_COLORS[2];
-  if (rate < 90) return HEAT_COLORS[3];
-  return HEAT_COLORS[4];
+  if (rate < 50) return HEAT_COLORS[1];
+  if (rate < 100) return HEAT_COLORS[2];
+  return HEAT_COLORS[3];
 }
 
 /**

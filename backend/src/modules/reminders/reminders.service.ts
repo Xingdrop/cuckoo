@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ConflictException,
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -15,6 +17,7 @@ import {
 } from '../../common/reminder-schedule';
 import { Medicine } from '../medicines/medicine.entity';
 import { AuditService } from '../audit/audit.service';
+import { AchievementsService } from '../achievements/achievements.service';
 import { Notification, NotificationType } from '../notifications/notification.entity';
 import { User } from '../users/user.entity';
 import { UserSetting } from '../users/user-setting.entity';
@@ -56,6 +59,8 @@ export class RemindersService {
     private readonly settingRepo: Repository<UserSetting>,
     private readonly dataSource: DataSource,
     private readonly audit: AuditService,
+    @Inject(forwardRef(() => AchievementsService))
+    private readonly achievements: AchievementsService,
   ) {}
 
   private async getUserTimezone(userId: string): Promise<string> {
@@ -345,7 +350,7 @@ export class RemindersService {
     const timezone = await this.getUserTimezone(userId);
     const scheduledTime = new Date(dto.scheduledTime);
 
-    return this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       const logRepo = manager.getRepository(ReminderLog);
       const reminderRepo = manager.getRepository(Reminder);
 
@@ -443,6 +448,10 @@ export class RemindersService {
 
       return { ok: true, log, duplicate: false };
     });
+
+    // 成就检查（FR-708，fire-and-forget：失败不影响 ack 结果；规则表驱动 + UNIQUE 幂等）
+    void this.achievements.check(userId).catch(() => undefined);
+    return result;
   }
 
   /**

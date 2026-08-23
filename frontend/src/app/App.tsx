@@ -29,6 +29,9 @@ const ExercisesPage = lazyPage(() => import('../pages/ExercisesPage'), 'Exercise
 const WaterSettingsPage = lazyPage(() => import('../pages/WaterSettingsPage'), 'WaterSettingsPage');
 const NotificationsPage = lazyPage(() => import('../pages/NotificationsPage'), 'NotificationsPage');
 const PostDetailPage = lazyPage(() => import('../pages/PostDetailPage'), 'PostDetailPage');
+const ReportsPage = lazyPage(() => import('../pages/ReportsPage'), 'ReportsPage');
+const ReportPage = lazyPage(() => import('../pages/ReportPage'), 'ReportPage');
+const AchievementsPage = lazyPage(() => import('../pages/AchievementsPage'), 'AchievementsPage');
 
 /** 路由 chunk 加载中的全屏骨架 */
 function PageFallback() {
@@ -180,6 +183,30 @@ export function App() {
             element={
               <RequireAuth>
                 <SettingsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/reports"
+            element={
+              <RequireAuth>
+                <ReportsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/reports/:id"
+            element={
+              <RequireAuth>
+                <ReportPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/achievements"
+            element={
+              <RequireAuth>
+                <AchievementsPage />
               </RequireAuth>
             }
           />

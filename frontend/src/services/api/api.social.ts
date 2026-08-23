@@ -47,8 +47,12 @@ export const socialApi = {
   listPosts: (page = 1, pageSize = 20) =>
     http.get<Page<Post>>('/posts', { params: { page, pageSize } }).then((r) => r.data),
   getPost: (id: string) => http.get<Post>(`/posts/${id}`).then((r) => r.data),
-  createPost: (body: { content: string; mediaUrls?: string[]; planSnapshot?: Record<string, unknown> | null }) =>
-    http.post<Post>('/posts', body).then((r) => r.data),
+  createPost: (body: {
+    content: string;
+    mediaUrls?: string[];
+    type?: string;
+    planSnapshot?: Record<string, unknown> | null;
+  }) => http.post<Post>('/posts', body).then((r) => r.data),
   removePost: (id: string) => http.delete(`/posts/${id}`).then((r) => r.data),
 
   // 互动

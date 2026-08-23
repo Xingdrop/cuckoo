@@ -18,6 +18,8 @@ import { ExercisesModule } from './modules/exercises/exercises.module';
 import { FilesModule } from './modules/files/files.module';
 import { SocialModule } from './modules/social/social.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { AchievementsModule } from './modules/achievements/achievements.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { User } from './modules/users/user.entity';
 import { UserSetting } from './modules/users/user-setting.entity';
@@ -36,6 +38,8 @@ import { Exercise } from './modules/exercises/exercise.entity';
 import { SensitiveWord } from './modules/social/sensitive-word.entity';
 import { Group, GroupMember, GroupPost } from './modules/social/group.entity';
 import { AuditLog } from './modules/audit/audit-log.entity';
+import { Report } from './modules/reports/report.entity';
+import { Achievement, AchievementRule } from './modules/achievements/achievement.entity';
 import { SeedModule } from './seed/seed.module';
 
 /**
@@ -62,6 +66,8 @@ import { SeedModule } from './seed/seed.module';
         signOptions: { expiresIn: (config.get<string>('jwt.expiresIn') ?? '7d') as never },
       }),
     }),
+    // 供全局 JwtAuthGuard 做用户存在性校验（注销后 token 立即失效）
+    TypeOrmModule.forFeature([User]),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -87,6 +93,9 @@ import { SeedModule } from './seed/seed.module';
           GroupMember,
           GroupPost,
           AuditLog,
+          Report,
+          Achievement,
+          AchievementRule,
         ],
         // M0-M1 阶段用 synchronize 快速建表；生产切换 PostgreSQL 后改用 migration
         synchronize: config.get<string>('env') !== 'production',
@@ -107,7 +116,9 @@ import { SeedModule } from './seed/seed.module';
     FilesModule,
     SocialModule,
     NotificationsModule,
+    ReportsModule,
     AuditModule,
+    AchievementsModule,
   ],
   providers: [
     // 全局 JWT 鉴权：所有接口默认需要登录，@Public() 例外

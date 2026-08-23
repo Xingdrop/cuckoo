@@ -26,7 +26,9 @@ export const useAuthStore = create<AuthState>()(
       initialized: false,
 
       init: async () => {
-        if (!tokenStore.get() || get().user) {
+        if (!tokenStore.get()) {
+          // 会话失效（token 已清但 persist 仍残留 user）→ 同步清 user，避免 LoginPage↔/today 死循环
+          if (get().user) set({ user: null });
           set({ initialized: true });
           return;
         }

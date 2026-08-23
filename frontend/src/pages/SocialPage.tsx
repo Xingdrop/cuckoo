@@ -1,10 +1,11 @@
-import { Bell, Heart, MessageCircle, PenSquare, Star, Users } from 'lucide-react';
+import { Bell, Heart, ImagePlus, MessageCircle, PenSquare, Star, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { useAuthStore } from '../stores/authStore';
 import { errorMessage } from '../services/http';
 import { socialApi, Post, PlanTemplate, Group } from '../services/api/api.social';
+import { filesApi } from '../services/api/api.files';
 import { plansApi } from '../services/api/api.plans';
 import type { Plan } from '../services/api/api.plans';
 import { notificationsApi } from '../services/api/api.social';
@@ -13,9 +14,11 @@ function fmtTime(iso: string): string {
   const d = new Date(iso);
   const now = new Date();
   const diff = now.getTime() - d.getTime();
+  // 未来时间/跨年 → 显示完整日期（#5：修复"分钟前"错显示）
+  if (diff < 0) return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
   if (diff < 3_600_000) return `${Math.max(1, Math.floor(diff / 60_000))} 分钟前`;
   if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`;
-  return `${d.getMonth() + 1}月${d.getDate()}日`;
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 /**
@@ -34,6 +37,7 @@ export function SocialPage() {
   const [showComposer, setShowComposer] = useState(false);
   const [composerText, setComposerText] = useState('');
   const [composerPlanId, setComposerPlanId] = useState<string>('');
+  const [composerMedia, setComposerMedia] = useState<string[]>([]);
   const [myPlans, setMyPlans] = useState<Plan[]>([]);
   const [joining, setJoining] = useState<string | null>(null);
 
@@ -109,16 +113,32 @@ export function SocialPage() {
   const publish = async () => {
     if (!composerText.trim()) return;
     try {
-      // 引用计划：附带 planSnapshot（他人可一键加入）
       let planSnapshot: Record<string, unknown> | null = null;
       if (composerPlanId) {
         planSnapshot = (await plansApi.snapshot(composerPlanId)) as unknown as Record<string, unknown>;
       }
-      await socialApi.createPost({ content: composerText.trim(), planSnapshot: planSnapshot ?? undefined });
+      await socialApi.createPost({
+        content: composerText.trim(),
+        mediaUrls: composerMedia.length ? composerMedia : undefined,
+        planSnapshot: planSnapshot ?? undefined,
+      });
       setComposerText('');
       setComposerPlanId('');
+      setComposerMedia([]);
       setShowComposer(false);
       void load();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  };
+
+  /** 选择图片 → 上传 → 加入 mediaUrls（#6：帖子支持传图） */
+  const pickImage = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      setError(null);
+      const { url } = await filesApi.upload(file);
+      setComposerMedia((prev) => [...prev.slice(0, 3), url]);
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -176,8 +196,8 @@ export function SocialPage() {
         </div>
       </header>
 
-      {/* 分类 tab：广场（浏览社区）/ 我的（个人发帖）/ 官方计划 / 小组 */}
-      <div className="mt-3 flex gap-1 overflow-x-auto px-4">
+      {/* 分类 tab（#2：与 header 一起吸顶，避免滚动内容从下方穿出造成"方框被遮挡"） */}
+      <div className="sticky top-[68px] z-10 mt-3 flex gap-1 overflow-x-auto bg-bg/95 px-4 py-1.5 backdrop-blur">
         {([
           ['feed', '广场'],
           ['mine', '我的'],
@@ -298,7 +318,7 @@ export function SocialPage() {
 
                 <p className="mt-3 text-sm leading-relaxed">{post.content}</p>
 
-                {/* 帖子图片（2026-08：#5 底部不被遮挡） */}
+                {/* 帖子图片（#5：#2 防遮挡——固定宽高比 + 底部圆角容器） */}
                 {post.mediaUrls.length > 0 && (
                   <div
                     className={`mt-3 overflow-hidden rounded-btn ${
@@ -310,7 +330,7 @@ export function SocialPage() {
                         key={u}
                         src={u}
                         alt="帖子图片"
-                        className="h-40 w-full object-cover"
+                        className="aspect-video w-full object-cover"
                         loading="lazy"
                       />
                     ))}
@@ -456,6 +476,26 @@ export function SocialPage() {
                   {p.name}
                 </button>
               ))}
+            </div>
+            {/* 图片上传（#6） */}
+            <div className="mt-2 flex items-center gap-2">
+              <label className="flex h-8 cursor-pointer items-center gap-1 rounded-full bg-primary-50 px-3 text-xs text-primary-600">
+                <ImagePlus size={13} /> {composerMedia.length ? `已添加 ${composerMedia.length} 图` : '添加图片'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => void pickImage(e.target.files?.[0])}
+                />
+              </label>
+              {composerMedia.length > 0 && (
+                <button
+                  onClick={() => setComposerMedia([])}
+                  className="text-xs text-danger-500"
+                >
+                  清空
+                </button>
+              )}
             </div>
             <div className="mt-4 flex gap-3">
               <button

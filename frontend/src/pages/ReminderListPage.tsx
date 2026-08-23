@@ -1,4 +1,4 @@
-import { ChevronRight, Pencil, Plus, Power, Trash2 } from 'lucide-react';
+import { ChevronRight, Pencil, Plus, Power, Settings2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -63,6 +63,16 @@ export function ReminderListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Reminder | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filters, setFilters] = useState<Record<ReminderCategory, boolean>>(() => {
+    try {
+      const raw = localStorage.getItem('cuckoo_reminder_filter');
+      if (raw) return JSON.parse(raw) as Record<ReminderCategory, boolean>;
+    } catch {
+      /* 忽略 */
+    }
+    return { medication: true, exercise: true, water: true, rest: true, work: true, custom: true };
+  });
   const navigate = useNavigate();
   const location = useLocation();
   const created = (location.state as { created?: Reminder } | null)?.created;
@@ -92,6 +102,13 @@ export function ReminderListPage() {
     void load();
   }, [load]);
 
+  const applyFilter = (next: Record<ReminderCategory, boolean>) => {
+    setFilters(next);
+    localStorage.setItem('cuckoo_reminder_filter', JSON.stringify(next));
+  };
+
+  const visibleItems = items.filter((r) => filters[r.category] ?? true);
+
   const toggleActive = async (r: Reminder) => {
     const updated = await remindersApi.setActive(r.id, !r.isActive);
     setItems((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
@@ -113,14 +130,54 @@ export function ReminderListPage() {
           <h1 className="text-xl font-semibold">提醒</h1>
           <p className="mt-1 text-sm text-ink-500">管理你的所有计划</p>
         </div>
-        <button
-          onClick={() => navigate('/reminders/new')}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-500 text-white shadow-sm"
-          aria-label="新建提醒"
-        >
-          <Plus size={22} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setFilterOpen(true)}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-ink-700 shadow-sm"
+            aria-label="显示设置（选择分类）"
+          >
+            <Settings2 size={19} />
+          </button>
+          <button
+            onClick={() => navigate('/reminders/new')}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-500 text-white shadow-sm"
+            aria-label="新建提醒"
+          >
+            <Plus size={22} />
+          </button>
+        </div>
       </header>
+
+      {/* 显示设置弹窗（#4：选择是否显示药物等分类） */}
+      {filterOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-8">
+          <div className="w-full max-w-xs rounded-card bg-surface p-5 shadow-xl">
+            <h3 className="text-base font-semibold">显示设置</h3>
+            <p className="mt-1 text-[11px] text-ink-500">选择提醒列表中要显示的分类</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {(Object.keys(CATEGORY_META) as ReminderCategory[]).map((c) => (
+                <button
+                  key={c}
+                  onClick={() => applyFilter({ ...filters, [c]: !filters[c] })}
+                  className={`flex items-center gap-2 rounded-btn px-3 py-2 text-sm ${
+                    filters[c] ? 'bg-primary-50 text-primary-700' : 'bg-ink-100/60 text-ink-500'
+                  }`}
+                >
+                  <span>{CATEGORY_META[c].emoji}</span>
+                  <span className="flex-1 text-left">{CATEGORY_META[c].label}</span>
+                  <span>{filters[c] ? '✓' : ''}</span>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setFilterOpen(false)}
+              className="mt-4 w-full rounded-btn bg-primary-500 py-3 text-sm font-medium text-white"
+            >
+              完成
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="px-4 pt-4">
         {/* 快捷功能区（+ 号下方一排长块） */}
@@ -210,9 +267,13 @@ export function ReminderListPage() {
               创建第一个提醒
             </button>
           </div>
+        ) : visibleItems.length === 0 ? (
+          <div className="rounded-card bg-surface p-10 text-center text-sm text-ink-300 shadow-sm">
+            当前筛选下没有提醒（点右上角 ⚙ 恢复分类显示）
+          </div>
         ) : (
           <ul className="space-y-3">
-            {items.map((r) => {
+            {visibleItems.map((r) => {
               const meta = CATEGORY_META[r.category];
               const icon = r.categoryIcon ?? meta.emoji;
               const label = r.category === 'custom' && r.categoryLabel ? r.categoryLabel : meta.label;

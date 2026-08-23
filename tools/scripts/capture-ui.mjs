@@ -20,11 +20,12 @@ const username = `ui${Date.now() % 1000000}`;
 const password = 'password123';
 
 async function api(path, opts = {}, token) {
+  const tok = opts.token ?? token;
   const res = await fetch(`${API}${path}`, {
     method: opts.method ?? 'GET',
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(tok ? { Authorization: `Bearer ${tok}` } : {}),
     },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
@@ -72,6 +73,23 @@ async function prepareData() {
     token,
     body: { content: '🎉 一天一个成就，一起坚持！', type: 'achievement' },
   });
+  // 我的计划 + 计划内提醒（供截图）
+  const plan = await api('/plans', { method: 'POST', token, body: { name: '晨间计划' } });
+  if (plan.data?.id) {
+    await api('/reminders', {
+      method: 'POST',
+      token,
+      body: {
+        category: 'exercise',
+        title: '晨间拉伸',
+        repeatRule: { type: 'daily' },
+        times: ['07:30'],
+        startDate: new Date().toISOString().slice(0, 10),
+        content: { text: '' },
+        planId: plan.data.id,
+      },
+    });
+  }
   return { username, password, token };
 }
 
@@ -86,6 +104,7 @@ const ROUTES = [
   ['today', '/today'],
   ['reminders', '/reminders'],
   ['reminder-edit', '/reminders/new'],
+  ['plans', '/plans'],
   ['medicines', '/medicines'],
   ['medicine-edit', '/medicines/new'],
   ['stats', '/stats'],

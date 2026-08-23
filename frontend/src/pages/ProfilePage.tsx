@@ -1,9 +1,11 @@
-import { ChevronLeft, Settings, UserPlus, Check } from 'lucide-react';
+import { Check, ChevronLeft, Camera, Settings, UserPlus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ErrorBanner, LoadingState } from '../components/ui/Feedback';
 import { profileApi } from '../services/api/api.plans';
 import type { ProfileView } from '../services/api/api.plans';
+import { authApi } from '../services/api/api.auth';
+import { filesApi } from '../services/api/api.files';
 import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
 
@@ -19,6 +21,7 @@ export function ProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const me = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
   const targetId = id ?? me?.id;
   const [profile, setProfile] = useState<ProfileView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +56,20 @@ export function ProfilePage() {
     }
   };
 
+  /** 更换头像（#6：仅本人可操作） */
+  const changeAvatar = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      setError(null);
+      const { url } = await filesApi.upload(file);
+      await authApi.updateMe({ avatarUrl: url });
+      if (me) setUser({ ...me, avatarUrl: url });
+      void load();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  };
+
   return (
     <div className="mx-auto max-w-md pb-10">
       <header className="sticky top-0 z-10 flex items-center gap-2 bg-bg/95 px-4 py-3 backdrop-blur">
@@ -82,13 +99,28 @@ export function ProfilePage() {
           <div className="space-y-4">
             {/* 资料卡 */}
             <section className="rounded-card bg-surface p-5 text-center shadow-sm">
-              <span className="mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-primary-50 text-3xl font-semibold text-primary-600">
-                {profile.user.avatarUrl ? (
-                  <img src={profile.user.avatarUrl} alt="头像" className="h-full w-full object-cover" />
-                ) : (
-                  profile.user.username.slice(0, 1).toUpperCase()
+              <label className={`relative mx-auto block h-20 w-20 ${profile.isSelf ? 'cursor-pointer' : ''}`}>
+                <span className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-primary-100 bg-primary-50 text-3xl font-semibold text-primary-600">
+                  {profile.user.avatarUrl ? (
+                    <img src={profile.user.avatarUrl} alt="头像" className="h-full w-full object-cover" />
+                  ) : (
+                    profile.user.username.slice(0, 1).toUpperCase()
+                  )}
+                </span>
+                {profile.isSelf && (
+                  <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-primary-500 text-white shadow">
+                    <Camera size={13} />
+                  </span>
                 )}
-              </span>
+                {profile.isSelf && (
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => void changeAvatar(e.target.files?.[0])}
+                  />
+                )}
+              </label>
               <h2 className="mt-3 text-lg font-semibold">@{profile.user.username}</h2>
               <p className="mt-1 text-xs text-ink-500">{fmtDate(profile.user.createdAt)} 加入布谷</p>
               {profile.user.healthGoals && profile.user.healthGoals.length > 0 && (

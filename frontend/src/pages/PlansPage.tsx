@@ -151,7 +151,7 @@ export function PlansPage() {
                         {p.sourceTitle ? ` · ${p.sourceTitle}` : ''}
                       </p>
                     </button>
-                    {/* 美化开关（#6）：圆角胶囊 + 内白点 + 颜色过渡 */}
+                    {/* 美观开关（#3/#6：标准椭圆 + 滑块尺寸匹配） */}
                     <button
                       onClick={async () => {
                         try {
@@ -162,13 +162,13 @@ export function PlansPage() {
                         }
                       }}
                       aria-label={p.isActive ? '停用计划' : '启用计划'}
-                      className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 ${
+                      className={`relative h-8 w-14 shrink-0 rounded-full transition-colors duration-200 ${
                         p.isActive ? 'bg-primary-500' : 'bg-ink-100'
                       }`}
                     >
                       <span
-                        className={`absolute top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[8px] font-bold shadow transition-all duration-200 ${
-                          p.isActive ? 'left-[calc(100%-1.4rem)] text-primary-500' : 'left-1 text-ink-400'
+                        className={`absolute top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[9px] font-bold shadow transition-all duration-200 ${
+                          p.isActive ? 'left-[calc(100%-1.75rem)] text-primary-500' : 'left-1 text-ink-400'
                         }`}
                       >
                         {p.isActive ? '✓' : ''}

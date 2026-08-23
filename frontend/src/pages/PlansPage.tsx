@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronLeft, GripVertical, Pencil, Plus, Send, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -30,6 +30,7 @@ export function PlansPage() {
   const [renamePlan, setRenamePlan] = useState<Plan | null>(null);
   const [renameText, setRenameText] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
+  const hoverRef = useRef<string | null>(null);
   const [order, setOrder] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem('cuckoo_plan_order') ?? '[]') as string[];
@@ -161,13 +162,29 @@ export function PlansPage() {
                   key={p.id}
                   draggable
                   onDragStart={() => setDragId(p.id)}
-                  onDragOver={(e) => e.preventDefault()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    // #4：经过目标行时实时让位（防抖：仅当 hover 变化时移动一次）
+                    if (dragId && dragId !== p.id && hoverRef.current !== p.id) {
+                      hoverRef.current = p.id;
+                      move(dragId, p.id);
+                    }
+                  }}
                   onDrop={() => {
-                    if (dragId && dragId !== p.id) move(dragId, p.id);
+                    hoverRef.current = null;
                     setDragId(null);
                   }}
-                  onDragEnd={() => setDragId(null)}
-                  className={`rounded-card bg-surface p-4 shadow-sm ${dragId === p.id ? 'opacity-60 ring-2 ring-primary-400' : ''}`}
+                  onDragEnd={() => {
+                    hoverRef.current = null;
+                    setDragId(null);
+                  }}
+                  className={`rounded-card bg-surface p-4 shadow-sm transition-all duration-150 ${
+                    dragId === p.id
+                      ? 'opacity-60 ring-2 ring-primary-400'
+                      : hoverRef.current === p.id
+                        ? 'ring-2 ring-primary-200'
+                        : ''
+                  }`}
                 >
                   <div className="flex items-center gap-3">
                     <span

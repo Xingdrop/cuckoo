@@ -65,6 +65,7 @@ export function ReminderListPage() {
   const [deleteTarget, setDeleteTarget] = useState<Reminder | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const [remindersOpen, setRemindersOpen] = useState(() => localStorage.getItem('cuckoo_reminders_collapsed') !== '1');
+  const [manageOpen, setManageOpen] = useState(() => localStorage.getItem('cuckoo_manage_collapsed') !== '1');
   const [filters, setFilters] = useState<Record<ReminderCategory, boolean>>(() => {
     try {
       const raw = localStorage.getItem('cuckoo_reminder_filter');
@@ -181,7 +182,91 @@ export function ReminderListPage() {
       )}
 
       <main className="px-4 pt-4">
-        {/* ============ 分区一：提醒显示 ============ */}
+        {/* ============ 分区一：服务与管理（#1：放在前面 + 可折叠） ============ */}
+        <p className="mb-2 mt-6 flex items-center justify-between px-1 text-xs font-medium text-ink-500">
+          <span>🧰 服务与管理</span>
+          <button
+            onClick={() => {
+              setManageOpen((v) => !v);
+              localStorage.setItem('cuckoo_manage_collapsed', manageOpen ? '1' : '0');
+            }}
+            aria-expanded={manageOpen}
+            className="flex items-center gap-0.5 text-ink-400"
+          >
+            <ChevronDown size={13} className={`transition-transform ${manageOpen ? '' : '-rotate-90'}`} />
+            {manageOpen ? '收起' : '展开'}
+          </button>
+        </p>
+        {manageOpen && (
+          <div className="mb-4 grid grid-cols-2 gap-2">
+            <button
+              onClick={() => navigate('/medicines')}
+              className="flex items-center gap-2.5 rounded-card bg-surface p-3.5 text-left shadow-sm"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">💊</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">药物管理</span>
+                <span className="block truncate text-[11px] text-ink-500">药品库存历史</span>
+              </span>
+              <ChevronRight size={16} className="shrink-0 text-ink-300" />
+            </button>
+            <button
+              onClick={() => navigate('/water-settings')}
+              className="flex items-center gap-2.5 rounded-card bg-surface p-3.5 text-left shadow-sm"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">💧</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">喝水管理</span>
+                <span className="block truncate text-[11px] text-ink-500">水量目标设置</span>
+              </span>
+              <ChevronRight size={16} className="shrink-0 text-ink-300" />
+            </button>
+            <button
+              onClick={() => navigate('/exercises')}
+              className="flex items-center gap-2.5 rounded-card bg-surface p-3.5 text-left shadow-sm"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">🏃</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">锻炼库</span>
+                <span className="block text-[11px] text-ink-500">50+ 微运动</span>
+              </span>
+              <ChevronRight size={16} className="shrink-0 text-ink-300" />
+            </button>
+            <button
+              onClick={() => navigate('/pomodoro')}
+              className="flex items-center gap-2.5 rounded-card bg-surface p-3.5 text-left shadow-sm"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">🍅</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">番茄钟</span>
+                <span className="block truncate text-[11px] text-ink-500">25+5 循环</span>
+              </span>
+              <ChevronRight size={16} className="shrink-0 text-ink-300" />
+            </button>
+          </div>
+        )}
+
+        {/* 我的计划入口（#7：点击进入独立页，而非内联展开） */}
+        <section className="mb-4">
+          <button
+            onClick={() => navigate('/plans')}
+            className="flex w-full items-center gap-3 rounded-card bg-surface px-4 py-3.5 text-left shadow-sm"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">
+              📋
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium">我的计划</span>
+              <span className="block text-[11px] text-ink-500">
+                {plans.length > 0 ? `${plans.length} 个计划 · 新建/启停/发帖/删除` : '新建计划，或加入朋友的计划'}
+              </span>
+            </span>
+            <ChevronRight size={16} className="shrink-0 text-ink-300" />
+          </button>
+        </section>
+
+        {/* ============ 分区二：全部提醒 ============ */}
+        <p className="mb-2 mt-2 px-1 text-xs font-medium text-ink-500">📌 全部提醒</p>
         {toast && (
           <div className="mb-3 rounded-btn bg-primary-50 px-4 py-3 text-sm text-primary-700">
             ✅ 提醒已创建，下次触发：{formatFullTime(toast.nextTriggerAt)}
@@ -309,73 +394,6 @@ export function ReminderListPage() {
           </>
         )}
 
-        {/* ============ 分区二：服务与管理 ============ */}
-        <p className="mb-2 mt-6 px-1 text-xs font-medium text-ink-500">🧰 服务与管理</p>
-        <div className="mb-4 grid grid-cols-2 gap-2">
-          <button
-            onClick={() => navigate('/medicines')}
-            className="flex items-center gap-2.5 rounded-card bg-surface p-3.5 text-left shadow-sm"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">💊</span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">药物管理</span>
-              <span className="block truncate text-[11px] text-ink-500">药品库存历史</span>
-            </span>
-            <ChevronRight size={16} className="shrink-0 text-ink-300" />
-          </button>
-          <button
-            onClick={() => navigate('/water-settings')}
-            className="flex items-center gap-2.5 rounded-card bg-surface p-3.5 text-left shadow-sm"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">💧</span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">喝水管理</span>
-              <span className="block truncate text-[11px] text-ink-500">水量目标设置</span>
-            </span>
-            <ChevronRight size={16} className="shrink-0 text-ink-300" />
-          </button>
-          <button
-            onClick={() => navigate('/exercises')}
-            className="flex items-center gap-2.5 rounded-card bg-surface p-3.5 text-left shadow-sm"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">🏃</span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">锻炼库</span>
-              <span className="block text-[11px] text-ink-500">50+ 微运动</span>
-            </span>
-            <ChevronRight size={16} className="shrink-0 text-ink-300" />
-          </button>
-          <button
-            onClick={() => navigate('/pomodoro')}
-            className="flex items-center gap-2.5 rounded-card bg-surface p-3.5 text-left shadow-sm"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">🍅</span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">番茄钟</span>
-              <span className="block truncate text-[11px] text-ink-500">25+5 循环</span>
-            </span>
-            <ChevronRight size={16} className="shrink-0 text-ink-300" />
-          </button>
-        </div>
-
-        {/* 我的计划入口（#7：点击进入独立页，而非内联展开） */}
-        <section className="mb-4">
-          <button
-            onClick={() => navigate('/plans')}
-            className="flex w-full items-center gap-3 rounded-card bg-surface px-4 py-3.5 text-left shadow-sm"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">
-              📋
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-medium">我的计划</span>
-              <span className="block text-[11px] text-ink-500">
-                {plans.length > 0 ? `${plans.length} 个计划 · 新建/启停/发帖/删除` : '新建计划，或加入朋友的计划'}
-              </span>
-            </span>
-            <ChevronRight size={16} className="shrink-0 text-ink-300" />
-          </button>
-        </section>
       </main>
 
       {/* 删除确认弹窗 */}

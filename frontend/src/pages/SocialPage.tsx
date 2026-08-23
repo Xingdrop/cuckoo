@@ -1,4 +1,4 @@
-import { Bell, Heart, ImagePlus, MessageCircle, PenSquare, Star, Users } from 'lucide-react';
+import { ArrowUp, Bell, Heart, ImagePlus, MessageCircle, PenSquare, Star, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -43,6 +43,14 @@ export function SocialPage() {
   const [myPlans, setMyPlans] = useState<Plan[]>([]);
   const [followingUsers, setFollowingUsers] = useState<{ id: string; username: string }[]>([]);
   const [joining, setJoining] = useState<string | null>(null);
+  const [showTop, setShowTop] = useState(false);
+
+  // #2：回到顶部按钮（滚动超过 400px 显示）
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 400);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   // #6 关注 tab 数据
   useEffect(() => {
@@ -208,8 +216,8 @@ export function SocialPage() {
         </div>
       </header>
 
-      {/* 分类 tab：广场 / 关注 / 我的 / 官方计划 / 小组（#6 关注过滤；#2 吸顶防遮挡） */}
-      <div className="sticky top-[68px] z-10 mt-3 flex gap-1 overflow-x-auto bg-bg/95 px-4 py-1.5 backdrop-blur">
+      {/* 分类 tab（#3：随内容滚动，不做吸顶） */}
+      <div className="mt-3 flex gap-1 overflow-x-auto px-4 py-1.5">
         {([
           ['feed', '广场'],
           ['following', '关注'],
@@ -558,6 +566,17 @@ export function SocialPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* #2：一键回到顶部（社交 Tab 上方右下角） */}
+      {showTop && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-[76px] right-4 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-primary-500 text-white shadow-lg"
+          aria-label="回到顶部"
+        >
+          <ArrowUp size={20} />
+        </button>
       )}
 
       <BottomNav />

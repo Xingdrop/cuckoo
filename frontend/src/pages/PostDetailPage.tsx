@@ -2,6 +2,7 @@ import { ChevronLeft, Heart, MessageCircle, Pencil, Send, Star, Trash2, Users } 
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { MediaGrid } from '../components/MediaGrid';
 import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
 import { socialApi, Post } from '../services/api/api.social';
@@ -176,18 +177,8 @@ export function PostDetailPage() {
               <p className="mt-3 text-sm leading-relaxed">{post.content}</p>
             )}
 
-            {/* 帖子图片（#5：容器 overflow-hidden 防止底部被裁切遮挡） */}
-            {post.mediaUrls.length > 0 && (
-              <div
-                className={`mt-3 overflow-hidden rounded-btn ${
-                  post.mediaUrls.length === 1 ? '' : 'grid grid-cols-2 gap-1'
-                }`}
-              >
-                {post.mediaUrls.slice(0, 4).map((u) => (
-                  <img key={u} src={u} alt="帖子图片" className="h-40 w-full object-cover" loading="lazy" />
-                ))}
-              </div>
-            )}
+            {/* 帖子媒体（#8：多图大图预览 + 视频播放） */}
+            {post.mediaUrls.length > 0 && <MediaGrid urls={post.mediaUrls} className="mt-3" />}
 
             {post.planSnapshot && (
               <div className="mt-3 rounded-btn bg-primary-50/60 px-3.5 py-2.5">

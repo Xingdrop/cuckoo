@@ -1,4 +1,4 @@
-import { ChevronLeft, Pencil, Plus, Send, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Pencil, Plus, Send, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -27,6 +27,8 @@ export function PlansPage() {
   const [sharePlan, setSharePlan] = useState<Plan | null>(null);
   const [shareText, setShareText] = useState('');
   const [deletePlan, setDeletePlan] = useState<Plan | null>(null);
+  const [renamePlan, setRenamePlan] = useState<Plan | null>(null);
+  const [renameText, setRenameText] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -136,10 +138,14 @@ export function PlansPage() {
                       className="min-w-0 flex-1 text-left"
                       aria-expanded={isOpen}
                     >
-                      <p className="truncate text-sm font-medium">
-                        {p.name}
+                      <p className="flex items-center gap-1 truncate text-sm font-medium">
+                        <ChevronDown
+                          size={13}
+                          className={`shrink-0 text-ink-300 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                        />
+                        <span className="truncate">{p.name}</span>
                         <span
-                          className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[9px] ${
+                          className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] ${
                             p.sourceType === 'self' ? 'bg-primary-50 text-primary-600' : 'bg-accent-100 text-accent-700'
                           }`}
                         >
@@ -151,7 +157,7 @@ export function PlansPage() {
                         {p.sourceTitle ? ` · ${p.sourceTitle}` : ''}
                       </p>
                     </button>
-                    {/* 美观开关（#3/#6：标准椭圆 + 滑块尺寸匹配） */}
+                    {/* #1：开关尺寸与滑块匹配（h-6 轨道 / h-5 滑块） */}
                     <button
                       onClick={async () => {
                         try {
@@ -162,17 +168,15 @@ export function PlansPage() {
                         }
                       }}
                       aria-label={p.isActive ? '停用计划' : '启用计划'}
-                      className={`relative h-8 w-14 shrink-0 rounded-full transition-colors duration-200 ${
+                      className={`relative h-6 w-10 shrink-0 rounded-full transition-colors duration-200 ${
                         p.isActive ? 'bg-primary-500' : 'bg-ink-100'
                       }`}
                     >
                       <span
-                        className={`absolute top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[9px] font-bold shadow transition-all duration-200 ${
-                          p.isActive ? 'left-[calc(100%-1.75rem)] text-primary-500' : 'left-1 text-ink-400'
+                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all duration-200 ${
+                          p.isActive ? 'left-[calc(100%-1.375rem)]' : 'left-0.5'
                         }`}
-                      >
-                        {p.isActive ? '✓' : ''}
-                      </span>
+                      />
                     </button>
                   </div>
 
@@ -219,6 +223,17 @@ export function PlansPage() {
                       <Send size={12} /> 一键发帖
                     </button>
                     <button
+                      onClick={() => {
+                        setRenamePlan(p);
+                        setRenameText(p.name);
+                      }}
+                      className="flex h-8 w-9 items-center justify-center rounded-btn bg-ink-100/60 text-ink-700"
+                      aria-label="重命名计划"
+                      title="重命名"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                    <button
                       onClick={() => setDeletePlan(p)}
                       className="flex h-8 w-9 items-center justify-center rounded-btn bg-danger-500/10 text-danger-500"
                       aria-label="删除计划"
@@ -259,6 +274,45 @@ export function PlansPage() {
                 className="flex-1 rounded-btn bg-primary-500 py-3 text-sm font-medium text-white"
               >
                 发布
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 重命名弹窗（#9） */}
+      {renamePlan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-8">
+          <div className="w-full max-w-xs rounded-card bg-surface p-5 shadow-xl">
+            <h3 className="text-base font-semibold">重命名计划</h3>
+            <input
+              value={renameText}
+              onChange={(e) => setRenameText(e.target.value)}
+              maxLength={50}
+              autoFocus
+              className="mt-3 w-full rounded-btn border border-ink-100 px-3 py-2.5 text-sm outline-none focus:border-primary-400"
+            />
+            <div className="mt-4 flex gap-3">
+              <button
+                onClick={() => setRenamePlan(null)}
+                className="flex-1 rounded-btn bg-ink-100 py-3 text-sm font-medium text-ink-700"
+              >
+                取消
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await plansApi.patch(renamePlan.id, { name: renameText.trim() });
+                    setRenamePlan(null);
+                    void load();
+                  } catch (e) {
+                    setError(errorMessage(e));
+                  }
+                }}
+                disabled={!renameText.trim()}
+                className="flex-1 rounded-btn bg-primary-500 py-3 text-sm font-medium text-white disabled:opacity-50"
+              >
+                保存
               </button>
             </div>
           </div>

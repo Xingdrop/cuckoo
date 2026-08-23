@@ -7,11 +7,15 @@ import { extname, join } from 'node:path';
 import * as fs from 'node:fs';
 import { FilesController } from './files.controller';
 
-const ALLOWED_EXT = ['.jpg', '.jpeg', '.png', '.webp'];
+/** 图片 */
+const IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.webp'];
+/** 视频（2026-08：#8 帖子支持视频） */
+const VIDEO_EXT = ['.mp4', '.webm'];
+const ALLOWED_EXT = [...IMAGE_EXT, ...VIDEO_EXT];
 
 /**
  * 上传模块：multer 配置集中在此（大小上限来自配置 MAX_FILE_SIZE，目录来自 UPLOAD_DIR）。
- * 校验策略（技术方案 §8.1 三重校验）：扩展名 + MIME 白名单（本处）+ 魔数校验（controller 收尾）。
+ * 校验策略（技术方案 §8.1 三重校验）：扩展名 + MIME 白名单（本处）+ 魔数校验（controller 收尾，仅图片）。
  */
 @Module({
   imports: [
@@ -30,12 +34,14 @@ const ALLOWED_EXT = ['.jpg', '.jpeg', '.png', '.webp'];
             cb(null, `${randomUUID()}${extname(file.originalname).toLowerCase()}`);
           },
         }),
-        limits: { fileSize: config.get<number>('upload.maxFileSize') ?? 10 * 1024 * 1024 },
+        limits: { fileSize: config.get<number>('upload.maxFileSize') ?? 20 * 1024 * 1024 },
         fileFilter: (_req, file, cb) => {
           const ext = extname(file.originalname).toLowerCase();
-          if (!ALLOWED_EXT.includes(ext) || !file.mimetype.startsWith('image/')) {
+          const isImage = IMAGE_EXT.includes(ext) && file.mimetype.startsWith('image/');
+          const isVideo = VIDEO_EXT.includes(ext) && file.mimetype.startsWith('video/');
+          if (!isImage && !isVideo) {
             cb(
-              new BadRequestException({ code: 'VALIDATION_FAILED', message: '仅支持 jpg/png/webp 图片' }),
+              new BadRequestException({ code: 'VALIDATION_FAILED', message: '仅支持 jpg/png/webp 图片或 mp4/webm 视频' }),
               false,
             );
             return;

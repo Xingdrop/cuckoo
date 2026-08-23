@@ -6,7 +6,8 @@ import { useAuthStore } from '../stores/authStore';
 import { errorMessage } from '../services/http';
 import { socialApi, Post, PlanTemplate, Group } from '../services/api/api.social';
 import { filesApi } from '../services/api/api.files';
-import { plansApi } from '../services/api/api.plans';
+import { MediaGrid } from '../components/MediaGrid';
+import { plansApi, profileApi } from '../services/api/api.plans';
 import type { Plan } from '../services/api/api.plans';
 import { notificationsApi } from '../services/api/api.social';
 
@@ -28,7 +29,7 @@ function fmtTime(iso: string): string {
 export function SocialPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const [tab, setTab] = useState<'feed' | 'mine' | 'templates' | 'groups'>('feed');
+  const [tab, setTab] = useState<'feed' | 'following' | 'mine' | 'templates' | 'groups'>('feed');
   const [posts, setPosts] = useState<Post[]>([]);
   const [templates, setTemplates] = useState<PlanTemplate[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -38,8 +39,19 @@ export function SocialPage() {
   const [composerText, setComposerText] = useState('');
   const [composerPlanId, setComposerPlanId] = useState<string>('');
   const [composerMedia, setComposerMedia] = useState<string[]>([]);
+  const [showPlanPicker, setShowPlanPicker] = useState(false);
   const [myPlans, setMyPlans] = useState<Plan[]>([]);
+  const [followingUsers, setFollowingUsers] = useState<{ id: string; username: string }[]>([]);
   const [joining, setJoining] = useState<string | null>(null);
+
+  // #6 关注 tab 数据
+  useEffect(() => {
+    if (!user) return;
+    profileApi
+      .following(user.id)
+      .then((u) => setFollowingUsers(u.map((x) => ({ id: x.id, username: x.username }))))
+      .catch(() => setFollowingUsers([]));
+  }, [user]);
 
   const load = useCallback(async () => {
     try {
@@ -196,17 +208,21 @@ export function SocialPage() {
         </div>
       </header>
 
-      {/* 分类 tab（#2：与 header 一起吸顶，避免滚动内容从下方穿出造成"方框被遮挡"） */}
+      {/* 分类 tab：广场 / 关注 / 我的 / 官方计划 / 小组（#6 关注过滤；#2 吸顶防遮挡） */}
       <div className="sticky top-[68px] z-10 mt-3 flex gap-1 overflow-x-auto bg-bg/95 px-4 py-1.5 backdrop-blur">
         {([
           ['feed', '广场'],
+          ['following', '关注'],
           ['mine', '我的'],
           ['templates', '官方计划'],
           ['groups', '小组'],
         ] as const).map(([key, label]) => (
           <button
             key={key}
-            onClick={() => setTab(key)}
+            onClick={() => {
+              setTab(key);
+              void load(); // #5：切换即刷新，与详情页操作同步
+            }}
             className={`shrink-0 rounded-full px-4 py-2 text-sm transition-colors ${
               tab === key ? 'bg-primary-500 font-medium text-white' : 'bg-surface text-ink-700 shadow-sm'
             }`}
@@ -219,6 +235,37 @@ export function SocialPage() {
       <main className="px-4 pt-4">
         {error && (
           <p className="mb-3 rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
+        )}
+
+        {tab === 'following' && (
+          <ul className="space-y-3">
+            {(() => {
+              const followingIds = new Set(followingUsers.map((u) => u.id));
+              const shown = posts.filter((p) => followingIds.has(p.author.id));
+              return shown.length === 0 ? (
+                <div className="rounded-card bg-surface p-10 text-center text-sm text-ink-500 shadow-sm">
+                  你关注的人还没有发帖
+                </div>
+              ) : (
+                shown.map((post) => (
+                  <li
+                    key={post.id}
+                    onClick={() => navigate(`/posts/${post.id}`)}
+                    className="cursor-pointer rounded-card bg-surface p-4 shadow-sm"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-50 text-sm font-medium text-primary-600">
+                        {post.author.username.slice(0, 1).toUpperCase()}
+                      </span>
+                      <p className="min-w-0 flex-1 truncate text-sm font-medium">@{post.author.username}</p>
+                      <span className="text-[10px] text-ink-300">{fmtTime(post.createdAt)}</span>
+                    </div>
+                    <p className="mt-2.5 text-sm leading-relaxed">{post.content}</p>
+                  </li>
+                ))
+              );
+            })()}
+          </ul>
         )}
 
         {tab === 'mine' && (
@@ -258,11 +305,7 @@ export function SocialPage() {
                     </button>
                   </div>
                   <p className="mt-2.5 text-sm leading-relaxed">{post.content}</p>
-                  {post.mediaUrls.length > 0 && (
-                    <div className="mt-2 overflow-hidden rounded-btn">
-                      <img src={post.mediaUrls[0]} alt="帖子图片" className="h-32 w-full object-cover" loading="lazy" />
-                    </div>
-                  )}
+                  {post.mediaUrls.length > 0 && <MediaGrid urls={post.mediaUrls} className="mt-2" />}
                 </li>
               ))}
           </ul>
@@ -318,24 +361,8 @@ export function SocialPage() {
 
                 <p className="mt-3 text-sm leading-relaxed">{post.content}</p>
 
-                {/* 帖子图片（#5：#2 防遮挡——固定宽高比 + 底部圆角容器） */}
-                {post.mediaUrls.length > 0 && (
-                  <div
-                    className={`mt-3 overflow-hidden rounded-btn ${
-                      post.mediaUrls.length === 1 ? '' : 'grid grid-cols-2 gap-1'
-                    }`}
-                  >
-                    {post.mediaUrls.slice(0, 4).map((u) => (
-                      <img
-                        key={u}
-                        src={u}
-                        alt="帖子图片"
-                        className="aspect-video w-full object-cover"
-                        loading="lazy"
-                      />
-                    ))}
-                  </div>
-                )}
+                {/* 帖子媒体（图片/视频 + 全屏预览，#8） */}
+                {post.mediaUrls.length > 0 && <MediaGrid urls={post.mediaUrls} className="mt-3" />}
 
                 {post.planSnapshot && (
                   <div className="mt-3 rounded-btn bg-primary-50/60 px-3.5 py-3">
@@ -456,47 +483,54 @@ export function SocialPage() {
             <p className="mt-2 text-[11px] text-ink-500">
               可选：引用「我的计划」——帖子可被一键加入，并显示引用来源
             </p>
-            <div className="mt-2 flex flex-wrap gap-2">
+            {/* #7：引用计划 = 按钮式（与加图一致） */}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <button
-                onClick={() => setComposerPlanId('')}
-                className={`rounded-full px-3 py-1.5 text-xs ${
-                  composerPlanId === '' ? 'bg-primary-500 text-white' : 'bg-ink-100 text-ink-700'
+                onClick={() => setShowPlanPicker((v) => !v)}
+                className={`flex h-8 items-center gap-1 rounded-full px-3 text-xs ${
+                  composerPlanId ? 'bg-primary-500 text-white' : 'bg-primary-50 text-primary-600'
                 }`}
               >
-                不引用
+                📋 {composerPlanId ? `已引用：${myPlans.find((p) => p.id === composerPlanId)?.name ?? ''}` : '引用计划'}
               </button>
-              {myPlans.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => setComposerPlanId(p.id)}
-                  className={`max-w-[160px] truncate rounded-full px-3 py-1.5 text-xs ${
-                    composerPlanId === p.id ? 'bg-primary-500 text-white' : 'bg-ink-100 text-ink-700'
-                  }`}
-                >
-                  {p.name}
-                </button>
-              ))}
-            </div>
-            {/* 图片上传（#6） */}
-            <div className="mt-2 flex items-center gap-2">
               <label className="flex h-8 cursor-pointer items-center gap-1 rounded-full bg-primary-50 px-3 text-xs text-primary-600">
-                <ImagePlus size={13} /> {composerMedia.length ? `已添加 ${composerMedia.length} 图` : '添加图片'}
+                <ImagePlus size={13} /> {composerMedia.length ? `已添加 ${composerMedia.length} 媒体` : '添加图片/视频'}
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/*,video/*"
                   className="hidden"
                   onChange={(e) => void pickImage(e.target.files?.[0])}
                 />
               </label>
               {composerMedia.length > 0 && (
-                <button
-                  onClick={() => setComposerMedia([])}
-                  className="text-xs text-danger-500"
-                >
+                <button onClick={() => setComposerMedia([])} className="text-xs text-danger-500">
                   清空
                 </button>
               )}
             </div>
+            {showPlanPicker && (
+              <div className="mt-2 flex flex-wrap gap-2 rounded-btn bg-bg p-2">
+                <button
+                  onClick={() => setComposerPlanId('')}
+                  className={`rounded-full px-3 py-1.5 text-xs ${
+                    composerPlanId === '' ? 'bg-primary-500 text-white' : 'bg-ink-100 text-ink-700'
+                  }`}
+                >
+                  不引用
+                </button>
+                {myPlans.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => setComposerPlanId(p.id)}
+                    className={`max-w-[160px] truncate rounded-full px-3 py-1.5 text-xs ${
+                      composerPlanId === p.id ? 'bg-primary-500 text-white' : 'bg-ink-100 text-ink-700'
+                    }`}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="mt-4 flex gap-3">
               <button
                 onClick={() => setShowComposer(false)}

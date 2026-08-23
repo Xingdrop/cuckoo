@@ -53,4 +53,40 @@ describe('报表聚合（UT-STAT-08 周报对比）', () => {
     expect(buildSuggestion(30, 80, null)).toContain('下滑');
     expect(buildSuggestion(10, null, null)).toContain('现在');
   });
+
+  it('UT-STAT-08 周报对比：本周速率对比上周（aggregatePlans）', () => {
+    // 上周：2 完成 / 1 漏服 → planned=3, done=2, rate=67
+    const lastWeek: PlanItem[] = [
+      {
+        title: '喝水',
+        category: 'water',
+        categoryLabel: '喝水',
+        times: [
+          { time: '08:00', status: 'completed' },
+          { time: '12:00', status: 'completed' },
+          { time: '20:00', status: 'missed' },
+        ],
+      },
+    ];
+    // 本周：3 完成 / 1 跳过 → planned=3, done=3, rate=100
+    const thisWeek: PlanItem[] = [
+      {
+        title: '喝水',
+        category: 'water',
+        categoryLabel: '喝水',
+        times: [
+          { time: '08:00', status: 'completed' },
+          { time: '12:00', status: 'completed' },
+          { time: '18:00', status: 'completed' },
+          { time: '21:00', status: 'skipped' },
+        ],
+      },
+    ];
+    const last = aggregatePlans(lastWeek);
+    const curr = aggregatePlans(thisWeek);
+    expect(last.rate).toBe(67);
+    expect(curr.rate).toBe(100);
+    // 周报对比语义：本周好于上周
+    expect(curr.rate).toBeGreaterThan(last.rate);
+  });
 });

@@ -158,6 +158,26 @@ export class SocialService {
     return { success: true };
   }
 
+  /** 编辑帖子内容（仅作者；敏感词过滤；updatedAt 自动更新） */
+  async updatePost(userId: string, postId: string, content: string) {
+    const post = await this.postRepo.findOne({ where: { id: postId } });
+    if (!post) throw new NotFoundException({ code: 'NOT_FOUND', message: '帖子不存在' });
+    if (post.userId !== userId) {
+      throw new BadRequestException({ code: 'FORBIDDEN', message: '只能编辑自己的帖子' });
+    }
+    if (!content?.trim() || content.length > POST_CONTENT_MAX) {
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message: `帖子内容 1~${POST_CONTENT_MAX} 字`,
+      });
+    }
+    const filtered = await this.filterContent(content.trim());
+    // repo.update 不会触发 @UpdateDateColumn → 手动刷新 updatedAt（前端显示"已编辑"）
+    await this.postRepo.update({ id: postId, userId }, { content: filtered, updatedAt: new Date() });
+    void this.audit.record('post.update', userId, { targetType: 'post', targetId: postId });
+    return this.getPost(userId, postId);
+  }
+
   // ============ 互动（幂等） ============
 
   /** 点赞/取消（幂等） */
@@ -256,6 +276,8 @@ export class SocialService {
       if (existing?.isActive) {
         return { joined: true, duplicate: true, reminderId: existing.reminderId };
       }
+      // 曾退出（isActive=false）：复用旧 join 记录（避免 UNIQUE(postId,userId) 冲突而无法再次加入）
+      const reuseJoin = existing ?? null;
 
       // 落库计划（同帖复用；sourceTitle 展示来源用户名）
       const author = await userRepo.findOne({ where: { id: post.userId } });
@@ -320,16 +342,24 @@ export class SocialService {
         createdReminder = await reminderRepo.save(reminder);
       }
 
-      const join = joinRepo.create({
-        id: randomUUID(),
-        postId,
-        userId,
-        reminderId: createdReminder!.id,
-        isActive: true,
-      });
-      await joinRepo.save(join);
+      // 加入/复用 join 记录（退出后再次加入：复用旧记录并更新为新提醒）
+      if (reuseJoin) {
+        await joinRepo.update(
+          { id: reuseJoin.id },
+          { reminderId: createdReminder!.id, isActive: true },
+        );
+      } else {
+        const join = joinRepo.create({
+          id: randomUUID(),
+          postId,
+          userId,
+          reminderId: createdReminder!.id,
+          isActive: true,
+        });
+        await joinRepo.save(join);
+      }
 
-      // 计数 +1（原子）
+      // 计数 +1（原子; 曾退出后 count 已 -1，此时再加回）
       await postRepo.increment({ id: postId }, 'joinedCount', 1);
       // 记录 join 互动（幂等 UNIQUE）
       await interactionRepo
@@ -350,13 +380,20 @@ export class SocialService {
       const joinRepo = manager.getRepository(PlanJoinRecord);
       const reminderRepo = manager.getRepository(Reminder);
       const postRepo = manager.getRepository(Post);
+      const planRepo = manager.getRepository(Plan);
 
       const join = await joinRepo.findOne({ where: { postId, userId, isActive: true } });
       if (!join) return { left: false };
 
+      // 软删该计划下全部关联提醒（join 只记录最后一条 reminderId，故按 planId 批量删除）
+      const plan = await planRepo.findOne({ where: { userId, sourceType: 'share', sourceId: postId } });
+      if (plan) {
+        await reminderRepo.softDelete({ userId, planId: plan.id });
+      } else {
+        await reminderRepo.softDelete(join.reminderId);
+      }
       join.isActive = false;
-      await joinRepo.save(join);
-      await reminderRepo.softDelete(join.reminderId);
+      await joinRepo.update({ id: join.id }, { isActive: false });
       await postRepo.decrement({ id: postId }, 'joinedCount', 1);
       return { left: true };
     });

@@ -21,7 +21,8 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'node dist/main.js',
+      // E2E_RATE_LIMIT：仅测试环境放宽登录/注册限流（生产/开发不设该变量，仍为 5 次/分/IP）
+      command: 'set E2E_RATE_LIMIT=1000&& node dist/main.js',
       cwd: '../backend',
       port: 3000,
       reuseExistingServer: true,

@@ -5,6 +5,8 @@ import { BottomNav } from '../components/BottomNav';
 import { useAuthStore } from '../stores/authStore';
 import { errorMessage } from '../services/http';
 import { socialApi, Post, PlanTemplate, Group } from '../services/api/api.social';
+import { plansApi } from '../services/api/api.plans';
+import type { Plan } from '../services/api/api.plans';
 import { notificationsApi } from '../services/api/api.social';
 
 function fmtTime(iso: string): string {
@@ -31,6 +33,8 @@ export function SocialPage() {
   const [error, setError] = useState<string | null>(null);
   const [showComposer, setShowComposer] = useState(false);
   const [composerText, setComposerText] = useState('');
+  const [composerPlanId, setComposerPlanId] = useState<string>('');
+  const [myPlans, setMyPlans] = useState<Plan[]>([]);
   const [joining, setJoining] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -105,13 +109,27 @@ export function SocialPage() {
   const publish = async () => {
     if (!composerText.trim()) return;
     try {
-      await socialApi.createPost({ content: composerText.trim() });
+      // 引用计划：附带 planSnapshot（他人可一键加入）
+      let planSnapshot: Record<string, unknown> | null = null;
+      if (composerPlanId) {
+        planSnapshot = (await plansApi.snapshot(composerPlanId)) as unknown as Record<string, unknown>;
+      }
+      await socialApi.createPost({ content: composerText.trim(), planSnapshot: planSnapshot ?? undefined });
       setComposerText('');
+      setComposerPlanId('');
       setShowComposer(false);
       void load();
     } catch (e) {
       setError(errorMessage(e));
     }
+  };
+
+  const openComposer = () => {
+    setShowComposer(true);
+    void plansApi
+      .list()
+      .then((p) => setMyPlans(p))
+      .catch(() => setMyPlans([]));
   };
 
   return (
@@ -150,7 +168,7 @@ export function SocialPage() {
             )}
           </button>
           <button
-            onClick={() => setShowComposer(true)}
+            onClick={openComposer}
             className="flex h-10 items-center gap-1 rounded-full bg-primary-500 px-4 text-sm font-medium text-white"
           >
             <PenSquare size={15} /> 发布
@@ -193,23 +211,38 @@ export function SocialPage() {
             {posts
               .filter((p) => p.author.id === user?.id)
               .map((post) => (
-                <li key={post.id} className="rounded-card bg-surface p-4 shadow-sm">
+                <li
+                  key={post.id}
+                  onClick={() => navigate(`/posts/${post.id}`)}
+                  className="cursor-pointer rounded-card bg-surface p-4 shadow-sm"
+                >
                   <div className="flex items-center gap-2.5">
                     <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-50 text-sm font-medium text-primary-600">
                       {post.author.username.slice(0, 1).toUpperCase()}
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">@{post.author.username}</p>
-                      <p className="text-[10px] text-ink-300">{fmtTime(post.createdAt)}</p>
+                      <p className="text-[10px] text-ink-300">
+                        {fmtTime(post.createdAt)}
+                        {post.updatedAt && new Date(post.updatedAt).getTime() - new Date(post.createdAt).getTime() > 60_000 ? ' · 已编辑' : ''}
+                      </p>
                     </div>
                     <button
-                      onClick={() => navigate(`/posts/${post.id}`)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/posts/${post.id}`);
+                      }}
                       className="text-xs text-primary-600"
                     >
                       详情 ›
                     </button>
                   </div>
                   <p className="mt-2.5 text-sm leading-relaxed">{post.content}</p>
+                  {post.mediaUrls.length > 0 && (
+                    <div className="mt-2 overflow-hidden rounded-btn">
+                      <img src={post.mediaUrls[0]} alt="帖子图片" className="h-32 w-full object-cover" loading="lazy" />
+                    </div>
+                  )}
                 </li>
               ))}
           </ul>
@@ -223,23 +256,40 @@ export function SocialPage() {
               </div>
             )}
             {posts.map((post) => (
-              <li key={post.id} className="rounded-card bg-surface p-4 shadow-sm">
+              <li
+                key={post.id}
+                onClick={() => navigate(`/posts/${post.id}`)}
+                className="cursor-pointer rounded-card bg-surface p-4 shadow-sm"
+              >
                 <div className="flex items-center gap-2.5">
                   <button
-                    onClick={() => navigate(`/profile/${post.author.id}`)}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-50 text-sm font-medium text-primary-600"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/profile/${post.author.id}`);
+                    }}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-50 text-sm font-semibold text-primary-600"
                     aria-label={`查看 @${post.author.username} 的主页`}
                   >
-                    {post.author.username.slice(0, 1).toUpperCase()}
+                    {post.author.avatarUrl ? (
+                      <img src={post.author.avatarUrl} alt="头像" className="h-full w-full object-cover" />
+                    ) : (
+                      post.author.username.slice(0, 1).toUpperCase()
+                    )}
                   </button>
                   <div className="min-w-0 flex-1">
                     <button
-                      onClick={() => navigate(`/profile/${post.author.id}`)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/profile/${post.author.id}`);
+                      }}
                       className="block max-w-full truncate text-sm font-medium"
                     >
                       @{post.author.username}
                     </button>
-                    <p className="text-[10px] text-ink-300">{fmtTime(post.createdAt)}</p>
+                    <p className="text-[10px] text-ink-300">
+                      {fmtTime(post.createdAt)}
+                      {post.updatedAt && new Date(post.updatedAt).getTime() - new Date(post.createdAt).getTime() > 60_000 ? ' · 已编辑' : ''}
+                    </p>
                   </div>
                   {post.type === 'official_plan' && (
                     <span className="rounded-full bg-accent-100 px-2 py-0.5 text-[10px] text-accent-700">官方</span>
@@ -248,13 +298,35 @@ export function SocialPage() {
 
                 <p className="mt-3 text-sm leading-relaxed">{post.content}</p>
 
+                {/* 帖子图片（2026-08：#5 底部不被遮挡） */}
+                {post.mediaUrls.length > 0 && (
+                  <div
+                    className={`mt-3 overflow-hidden rounded-btn ${
+                      post.mediaUrls.length === 1 ? '' : 'grid grid-cols-2 gap-1'
+                    }`}
+                  >
+                    {post.mediaUrls.slice(0, 4).map((u) => (
+                      <img
+                        key={u}
+                        src={u}
+                        alt="帖子图片"
+                        className="h-40 w-full object-cover"
+                        loading="lazy"
+                      />
+                    ))}
+                  </div>
+                )}
+
                 {post.planSnapshot && (
                   <div className="mt-3 rounded-btn bg-primary-50/60 px-3.5 py-3">
                     <p className="text-xs font-medium text-primary-700">
                       📋 包含可加入的提醒计划
                     </p>
                     <button
-                      onClick={() => void joinPost(post)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void joinPost(post);
+                      }}
                       disabled={joining === post.id}
                       className={`mt-2 w-full rounded-btn py-2.5 text-sm font-medium transition-colors ${
                         post.myJoined
@@ -269,17 +341,29 @@ export function SocialPage() {
 
                 <div className="mt-3 flex items-center gap-4 border-t border-ink-100 pt-3 text-xs text-ink-500">
                   <button
-                    onClick={() => void toggleLike(post)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void toggleLike(post);
+                    }}
                     className={`flex items-center gap-1 ${post.myLiked ? 'text-danger-500' : ''}`}
                   >
                     <Heart size={15} fill={post.myLiked ? 'currentColor' : 'none'} />
                     {post.likesCount}
                   </button>
-                  <button onClick={() => navigate(`/posts/${post.id}`)} className="flex items-center gap-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/posts/${post.id}`);
+                    }}
+                    className="flex items-center gap-1"
+                  >
                     <MessageCircle size={15} /> {post.commentsCount}
                   </button>
                   <button
-                    onClick={() => void toggleFavorite(post)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void toggleFavorite(post);
+                    }}
                     className={`flex items-center gap-1 ${post.myFavorited ? 'text-accent-700' : ''}`}
                   >
                     <Star size={15} fill={post.myFavorited ? 'currentColor' : 'none'} /> 收藏
@@ -336,7 +420,7 @@ export function SocialPage() {
         )}
       </main>
 
-      {/* 发布弹窗 */}
+      {/* 发布弹窗（可引用我的计划：#4/#9） */}
       {showComposer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-8">
           <div className="w-full max-w-sm rounded-card bg-surface p-5 shadow-xl">
@@ -346,9 +430,33 @@ export function SocialPage() {
               onChange={(e) => setComposerText(e.target.value)}
               rows={4}
               maxLength={2000}
-              placeholder="分享你的计划或坚持心得…"
+              placeholder="分享你的计划或坚持心得；如引用计划，需填写文字说明…"
               className="mt-3 w-full resize-none rounded-btn border border-ink-100 p-3 text-sm outline-none focus:border-primary-400"
             />
+            <p className="mt-2 text-[11px] text-ink-500">
+              可选：引用「我的计划」——帖子可被一键加入，并显示引用来源
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                onClick={() => setComposerPlanId('')}
+                className={`rounded-full px-3 py-1.5 text-xs ${
+                  composerPlanId === '' ? 'bg-primary-500 text-white' : 'bg-ink-100 text-ink-700'
+                }`}
+              >
+                不引用
+              </button>
+              {myPlans.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setComposerPlanId(p.id)}
+                  className={`max-w-[160px] truncate rounded-full px-3 py-1.5 text-xs ${
+                    composerPlanId === p.id ? 'bg-primary-500 text-white' : 'bg-ink-100 text-ink-700'
+                  }`}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
             <div className="mt-4 flex gap-3">
               <button
                 onClick={() => setShowComposer(false)}

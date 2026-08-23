@@ -1,4 +1,4 @@
-import { ChevronRight, Pencil, Plus, Power, Send, Trash2 } from 'lucide-react';
+import { ChevronRight, Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -63,9 +63,6 @@ export function ReminderListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Reminder | null>(null);
-  const [creatingPlan, setCreatingPlan] = useState(false);
-  const [planName, setPlanName] = useState('');
-  const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const created = (location.state as { created?: Reminder } | null)?.created;
@@ -94,18 +91,6 @@ export function ReminderListPage() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  const createPlan = async () => {
-    if (!planName.trim()) return;
-    try {
-      await plansApi.create({ name: planName.trim() });
-      setPlanName('');
-      setCreatingPlan(false);
-      void load();
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-  };
 
   const toggleActive = async (r: Reminder) => {
     const updated = await remindersApi.setActive(r.id, !r.isActive);
@@ -186,137 +171,23 @@ export function ReminderListPage() {
           </button>
         </div>
 
-        {/* 我的计划（2026-08：自建/加入的计划 + 启停 + 发帖） */}
+        {/* 我的计划入口（#7：点击进入独立页，而非内联展开） */}
         <section className="mb-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-ink-700">📋 我的计划</h2>
-            <button
-              onClick={() => setCreatingPlan((v) => !v)}
-              className="flex h-9 items-center gap-0.5 rounded-full bg-primary-50 px-3 text-xs text-primary-600"
-            >
-              <Plus size={13} /> 新建计划
-            </button>
-          </div>
-          {creatingPlan && (
-            <div className="mt-2 flex gap-2">
-              <input
-                value={planName}
-                onChange={(e) => setPlanName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && void createPlan()}
-                maxLength={50}
-                placeholder="计划名称，如：晨间习惯"
-                className="min-w-0 flex-1 rounded-btn border border-ink-100 bg-surface px-3 py-2 text-sm outline-none focus:border-primary-400"
-              />
-              <button
-                onClick={() => void createPlan()}
-                disabled={!planName.trim()}
-                className="rounded-btn bg-primary-500 px-4 text-xs font-medium text-white disabled:opacity-50"
-              >
-                创建
-              </button>
-            </div>
-          )}
-          {plans.length === 0 ? (
-            <p className="mt-2 rounded-card bg-surface px-4 py-3 text-xs text-ink-500 shadow-sm">
-              还没有计划——新建一个，或在社区一键加入朋友的计划
-            </p>
-          ) : (
-            <ul className="mt-2 space-y-2">
-              {plans.map((p) => (
-                <li key={p.id} className="rounded-card bg-surface px-4 py-3 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setExpandedPlan((v) => (v === p.id ? null : p.id))}
-                      className="min-w-0 flex-1 text-left"
-                    >
-                      <p className="truncate text-sm font-medium">
-                        {p.name}
-                        {p.sourceType === 'self' ? (
-                          <span className="ml-1.5 rounded-full bg-primary-50 px-1.5 py-0.5 text-[9px] text-primary-600">
-                            自建
-                          </span>
-                        ) : (
-                          <span className="ml-1.5 rounded-full bg-accent-100 px-1.5 py-0.5 text-[9px] text-accent-700">
-                            {p.sourceType === 'official' ? '官方' : '加入'}
-                          </span>
-                        )}
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-ink-500">
-                        {p.reminderCount ?? 0} 条提醒
-                        {p.sourceTitle ? ` · ${p.sourceTitle}` : ''}
-                      </p>
-                    </button>
-                    <button
-                      onClick={async () => {
-                        try {
-                          await plansApi.patch(p.id, { isActive: !p.isActive });
-                          void load();
-                        } catch (e) {
-                          setError(errorMessage(e));
-                        }
-                      }}
-                      aria-label={p.isActive ? '停用计划' : '启用计划'}
-                      className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${
-                        p.isActive ? 'bg-primary-500' : 'bg-ink-100'
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
-                          p.isActive ? 'left-[18px]' : 'left-0.5'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                  {/* 计划内提醒明细（展开） */}
-                  {expandedPlan === p.id && (
-                    <ul className="mt-2 space-y-1.5 rounded-btn bg-bg px-3 py-2">
-                      {items.filter((r) => r.planId === p.id).length === 0 ? (
-                        <li className="py-1 text-center text-[11px] text-ink-300">
-                          该计划还没有提醒，点击下方「添加提醒」
-                        </li>
-                      ) : (
-                        items
-                          .filter((r) => r.planId === p.id)
-                          .map((r) => (
-                            <li key={r.id} className="flex items-center gap-2 text-xs">
-                              <span className="text-primary-600">{CATEGORY_META[r.category].emoji}</span>
-                              <span className="min-w-0 flex-1 truncate">{r.title}</span>
-                              <span className="shrink-0 text-ink-500">
-                                {formatRepeat(r.repeatRule)}
-                                {r.times?.length ? ` · ${r.repeatRule.type === 'daily' ? r.times.map((t) => t).join('/') : formatReminderTime(r)}` : ' · 不定时'}
-                              </span>
-                            </li>
-                          ))
-                      )}
-                    </ul>
-                  )}
-                  <div className="mt-2 flex gap-2 border-t border-ink-100 pt-2">
-                    <button
-                      onClick={() => navigate(`/reminders/new?planId=${p.id}`)}
-                      className="flex h-8 flex-1 items-center justify-center gap-0.5 rounded-btn bg-primary-50 text-[11px] font-medium text-primary-600"
-                    >
-                      <Plus size={12} /> 添加提醒
-                    </button>
-                    {p.sourceType === 'self' && (
-                      <button
-                        onClick={async () => {
-                          try {
-                            await plansApi.share(p.id);
-                            setError(null);
-                          } catch (e) {
-                            setError(errorMessage(e));
-                          }
-                        }}
-                        className="flex h-8 flex-1 items-center justify-center gap-0.5 rounded-btn bg-ink-100/60 text-[11px] font-medium text-ink-700"
-                      >
-                        <Send size={12} /> 一键发帖
-                      </button>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+          <button
+            onClick={() => navigate('/plans')}
+            className="flex w-full items-center gap-3 rounded-card bg-surface px-4 py-3.5 text-left shadow-sm"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">
+              📋
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium">我的计划</span>
+              <span className="block text-[11px] text-ink-500">
+                {plans.length > 0 ? `${plans.length} 个计划 · 新建/启停/发帖/删除` : '新建计划，或加入朋友的计划'}
+              </span>
+            </span>
+            <ChevronRight size={16} className="shrink-0 text-ink-300" />
+          </button>
         </section>
 
         {toast && (
@@ -360,7 +231,14 @@ export function ReminderListPage() {
                         {formatRepeat(r.repeatRule)} · {formatReminderTime(r)}
                       </p>
                       {r.planName && (
-                        <p className="mt-0.5 text-[10px] text-primary-600">📋 来自计划：{r.planName}</p>
+                        <p className="mt-0.5 flex items-center gap-1 text-[10px] text-primary-600">
+                          📋 来自计划：{r.planName}
+                          {r.modifiedFromPlan && (
+                            <span className="rounded-full bg-accent-100 px-1.5 py-0.5 text-[9px] text-accent-700">
+                              已修改
+                            </span>
+                          )}
+                        </p>
                       )}
                       {r.content.text && (
                         <p className="mt-0.5 truncate text-xs text-ink-500/70">{r.content.text}</p>

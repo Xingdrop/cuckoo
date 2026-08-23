@@ -64,6 +64,7 @@ export function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [addedFlash, setAddedFlash] = useState<number | null>(null);
   const touchX = useRef<number | null>(null);
 
   const load = useCallback(
@@ -224,15 +225,33 @@ export function DashboardPage() {
           >
             <div className="flex items-center justify-between">
               <p className="text-xs text-ink-500">💧 喝水</p>
-              <button
-                onClick={async () => {
-                  await statsApi.water(200).catch(() => undefined);
-                  statsApi.dashboard().then(setStats).catch(() => undefined);
-                }}
-                className="rounded-full bg-primary-500 px-2.5 py-1 text-[11px] font-medium text-white"
-              >
-                +200
-              </button>
+              {stats && stats.water.rate >= 100 && (
+                <span className="animate-pop-in rounded-full bg-primary-500 px-2 py-0.5 text-[10px] font-medium text-white">
+                  ✓ 目标达成
+                </span>
+              )}
+              <div className="relative">
+                <button
+                  onClick={async () => {
+                    await statsApi.water(200).catch(() => undefined);
+                    statsApi.dashboard().then(setStats).catch(() => undefined);
+                    const t = Date.now();
+                    setAddedFlash(t);
+                    setTimeout(() => setAddedFlash((v) => (v === t ? null : v)), 900);
+                  }}
+                  className="rounded-full bg-primary-500 px-2.5 py-1 text-[11px] font-medium text-white"
+                >
+                  +200
+                </button>
+                {addedFlash !== null && (
+                  <span
+                    key={addedFlash}
+                    className="water-add-float pointer-events-none absolute -top-5 right-0 text-xs font-semibold text-primary-600"
+                  >
+                    +200ml ✦
+                  </span>
+                )}
+              </div>
             </div>
             {stats ? (
               <>

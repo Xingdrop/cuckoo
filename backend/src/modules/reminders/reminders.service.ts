@@ -314,7 +314,7 @@ export class RemindersService {
     const endDate = dto.endDate !== undefined ? (dto.endDate ? new Date(dto.endDate) : null) : reminder.endDate;
     const times = dto.times !== undefined ? dto.times : reminder.times;
 
-    const patch = {
+    const patch: Partial<Reminder> = {
       ...dto,
       repeatRule: next,
       startDate,
@@ -323,6 +323,10 @@ export class RemindersService {
       nextTriggerAt: computeNextTrigger(next, new Date(), startDate, endDate, timezone, times),
     };
     // 注意：不能用 save(entity)——TypeORM 1.x 对带 transformer 的列会写入数据库旧值
+    // 计划提醒被用户修改 → 打标（前端展示"已修改"，#8）
+    if (reminder.planId) {
+      patch.modifiedFromPlan = true;
+    }
     await this.reminderRepo.update({ id, userId }, patch);
     return this.findOne(userId, id);
   }

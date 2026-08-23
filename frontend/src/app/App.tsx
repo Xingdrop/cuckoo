@@ -35,6 +35,7 @@ const AchievementsPage = lazyPage(() => import('../pages/AchievementsPage'), 'Ac
 const PrivacyPage = lazyPage(() => import('../pages/PrivacyPage'), 'PrivacyPage');
 const ProfilePage = lazyPage(() => import('../pages/ProfilePage'), 'ProfilePage');
 const FollowListPage = lazyPage(() => import('../pages/FollowListPage'), 'FollowListPage');
+const PlansPage = lazyPage(() => import('../pages/PlansPage'), 'PlansPage');
 
 /** 路由 chunk 加载中的全屏骨架 */
 function PageFallback() {
@@ -62,6 +63,14 @@ export function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
+          <Route
+            path="/plans"
+            element={
+              <RequireAuth>
+                <PlansPage />
+              </RequireAuth>
+            }
+          />
           <Route
             path="/today"
             element={

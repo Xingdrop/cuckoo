@@ -19,6 +19,7 @@ export const plansApi = {
   list: () => http.get<Plan[]>('/plans').then((r) => r.data),
   create: (body: { name: string; description?: string }) =>
     http.post<Plan>('/plans', body).then((r) => r.data),
+  snapshot: (id: string) => http.get<Record<string, unknown>>(`/plans/${id}/snapshot`).then((r) => r.data),
   patch: (id: string, patch: { name?: string; description?: string; isActive?: boolean }) =>
     http.patch<Plan>(`/plans/${id}`, patch).then((r) => r.data),
   remove: (id: string) => http.delete(`/plans/${id}`).then((r) => r.data),

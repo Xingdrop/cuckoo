@@ -1,4 +1,4 @@
-import { Award, BarChart3, Bell, BellRing, ChevronLeft, Download, LogOut, Trash2 } from 'lucide-react';
+import { Award, BarChart3, Bell, BellRing, ChevronLeft, Download, LogOut, Shield, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -266,6 +266,12 @@ export function SettingsPage() {
 
         {/* 账号 */}
         <section className="divide-y divide-ink-100 rounded-card bg-surface shadow-sm">
+          <button
+            onClick={() => navigate('/privacy')}
+            className="flex w-full items-center gap-2 px-4 py-3.5 text-sm text-ink-700"
+          >
+            <Shield size={16} /> 隐私政策与健康免责声明
+          </button>
           <button
             onClick={handleLogout}
             className="flex w-full items-center gap-2 px-4 py-3.5 text-sm text-ink-700"

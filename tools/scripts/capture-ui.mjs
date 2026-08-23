@@ -97,6 +97,7 @@ const ROUTES = [
   ['reports', '/reports'],
   ['achievements', '/achievements'],
   ['settings', '/settings'],
+  ['profile', '/profile'],
 ];
 
 async function main() {
@@ -116,7 +117,10 @@ async function main() {
   await page.click('button[type="submit"]');
   await page.waitForSelector('text=今日', { timeout: 10000 }).catch(() => undefined);
 
+  // PAGES=reminders,profile 可只拍部分页面
+  const only = process.env.PAGES ? process.env.PAGES.split(',') : null;
   for (const [name, route] of ROUTES) {
+    if (only && !only.includes(name)) continue;
     await page.goto(`${BASE}${route}`);
     await shot(page, name, 800);
   }

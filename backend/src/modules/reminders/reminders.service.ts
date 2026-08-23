@@ -17,6 +17,7 @@ import {
 } from '../../common/reminder-schedule';
 import { Medicine } from '../medicines/medicine.entity';
 import { AuditService } from '../audit/audit.service';
+import { PlansService } from '../plans/plans.service';
 import { AchievementsService } from '../achievements/achievements.service';
 import { Notification, NotificationType } from '../notifications/notification.entity';
 import { User } from '../users/user.entity';
@@ -59,6 +60,7 @@ export class RemindersService {
     private readonly settingRepo: Repository<UserSetting>,
     private readonly dataSource: DataSource,
     private readonly audit: AuditService,
+    private readonly plans: PlansService,
     @Inject(forwardRef(() => AchievementsService))
     private readonly achievements: AchievementsService,
   ) {}
@@ -98,6 +100,7 @@ export class RemindersService {
       delaySettings: dto.delaySettings ?? {},
       challenge: dto.challenge ?? {},
       medicineId: dto.medicineId ?? null,
+      planId: dto.planId ?? null,
       isActive: dto.isActive ?? true,
       times: dto.times ?? null,
       nextTriggerAt: computeNextTrigger(
@@ -120,7 +123,13 @@ export class RemindersService {
       .orderBy('r.nextTriggerAt', 'ASC');
     if (query.category) qb.andWhere('r.category = :category', { category: query.category });
     if (query.isActive !== undefined) qb.andWhere('r.isActive = :isActive', { isActive: query.isActive });
-    return qb.getMany();
+    const items = await qb.getMany();
+    // 附上计划名（展示"来自 xx 计划"；停用计划仅标记，不影响列表）
+    const plans = await this.plans.nameMap(items.map((r) => r.planId ?? ''));
+    return items.map((r) => ({
+      ...r,
+      planName: r.planId ? (plans.get(r.planId) ?? null) : null,
+    }));
   }
 
   /**
@@ -156,6 +165,7 @@ export class RemindersService {
       content: ReminderContent;
       times: { time: string; status: string | null }[];
       todayTotal: number;
+      untimed: boolean;
     }[] = [];
 
     for (const r of reminders) {
@@ -219,6 +229,10 @@ export class RemindersService {
         times = [toLocalTimeStr(r.startDate, timezone)];
       }
       const dayLogs = logs.filter((l) => l.reminderId === r.id);
+      // 不定时提醒：无 times 且非按小时 interval（每天在创建时刻提醒，界面不显示具体时间）
+      const untimed =
+        (!r.times || r.times.length === 0) &&
+        !(r.repeatRule.type === RepeatType.INTERVAL && r.repeatRule.intervalUnit === IntervalUnit.HOUR);
 
       result.push({
         reminderId: r.id,
@@ -236,6 +250,7 @@ export class RemindersService {
           return { time: t, status: log ? log.status : null };
         }),
         todayTotal: times.length,
+        untimed,
       });
     }
 

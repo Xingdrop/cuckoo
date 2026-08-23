@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryColumn, Unique } from 'typeorm';
+import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique } from 'typeorm';
 import { randomUUID } from 'node:crypto';
 import { utcDateTime } from '../../common/datetime.transformer';
 
@@ -46,7 +46,6 @@ export class Achievement {
   @PrimaryColumn('text')
   id: string = randomUUID();
 
-  @Index()
   @Column('text')
   userId: string;
 

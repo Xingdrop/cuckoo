@@ -1,6 +1,6 @@
 import { ChevronLeft, Clock, Plus, X } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { errorMessage } from '../services/http';
 import { remindersApi } from '../services/api/api.reminders';
 import { medicinesApi } from '../services/api/api.medicines';
@@ -37,6 +37,9 @@ export function ReminderEditPage() {
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  /** 从"我的计划"进入时附带 planId（创建提醒归属计划） */
+  const planId = searchParams.get('planId');
   const preset = (location.state as { preset?: { category?: ReminderCategory; title?: string; contentText?: string } } | null)?.preset;
 
   const [category, setCategory] = useState<ReminderCategory>('water');
@@ -51,6 +54,7 @@ export function ReminderEditPage() {
   });
   /** 每日多时间点（daily/weekly 适用），保留与单时间兼容 */
   const [times, setTimes] = useState<string[]>(['08:00']);
+  const [untimed, setUntimed] = useState(false);
   const [repeatType, setRepeatType] = useState<RepeatType>('daily');
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5]);
   const [dayOfMonth, setDayOfMonth] = useState(1);
@@ -104,6 +108,7 @@ export function ReminderEditPage() {
         if (r.times && r.times.length > 0) {
           setTimes(r.times);
         }
+        setUntimed(r.repeatRule.type === 'daily' && (!r.times || r.times.length === 0));
         if (r.repeatRule.type === 'once') {
           setOnceDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
         }
@@ -147,9 +152,10 @@ export function ReminderEditPage() {
     const day = repeatType === 'once' ? onceDate.split('-').map(Number) : [now.getFullYear(), now.getMonth() + 1, now.getDate()];
     const startDate = new Date(day[0], day[1] - 1, day[2], h, m);
 
-    // daily/weekly 支持多时间点；其余类型用单时间
+    // daily/weekly 支持多时间点；其余类型用单时间；daily 可勾选"不定时"（times 留空）
     const useTimes =
       (repeatType === 'daily' || repeatType === 'weekly') &&
+      !untimed &&
       times.length > 0 &&
       times.some((t) => t !== '');
     const cleanTimes = useTimes
@@ -169,6 +175,7 @@ export function ReminderEditPage() {
         ...(repeatType === 'interval' ? { intervalValue, intervalUnit } : {}),
       },
       startDate: startDate.toISOString(),
+      ...(planId ? { planId } : {}),
       ...(cleanTimes ? { times: cleanTimes } : {}),
       content: contentText.trim()
         ? {
@@ -327,7 +334,7 @@ export function ReminderEditPage() {
                 <h2 className="flex items-center gap-1 text-sm font-medium text-ink-700">
                   <Clock size={14} /> 提醒时间（可多个）
                 </h2>
-                {times.length < 10 && (
+                {!untimed && times.length < 10 && (
                   <button
                     type="button"
                     onClick={() => setTimes((prev) => [...prev, '08:00'])}
@@ -337,31 +344,48 @@ export function ReminderEditPage() {
                   </button>
                 )}
               </div>
-              <div className="mt-2 space-y-2">
-                {times.map((t, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <input
-                      type="time"
-                      value={t}
-                      onChange={(e) =>
-                        setTimes((prev) => prev.map((x, i) => (i === idx ? e.target.value : x)))
-                      }
-                      className="w-full rounded-btn border border-ink-100 bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary-400"
-                    />
-                    {times.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setTimes((prev) => prev.filter((_, i) => i !== idx))}
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn text-ink-300 hover:text-danger-500"
-                        aria-label="删除该时间点"
-                      >
-                        <X size={18} />
-                      </button>
-                    )}
+              {repeatType === 'daily' && (
+                <label className="mt-2 flex cursor-pointer items-center justify-between rounded-btn bg-ink-100/50 px-3 py-2.5">
+                  <span className="text-xs text-ink-700">
+                    不定时：每天提醒一次，不在列表显示具体时间
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={untimed}
+                    onChange={(e) => setUntimed(e.target.checked)}
+                    className="h-4 w-4 accent-[#3E8E7E]"
+                  />
+                </label>
+              )}
+              {!untimed && (
+                <>
+                  <div className="mt-2 space-y-2">
+                    {times.map((t, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <input
+                          type="time"
+                          value={t}
+                          onChange={(e) =>
+                            setTimes((prev) => prev.map((x, i) => (i === idx ? e.target.value : x)))
+                          }
+                          className="w-full rounded-btn border border-ink-100 bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary-400"
+                        />
+                        {times.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setTimes((prev) => prev.filter((_, i) => i !== idx))}
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-btn text-ink-300 hover:text-danger-500"
+                            aria-label="删除该时间点"
+                          >
+                            <X size={18} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <p className="mt-1.5 text-xs text-ink-500">每个时间点都会单独提醒；同一提醒今日完成多次会自动折叠显示</p>
+                  <p className="mt-1.5 text-xs text-ink-500">每个时间点都会单独提醒；同一提醒今日完成多次会自动折叠显示</p>
+                </>
+              )}
             </>
           ) : (
             <>

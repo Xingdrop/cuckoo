@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique } from 'typeorm';
 import { randomUUID } from 'node:crypto';
 import { utcDateTime } from '../../common/datetime.transformer';
 
@@ -10,14 +10,15 @@ export enum ReportType {
 /**
  * 报告快照（FR-704/705）：定时生成时计算并落库，通知中心跳转报告页展示。
  * period：周报 `2026-W35`；月报 `2026-08`。同用户同 type 同 period 唯一（重复生成覆盖 data，不重复通知）。
+ * 注意：SQLite 的索引名全局唯一，新实体为避免与 TypeORM 1.1.0 synchronize 的索引名冲突，
+ * 仅声明 Unique 约束（自动建 UNIQUE 索引），不声明额外 @Index()。
  */
 @Entity('reports')
-@Index(['userId', 'type', 'period'], { unique: true })
+@Unique(['userId', 'type', 'period'])
 export class Report {
   @PrimaryColumn('text')
   id: string = randomUUID();
 
-  @Index()
   @Column('text')
   userId: string;
 

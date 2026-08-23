@@ -20,6 +20,7 @@ import { SocialModule } from './modules/social/social.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { AchievementsModule } from './modules/achievements/achievements.module';
+import { PlansModule } from './modules/plans/plans.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { User } from './modules/users/user.entity';
 import { UserSetting } from './modules/users/user-setting.entity';
@@ -37,9 +38,11 @@ import { Device } from './modules/notifications/device.entity';
 import { Exercise } from './modules/exercises/exercise.entity';
 import { SensitiveWord } from './modules/social/sensitive-word.entity';
 import { Group, GroupMember, GroupPost } from './modules/social/group.entity';
+import { Follow } from './modules/social/follow.entity';
 import { AuditLog } from './modules/audit/audit-log.entity';
 import { Report } from './modules/reports/report.entity';
 import { Achievement, AchievementRule } from './modules/achievements/achievement.entity';
+import { Plan } from './modules/plans/plan.entity';
 import { SeedModule } from './seed/seed.module';
 
 /**
@@ -92,10 +95,12 @@ import { SeedModule } from './seed/seed.module';
           Group,
           GroupMember,
           GroupPost,
+          Follow,
           AuditLog,
           Report,
           Achievement,
           AchievementRule,
+          Plan,
         ],
         // M0-M1 阶段用 synchronize 快速建表；生产切换 PostgreSQL 后改用 migration
         synchronize: config.get<string>('env') !== 'production',
@@ -117,6 +122,7 @@ import { SeedModule } from './seed/seed.module';
     SocialModule,
     NotificationsModule,
     ReportsModule,
+    PlansModule,
     AuditModule,
     AchievementsModule,
   ],

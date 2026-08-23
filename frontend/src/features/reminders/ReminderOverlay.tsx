@@ -81,6 +81,17 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
         {reminder.content.text && (
           <p className="mt-4 text-lg leading-relaxed text-white/80">{reminder.content.text}</p>
         )}
+        {/* 媒体（#3：图片/视频） */}
+        {((reminder.content.imageUrls?.length ?? 0) > 0 || reminder.content.videoUrl) && (
+          <div className="mt-4 w-full overflow-hidden rounded-card">
+            {reminder.content.imageUrls?.map((u) => (
+              <img key={u} src={u} alt="提醒图片" className="mx-auto mb-2 max-h-48 w-auto rounded-card" />
+            ))}
+            {reminder.content.videoUrl && (
+              <video src={reminder.content.videoUrl} controls playsInline className="mx-auto max-h-48 w-full rounded-card bg-black/30" />
+            )}
+          </div>
+        )}
         {reminder.challenge.enabled && (
           <div className="mt-6 w-full">
             {showCamera ? (

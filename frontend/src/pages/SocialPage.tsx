@@ -244,7 +244,17 @@ export function SocialPage() {
               const shown = posts.filter((p) => followingIds.has(p.author.id));
               return shown.length === 0 ? (
                 <div className="rounded-card bg-surface p-10 text-center text-sm text-ink-500 shadow-sm">
-                  你关注的人还没有发帖
+                  <p>你关注的人还没有发帖</p>
+                  <p className="mt-1 text-xs text-ink-300">去关注感兴趣的朋友，他们的动态会出现在这里</p>
+                  <button
+                    onClick={() => {
+                      setTab('feed');
+                      void load();
+                    }}
+                    className="mt-4 rounded-full bg-primary-500 px-5 py-2.5 text-sm font-medium text-white"
+                  >
+                    去广场逛逛
+                  </button>
                 </div>
               ) : (
                 shown.map((post) => (

@@ -1,7 +1,9 @@
-import { ChevronLeft, Clock, Plus, X } from 'lucide-react';
+import { ChevronLeft, Clock, ImagePlus, Plus, X } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { errorMessage } from '../services/http';
+import { filesApi } from '../services/api/api.files';
+import { isVideoUrl } from '../components/MediaGrid';
 import { remindersApi } from '../services/api/api.reminders';
 import { medicinesApi } from '../services/api/api.medicines';
 import type { IntervalUnit, Medicine, ReminderCategory, RepeatType } from '../types';
@@ -42,6 +44,16 @@ export function ReminderEditPage() {
   const planId = searchParams.get('planId');
   const preset = (location.state as { preset?: { category?: ReminderCategory; title?: string; contentText?: string } } | null)?.preset;
 
+  const pickMedia = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const { url } = await filesApi.upload(file);
+      setReminderMedia((prev) => [...prev.slice(0, 3), url]);
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  };
+
   const [category, setCategory] = useState<ReminderCategory>('water');
   const [categoryLabel, setCategoryLabel] = useState('');
   const [categoryIcon, setCategoryIcon] = useState('📌');
@@ -61,6 +73,8 @@ export function ReminderEditPage() {
   const [intervalValue, setIntervalValue] = useState(1);
   const [intervalUnit, setIntervalUnit] = useState<IntervalUnit>('day');
   const [contentText, setContentText] = useState('');
+  /** 提醒媒体（#3：图片/视频；上传后暂存 URL） */
+  const [reminderMedia, setReminderMedia] = useState<string[]>([]);
   const [challengeEnabled, setChallengeEnabled] = useState(false);
   /** 喝水设置（water 分类）：每次水量 / 每日目标 */
   const [waterAmount, setWaterAmount] = useState(200);
@@ -118,6 +132,7 @@ export function ReminderEditPage() {
         setIntervalValue(r.repeatRule.intervalValue ?? 1);
         setIntervalUnit(r.repeatRule.intervalUnit ?? 'day');
         setContentText(r.content.text ?? '');
+        setReminderMedia([...(r.content.imageUrls ?? []), ...(r.content.videoUrl ? [r.content.videoUrl] : [])]);
         setChallengeEnabled(r.challenge.enabled ?? false);
         const wa = (r.content as { waterAmountMl?: number }).waterAmountMl;
         if (wa) setWaterAmount(wa);
@@ -177,14 +192,13 @@ export function ReminderEditPage() {
       startDate: startDate.toISOString(),
       ...(planId ? { planId } : {}),
       ...(cleanTimes ? { times: cleanTimes } : {}),
-      content: contentText.trim()
-        ? {
-            text: contentText.trim(),
-            ...(category === 'water' ? { waterAmountMl: waterAmount } : {}),
-          }
-        : category === 'water'
-          ? { waterAmountMl: waterAmount }
-          : {},
+      content: {
+        ...(contentText.trim() ? { text: contentText.trim() } : {}),
+        ...(category === 'water' ? { waterAmountMl: waterAmount } : {}),
+        ...(reminderMedia.length > 0
+          ? { imageUrls: reminderMedia.filter((u) => !isVideoUrl(u)), videoUrl: reminderMedia.find((u) => isVideoUrl(u)) ?? undefined }
+          : {}),
+      },
       ...(category === 'water'
         ? { waterGoalMl: waterGoal }
         : {}),
@@ -508,6 +522,23 @@ export function ReminderEditPage() {
             placeholder="提醒时展示的说明文字，如：喝 200ml 温水"
             className="mt-2 w-full resize-none rounded-btn border border-ink-100 bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary-400"
           />
+          {/* 媒体（#3：图片/视频） */}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <label className="flex h-8 cursor-pointer items-center gap-1 rounded-full bg-primary-50 px-3 text-xs text-primary-600">
+              <ImagePlus size={13} /> {reminderMedia.length ? `已添加 ${reminderMedia.length} 媒体` : '添加图片/视频'}
+              <input
+                type="file"
+                accept="image/*,video/*"
+                className="hidden"
+                onChange={(e) => void pickMedia(e.target.files?.[0])}
+              />
+            </label>
+            {reminderMedia.length > 0 && (
+              <button onClick={() => setReminderMedia([])} className="text-xs text-danger-500">
+                清空
+              </button>
+            )}
+          </div>
         </section>
 
         {/* 喝水设置（water 分类） */}

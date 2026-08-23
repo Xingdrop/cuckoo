@@ -39,4 +39,8 @@ export interface ProfileView {
 export const profileApi = {
   get: (userId: string) => http.get<ProfileView>(`/users/${userId}/profile`).then((r) => r.data),
   follow: (userId: string) => http.post<{ following: boolean }>(`/users/${userId}/follow`).then((r) => r.data),
+  followers: (userId: string) =>
+    http.get<{ id: string; username: string; avatarUrl: string | null }[]>(`/users/${userId}/followers`).then((r) => r.data),
+  following: (userId: string) =>
+    http.get<{ id: string; username: string; avatarUrl: string | null }[]>(`/users/${userId}/following`).then((r) => r.data),
 };

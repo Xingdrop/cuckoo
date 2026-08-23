@@ -101,14 +101,20 @@ export function ProfilePage() {
                 </div>
               )}
               <div className="mt-4 flex items-center justify-center gap-6">
-                <div>
+                <button
+                  onClick={() => navigate(`/profile/${profile.user.id}/followers`)}
+                  className="text-center"
+                >
                   <p className="text-lg font-bold text-primary-600">{profile.followersCount}</p>
                   <p className="text-[11px] text-ink-500">粉丝</p>
-                </div>
-                <div>
+                </button>
+                <button
+                  onClick={() => navigate(`/profile/${profile.user.id}/following`)}
+                  className="text-center"
+                >
                   <p className="text-lg font-bold text-primary-600">{profile.followingCount}</p>
                   <p className="text-[11px] text-ink-500">关注</p>
-                </div>
+                </button>
                 <div>
                   <p className="text-lg font-bold text-primary-600">{profile.stats.completedLogs}</p>
                   <p className="text-[11px] text-ink-500">累计完成</p>

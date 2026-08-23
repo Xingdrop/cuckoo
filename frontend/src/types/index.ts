@@ -87,6 +87,8 @@ export interface Reminder {
   times: string[] | null;
   endDate: string | null;
   nextTriggerAt: string | null;
+  /** 所属计划 id（2026-08："我的计划"归属） */
+  planId?: string | null;
   /** 所属计划名（2026-08：来自"我的计划"） */
   planName?: string | null;
   content: ReminderContent;

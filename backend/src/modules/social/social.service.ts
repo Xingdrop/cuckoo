@@ -466,6 +466,22 @@ export class SocialService {
   // ============ 个人主页 / 关注（2026-08） ============
 
   /** 关注/取消关注（幂等 toggle） */
+  /** 关注列表（followers=粉丝 / following=关注） */
+  async followList(targetId: string, type: 'followers' | 'following') {
+    const rows =
+      type === 'followers'
+        ? await this.followRepo.find({ where: { followingId: targetId }, order: { createdAt: 'DESC' }, take: 100 })
+        : await this.followRepo.find({ where: { followerId: targetId }, order: { createdAt: 'DESC' }, take: 100 });
+    const userIds = rows.map((r) => (type === 'followers' ? r.followerId : r.followingId));
+    const users = userIds.length
+      ? await this.userRepo.find({
+          where: { id: In(userIds) },
+          select: { id: true, username: true, avatarUrl: true },
+        })
+      : [];
+    return users;
+  }
+
   async toggleFollow(viewerId: string, targetId: string) {
     if (viewerId === targetId) {
       throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '不能关注自己' });

@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom';
 import { AlarmClock, Camera, Check, ChevronRight, Image as ImageIcon, X } from 'lucide-react';
 import { useRef, useState } from 'react';
-import { http } from '../../services/http';
+import { filesApi } from '../../services/api/api.files';
 import type { Reminder } from '../../types';
 import type { useReminderScheduler } from './useReminderScheduler';
 
@@ -51,10 +51,8 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
   const uploadAndComplete = async (file: File) => {
     setPhotoBusy(true);
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const { data } = await http.post<{ url: string }>('/files/upload', fd);
-      await act('challenge_completed', undefined, data.url);
+      const { url } = await filesApi.upload(file);
+      await act('challenge_completed', undefined, url);
     } catch {
       setPhotoBusy(false);
     }

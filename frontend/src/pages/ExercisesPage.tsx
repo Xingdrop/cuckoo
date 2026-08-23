@@ -1,19 +1,10 @@
 import { ChevronLeft, Clock, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { http, errorMessage } from '../services/http';
-
-interface Exercise {
-  id: string;
-  name: string;
-  steps: string;
-  imageUrl: string | null;
-  videoUrl: string | null;
-  durationSeconds: number;
-  category: string;
-  sortOrder: number;
-  isActive: boolean;
-}
+import { ErrorBanner, EmptyState, LoadingState } from '../components/ui/Feedback';
+import { exercisesApi } from '../services/api/api.exercises';
+import type { Exercise } from '../services/api/api.exercises';
+import { errorMessage } from '../services/http';
 
 const CATEGORY_LABEL: Record<string, string> = {
   stretch: '拉伸',
@@ -34,9 +25,9 @@ export function ExercisesPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    http
-      .get<Exercise[]>('/exercises')
-      .then((r) => setItems(r.data))
+    exercisesApi
+      .list()
+      .then(setItems)
       .catch((e) => setError(errorMessage(e)))
       .finally(() => setLoading(false));
   }, []);
@@ -71,15 +62,11 @@ export function ExercisesPage() {
       </header>
 
       <main className="px-4 pt-3">
-        {error && (
-          <p className="mb-3 rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
-        )}
+        <ErrorBanner message={error} />
         {loading ? (
-          <div className="py-16 text-center text-sm text-ink-500">加载中…</div>
+          <LoadingState />
         ) : items.length === 0 ? (
-          <div className="rounded-card bg-surface p-10 text-center text-sm text-ink-500 shadow-sm">
-            运动库建设中
-          </div>
+          <EmptyState>运动库建设中</EmptyState>
         ) : (
           <div className="flex flex-wrap gap-2">
             {Object.entries(CATEGORY_LABEL).map(([key, label]) => {

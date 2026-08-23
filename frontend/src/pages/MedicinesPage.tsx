@@ -2,6 +2,7 @@ import { CalendarClock, ChevronLeft, ChevronRight, Minus, Plus, Pill } from 'luc
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
+import { ErrorBanner, EmptyState, LoadingState } from '../components/ui/Feedback';
 import { errorMessage } from '../services/http';
 import { medicinesApi } from '../services/api/api.medicines';
 import type { Medicine } from '../types';
@@ -77,14 +78,11 @@ export function MedicinesPage() {
       </header>
 
       <main className="px-4 pt-4">
-        {error && (
-          <p className="mb-3 rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
-        )}
+        <ErrorBanner message={error} />
         {loading ? (
-          <div className="py-16 text-center text-sm text-ink-500">加载中…</div>
+          <LoadingState />
         ) : items.length === 0 ? (
-          <div className="rounded-card bg-surface p-10 text-center text-sm text-ink-500 shadow-sm">
-            <Pill size={36} className="mx-auto mb-3 text-ink-300" strokeWidth={1.2} />
+          <EmptyState icon={<Pill size={36} strokeWidth={1.2} />}>
             还没有药品
             <button
               onClick={() => navigate('/medicines/new')}
@@ -92,7 +90,7 @@ export function MedicinesPage() {
             >
               添加第一种药
             </button>
-          </div>
+          </EmptyState>
         ) : (
           <ul className="space-y-3">
             {items.map((m) => {

@@ -1,7 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditModule } from '../audit/audit.module';
+import { Plan } from '../plans/plan.entity';
 import { Reminder } from '../reminders/reminder.entity';
+import { ReminderLog } from '../reminders/reminder-log.entity';
+import { User } from '../users/user.entity';
+import { Follow } from './follow.entity';
 import { Group, GroupMember, GroupPost } from './group.entity';
 import { Interaction } from './interaction.entity';
 import { PlanJoinRecord } from './plan-join-record.entity';
@@ -9,6 +13,7 @@ import { PlanTemplate } from './plan-template.entity';
 import { Post } from './post.entity';
 import { SensitiveWord } from './sensitive-word.entity';
 import { SocialController } from './social.controller';
+import { ProfileController } from './profile.controller';
 import { SocialService } from './social.service';
 
 @Module({
@@ -20,13 +25,17 @@ import { SocialService } from './social.service';
       PlanTemplate,
       SensitiveWord,
       Reminder,
+      ReminderLog,
+      User,
+      Plan,
+      Follow,
       Group,
       GroupMember,
       GroupPost,
     ]),
     AuditModule,
   ],
-  controllers: [SocialController],
+  controllers: [SocialController, ProfileController],
   providers: [SocialService],
   exports: [SocialService],
 })

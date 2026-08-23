@@ -8,9 +8,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
 import { DataSource, In, Repository } from 'typeorm';
 import { Reminder } from '../reminders/reminder.entity';
+import { ReminderLog, ReminderLogStatus } from '../reminders/reminder-log.entity';
 import { computeNextTrigger } from '../../common/reminder-schedule';
 import { filterSensitiveWords } from '../../common/sensitive-words';
 import { AuditService } from '../audit/audit.service';
+import { Plan } from '../plans/plan.entity';
+import { Follow } from './follow.entity';
+import { User } from '../users/user.entity';
 import { Interaction, InteractionType } from './interaction.entity';
 import { PlanJoinRecord } from './plan-join-record.entity';
 import { PlanTemplate, PlanTemplateStatus } from './plan-template.entity';
@@ -46,6 +50,14 @@ export class SocialService {
     private readonly groupPostRepo: Repository<GroupPost>,
     @InjectRepository(SensitiveWord)
     private readonly sensitiveWordRepo: Repository<SensitiveWord>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+    @InjectRepository(Plan)
+    private readonly planRepo: Repository<Plan>,
+    @InjectRepository(Follow)
+    private readonly followRepo: Repository<Follow>,
+    @InjectRepository(ReminderLog)
+    private readonly logRepo: Repository<ReminderLog>,
     private readonly dataSource: DataSource,
     private readonly audit: AuditService,
   ) {}
@@ -208,7 +220,19 @@ export class SocialService {
       skip: (page - 1) * pageSize,
       take: Math.min(pageSize, 100),
     });
-    return { items, total, page, pageSize };
+    // 评论带作者用户名（单次批量查询）
+    const userIds = [...new Set(items.map((i) => i.userId))];
+    const users = userIds.length
+      ? await this.userRepo.find({ where: { id: In(userIds) }, select: { id: true, username: true } })
+      : [];
+    const userMap = new Map(users.map((u) => [u.id, u.username]));
+    const comments = items.map((i) => ({
+      id: i.id,
+      content: i.content,
+      createdAt: i.createdAt,
+      author: { id: i.userId, username: userMap.get(i.userId) ?? '已注销用户' },
+    }));
+    return { items: comments, total, page, pageSize };
   }
 
   // ============ 一键加入计划（事务 + 幂等） ============
@@ -219,6 +243,8 @@ export class SocialService {
       const joinRepo = manager.getRepository(PlanJoinRecord);
       const reminderRepo = manager.getRepository(Reminder);
       const interactionRepo = manager.getRepository(Interaction);
+      const planRepo = manager.getRepository(Plan);
+      const userRepo = manager.getRepository(User);
 
       const post = await postRepo.findOne({ where: { id: postId, status: PostStatus.PUBLISHED } });
       if (!post || !post.planSnapshot) {
@@ -229,6 +255,25 @@ export class SocialService {
       const existing = await joinRepo.findOne({ where: { postId, userId } });
       if (existing?.isActive) {
         return { joined: true, duplicate: true, reminderId: existing.reminderId };
+      }
+
+      // 落库计划（同帖复用；sourceTitle 展示来源用户名）
+      const author = await userRepo.findOne({ where: { id: post.userId } });
+      const sourceTitle = `来自 @${author?.username ?? '用户'} 的帖子`;
+      let plan = await planRepo.findOne({ where: { userId, sourceType: 'share', sourceId: postId } });
+      if (!plan) {
+        plan = await planRepo.save(
+          planRepo.create({
+            id: randomUUID(),
+            userId,
+            name: sourceTitle,
+            description: '',
+            sourceType: 'share',
+            sourceTitle,
+            sourceId: postId,
+            isActive: true,
+          }),
+        );
       }
 
       // 解析快照并创建提醒
@@ -261,6 +306,7 @@ export class SocialService {
           delaySettings: {},
           challenge: {},
           medicineId: null,
+          planId: plan.id,
           isActive: true,
           nextTriggerAt: computeNextTrigger(
             (r.repeatRule as Reminder['repeatRule']) ?? { type: 'daily' },
@@ -331,6 +377,26 @@ export class SocialService {
     if (!template) throw new NotFoundException({ code: 'NOT_FOUND', message: '官方计划不存在' });
 
     const now = new Date();
+    // 官方计划落库计划（sourceType=official，同模板复用）
+    const sourceTitle = `官方计划：${template.title}`;
+    let plan = await this.planRepo.findOne({
+      where: { userId, sourceType: 'official', sourceId: template.id },
+    });
+    if (!plan) {
+      plan = await this.planRepo.save(
+        this.planRepo.create({
+          id: randomUUID(),
+          userId,
+          name: sourceTitle,
+          description: template.description,
+          sourceType: 'official',
+          sourceTitle,
+          sourceId: template.id,
+          isActive: true,
+        }),
+      );
+    }
+
     let created: Reminder | null = null;
     for (const cfg of template.reminderConfig) {
       const r = cfg as {
@@ -359,6 +425,7 @@ export class SocialService {
         delaySettings: {},
         challenge: {},
         medicineId: null,
+        planId: plan.id,
         isActive: true,
         nextTriggerAt: computeNextTrigger(
           (r.repeatRule as Reminder['repeatRule']) ?? { type: 'daily' },
@@ -394,6 +461,63 @@ export class SocialService {
 
   async listGroups() {
     return this.groupRepo.find({ order: { memberCount: 'DESC' } });
+  }
+
+  // ============ 个人主页 / 关注（2026-08） ============
+
+  /** 关注/取消关注（幂等 toggle） */
+  async toggleFollow(viewerId: string, targetId: string) {
+    if (viewerId === targetId) {
+      throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '不能关注自己' });
+    }
+    const target = await this.userRepo.findOne({ where: { id: targetId } });
+    if (!target) throw new NotFoundException({ code: 'NOT_FOUND', message: '用户不存在' });
+    const existing = await this.followRepo.findOne({ where: { followerId: viewerId, followingId: targetId } });
+    if (existing) {
+      await this.followRepo.delete(existing.id);
+      return { following: false };
+    }
+    await this.followRepo.save(
+      this.followRepo.create({ id: randomUUID(), followerId: viewerId, followingId: targetId }),
+    );
+    return { following: true };
+  }
+
+  /** 个人主页：资料 / 关注·粉丝数 / 是否已关注 / 数据 / 发帖 */
+  async profile(viewerId: string, targetId: string) {
+    const user = await this.userRepo.findOne({ where: { id: targetId } });
+    if (!user) throw new NotFoundException({ code: 'NOT_FOUND', message: '用户不存在' });
+
+    const [followersCount, followingCount, isFollowingRow, posts, totalLogs, completedLogs] =
+      await Promise.all([
+        this.followRepo.count({ where: { followingId: targetId } }),
+        this.followRepo.count({ where: { followerId: targetId } }),
+        this.followRepo.findOne({ where: { followerId: viewerId, followingId: targetId } }),
+        this.postRepo.find({ where: { userId: targetId }, order: { createdAt: 'DESC' }, take: 50 }),
+        this.logRepo.count({ where: { userId: targetId } }),
+        this.logRepo.count({
+          where: {
+            userId: targetId,
+            status: In([ReminderLogStatus.COMPLETED, ReminderLogStatus.CHALLENGE_COMPLETED]),
+          },
+        }),
+      ]);
+
+    return {
+      user: {
+        id: user.id,
+        username: user.username,
+        avatarUrl: user.avatarUrl,
+        healthGoals: user.healthGoals,
+        createdAt: user.createdAt,
+      },
+      followersCount,
+      followingCount,
+      isFollowing: Boolean(isFollowingRow),
+      isSelf: viewerId === targetId,
+      stats: { totalLogs, completedLogs },
+      posts,
+    };
   }
 
   async joinGroup(userId: string, groupId: string) {

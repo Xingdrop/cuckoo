@@ -8,6 +8,7 @@ interface Comment {
   id: string;
   content: string;
   createdAt: string;
+  author?: { id: string; username: string };
 }
 
 /**
@@ -21,6 +22,7 @@ export function PostDetailPage() {
   const [commentText, setCommentText] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [joining, setJoining] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -41,9 +43,32 @@ export function PostDetailPage() {
 
   const submitComment = async () => {
     if (!id || !commentText.trim()) return;
-    await socialApi.comment(id, commentText.trim());
-    setCommentText('');
-    void load();
+    try {
+      await socialApi.comment(id, commentText.trim());
+      setCommentText('');
+      void load();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  };
+
+  /** 加入/退出计划：带 loading 防重复点击（修复"点击没反应/卡顿"） */
+  const toggleJoin = async () => {
+    if (!post || joining) return;
+    setJoining(true);
+    setError(null);
+    try {
+      if (post.myJoined) {
+        await socialApi.leave(post.id);
+      } else {
+        await socialApi.join(post.id);
+      }
+      void load();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setJoining(false);
+    }
   };
 
   if (loading) {
@@ -77,22 +102,16 @@ export function PostDetailPage() {
             </div>
             <p className="mt-3 text-sm leading-relaxed">{post.content}</p>
             {post.planSnapshot && (
-              <div className="mt-3 rounded-btn bg-primary-50/60 px-3.5 py-3">
+              <div className="mt-3 rounded-btn bg-primary-50/60 px-3.5 py-2.5">
                 <p className="text-xs font-medium text-primary-700">📋 包含可加入的提醒计划</p>
                 <button
-                  onClick={async () => {
-                    if (post.myJoined) {
-                      await socialApi.leave(post.id);
-                    } else {
-                      await socialApi.join(post.id);
-                    }
-                    void load();
-                  }}
-                  className={`mt-2 w-full rounded-btn py-2.5 text-sm font-medium ${
+                  onClick={() => void toggleJoin()}
+                  disabled={joining}
+                  className={`mt-1.5 w-full rounded-full py-1.5 text-xs font-medium disabled:opacity-50 ${
                     post.myJoined ? 'bg-ink-100 text-ink-700' : 'bg-primary-500 text-white'
                   }`}
                 >
-                  {post.myJoined ? '✓ 已加入（点击退出）' : '一键加入计划'}
+                  {joining ? '处理中…' : post.myJoined ? '✓ 已加入（点击退出）' : '一键加入'}
                 </button>
               </div>
             )}
@@ -135,8 +154,11 @@ export function PostDetailPage() {
           )}
           {comments.map((c) => (
             <li key={c.id} className="rounded-card bg-surface px-4 py-3 shadow-sm">
-              <p className="text-sm leading-relaxed">{c.content}</p>
-              <p className="mt-1 text-[10px] text-ink-300">评论 · {new Date(c.createdAt).toLocaleString('zh-CN', { hour12: false }).slice(0, 16)}</p>
+              <p className="text-[11px] text-primary-600">@{c.author?.username ?? '用户'}</p>
+              <p className="mt-0.5 text-sm leading-relaxed">{c.content}</p>
+              <p className="mt-1 text-[10px] text-ink-300">
+                {new Date(c.createdAt).toLocaleString('zh-CN', { hour12: false }).slice(0, 16)}
+              </p>
             </li>
           ))}
         </ul>

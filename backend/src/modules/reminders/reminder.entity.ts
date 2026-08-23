@@ -147,6 +147,10 @@ export class Reminder {
   @JoinColumn({ name: 'medicineId' })
   medicine: Medicine | null;
 
+  /** 所属计划（2026-08：我的计划/一键加入自动落库；仅存引用） */
+  @Column('text', { nullable: true })
+  planId: string | null;
+
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 

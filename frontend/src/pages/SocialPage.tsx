@@ -2,6 +2,7 @@ import { Bell, Heart, MessageCircle, PenSquare, Star, Users } from 'lucide-react
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
+import { useAuthStore } from '../stores/authStore';
 import { errorMessage } from '../services/http';
 import { socialApi, Post, PlanTemplate, Group } from '../services/api/api.social';
 import { notificationsApi } from '../services/api/api.social';
@@ -21,7 +22,8 @@ function fmtTime(iso: string): string {
  */
 export function SocialPage() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<'feed' | 'templates' | 'groups'>('feed');
+  const user = useAuthStore((s) => s.user);
+  const [tab, setTab] = useState<'feed' | 'mine' | 'templates' | 'groups'>('feed');
   const [posts, setPosts] = useState<Post[]>([]);
   const [templates, setTemplates] = useState<PlanTemplate[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -115,10 +117,25 @@ export function SocialPage() {
   return (
     <div className="mx-auto max-w-md pb-20">
       <header className="flex items-center justify-between px-4 pt-6">
-        <div>
-          <h1 className="text-xl font-semibold">社交</h1>
-          <p className="mt-1 text-sm text-ink-500">分享计划，一起坚持</p>
-        </div>
+        <button
+          onClick={() => navigate('/profile')}
+          className="flex items-center gap-2.5"
+          aria-label="个人主页"
+        >
+          <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-surface shadow-sm">
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt="头像" className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-lg font-semibold text-primary-600">
+                {user?.username?.slice(0, 1).toUpperCase() ?? '我'}
+              </span>
+            )}
+          </span>
+          <div className="text-left">
+            <h1 className="text-lg font-semibold leading-tight">社交</h1>
+            <p className="text-[11px] text-ink-500">我的主页 ›</p>
+          </div>
+        </button>
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate('/notifications')}
@@ -141,17 +158,18 @@ export function SocialPage() {
         </div>
       </header>
 
-      {/* 分类 tab */}
-      <div className="mt-3 flex gap-1 px-4">
+      {/* 分类 tab：广场（浏览社区）/ 我的（个人发帖）/ 官方计划 / 小组 */}
+      <div className="mt-3 flex gap-1 overflow-x-auto px-4">
         {([
-          ['feed', '动态'],
+          ['feed', '广场'],
+          ['mine', '我的'],
           ['templates', '官方计划'],
           ['groups', '小组'],
         ] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`rounded-full px-4 py-2 text-sm transition-colors ${
+            className={`shrink-0 rounded-full px-4 py-2 text-sm transition-colors ${
               tab === key ? 'bg-primary-500 font-medium text-white' : 'bg-surface text-ink-700 shadow-sm'
             }`}
           >
@@ -163,6 +181,38 @@ export function SocialPage() {
       <main className="px-4 pt-4">
         {error && (
           <p className="mb-3 rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
+        )}
+
+        {tab === 'mine' && (
+          <ul className="space-y-3">
+            {posts.filter((p) => p.author.id === user?.id).length === 0 && (
+              <div className="rounded-card bg-surface p-10 text-center text-sm text-ink-500 shadow-sm">
+                你还没有发帖，点击右上角「发布」分享计划
+              </div>
+            )}
+            {posts
+              .filter((p) => p.author.id === user?.id)
+              .map((post) => (
+                <li key={post.id} className="rounded-card bg-surface p-4 shadow-sm">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-50 text-sm font-medium text-primary-600">
+                      {post.author.username.slice(0, 1).toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">@{post.author.username}</p>
+                      <p className="text-[10px] text-ink-300">{fmtTime(post.createdAt)}</p>
+                    </div>
+                    <button
+                      onClick={() => navigate(`/posts/${post.id}`)}
+                      className="text-xs text-primary-600"
+                    >
+                      详情 ›
+                    </button>
+                  </div>
+                  <p className="mt-2.5 text-sm leading-relaxed">{post.content}</p>
+                </li>
+              ))}
+          </ul>
         )}
 
         {tab === 'feed' && (

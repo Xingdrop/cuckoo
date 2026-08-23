@@ -1,4 +1,4 @@
-import { BarChart3, Check, ChevronLeft, ChevronRight, Plus, Settings, TrendingUp } from 'lucide-react';
+import { BarChart3, Check, ChevronLeft, ChevronRight, Plus, Settings } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -195,74 +195,61 @@ export function DashboardPage() {
       </header>
 
       <main className="px-4">
-        {/* 完成率卡片（stats 数据） */}
-        <section className="mt-4 rounded-card bg-surface p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-ink-500">完成率</p>
-              <p className="mt-1 text-3xl font-bold text-primary-600">
-                {selected === today && stats ? stats.rate : rate}%
+        {/* 完成率 + 喝水并排（2026-08 改版：缩小为两列） */}
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <section className="rounded-card bg-surface p-4 shadow-sm">
+            <p className="text-xs text-ink-500">完成率</p>
+            <p className="mt-1 text-2xl font-bold text-primary-600">
+              {selected === today && stats ? stats.rate : rate}%
+            </p>
+            <p className="mt-1 text-[11px] text-ink-500">
+              {selected === today && stats ? stats.done : totalDone}/{selected === today && stats ? stats.planned : totalPlanned} 完成
+            </p>
+            {selected === today && stats && stats.missed > 0 && (
+              <p className="mt-0.5 text-[10px] text-danger-700">错过 {stats.missed}</p>
+            )}
+            {selected === today && stats && (
+              <p className="mt-1.5 rounded-full bg-accent-100 px-2 py-0.5 text-center text-[10px] font-medium text-accent-700">
+                🔥 连续 {stats.streakDays} 天
               </p>
-              <p className="mt-1 text-xs text-ink-500">
-                {selected === today && stats ? stats.done : totalDone} / {selected === today && stats ? stats.planned : totalPlanned} 已完成
-                {selected === today && stats && stats.missed > 0 && (
-                  <span className="ml-1 text-danger-700">（错过 {stats.missed}）</span>
-                )}
-              </p>
-            </div>
-            <div className="flex flex-col items-end gap-2">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary-50 text-primary-500">
-                <TrendingUp size={32} strokeWidth={1.5} />
-              </div>
-              {selected === today && stats && (
-                <span className="rounded-full bg-accent-100 px-2.5 py-1 text-[10px] font-medium text-accent-700">
-                  🔥 连续 {stats.streakDays} 天
-                </span>
-              )}
-            </div>
-          </div>
-        </section>
+            )}
+          </section>
 
-        {/* 喝水进度（今天） */}
-        {selected === today && stats && (
           <section
-            className={`mt-3 rounded-card p-4 shadow-sm transition-colors ${
-              stats.water.rate >= 100
+            className={`rounded-card p-4 shadow-sm transition-colors ${
+              stats && stats.water.rate >= 100
                 ? 'bg-gradient-to-r from-primary-500/15 to-primary-100/40 ring-2 ring-primary-500/60'
                 : 'bg-surface'
             }`}
           >
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">💧 今日喝水</p>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-primary-600">
-                  {stats.water.waterMl} / {stats.water.waterGoalMl}ml
-                </span>
-                <button
-                  onClick={async () => {
-                    await statsApi.water(200).catch(() => undefined);
-                    statsApi.dashboard().then(setStats).catch(() => undefined);
-                  }}
-                  className="rounded-full bg-primary-500 px-3 py-1.5 text-xs font-medium text-white"
-                >
-                  +200ml
-                </button>
-              </div>
+              <p className="text-xs text-ink-500">💧 喝水</p>
+              <button
+                onClick={async () => {
+                  await statsApi.water(200).catch(() => undefined);
+                  statsApi.dashboard().then(setStats).catch(() => undefined);
+                }}
+                className="rounded-full bg-primary-500 px-2.5 py-1 text-[11px] font-medium text-white"
+              >
+                +200
+              </button>
             </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink-100">
-              <div
-                className="h-full rounded-full bg-primary-500 transition-all"
-                style={{ width: `${stats.water.rate}%` }}
-              />
-            </div>
-            {stats.water.rate >= 100 && (
-              <p className="mt-2 flex items-center gap-1 text-sm font-semibold text-primary-700">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 text-[11px] text-white">✓</span>
-                今日喝水目标已达成，继续保持！
-              </p>
+            {stats ? (
+              <>
+                <p className="mt-1 text-2xl font-bold text-primary-600">{stats.water.waterMl}</p>
+                <p className="text-[11px] text-ink-500">目标 {stats.water.waterGoalMl}ml</p>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-100">
+                  <div
+                    className="h-full rounded-full bg-primary-500 transition-all"
+                    style={{ width: `${stats.water.rate}%` }}
+                  />
+                </div>
+              </>
+            ) : (
+              <p className="mt-2 text-[11px] text-ink-300">记录喝水进度</p>
             )}
           </section>
-        )}
+        </div>
 
         {/* 当日提醒时间线 */}
         <section className="mt-4">
@@ -303,7 +290,7 @@ export function DashboardPage() {
                   key={`p-${s.item.reminderId}-${s.time}-${i}`}
                   className="flex items-center gap-3 rounded-card bg-surface px-4 py-3 shadow-sm"
                 >
-                  <span className="w-14 text-right text-sm font-semibold text-primary-600">{s.time}</span>
+                  <span className="w-14 text-right text-sm font-semibold text-primary-600">{s.item.untimed ? '不定时' : s.time}</span>
                   <span className="text-lg">
                     {s.item.categoryIcon ?? CATEGORY_EMOJI[s.item.category] ?? '📌'}
                   </span>
@@ -319,15 +306,9 @@ export function DashboardPage() {
                     )}
                   </div>
                   {(() => {
-                    // 间隔优先用真实 nextTriggerAt（延迟后的动态时间）
-                    let label = '';
-                    if (s.item.nextTriggerAt) {
-                      const d = new Date(s.item.nextTriggerAt);
-                      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                      const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-                      label = untilLabel(key, time);
-                    }
-                    if (!label) label = untilLabel(selected, s.time);
+                    // 距离该时间点触发的间隔（以当前看板日期/时间为基准；
+                    // 不用 reminder.nextTriggerAt——它可能已推进到明天，导致"明天的提醒显示 10 分钟后"）
+                    const label = untilLabel(selected, s.time);
                     return label ? (
                       <span className="shrink-0 rounded-full bg-primary-500/15 px-2.5 py-1 text-[11px] font-medium text-primary-700">
                         {label}
@@ -361,7 +342,7 @@ export function DashboardPage() {
                       key={`d-${s.item.reminderId}-${s.time}-${i}`}
                       className="flex items-center gap-3 rounded-card border-l-4 border-primary-500/60 bg-ink-100/60 px-4 py-3 opacity-80"
                     >
-                      <span className="w-14 text-right text-sm font-semibold text-ink-500">{s.time}</span>
+                      <span className="w-14 text-right text-sm font-semibold text-ink-500">{s.item.untimed ? '不定时' : s.time}</span>
                       <span className="text-lg opacity-50">
                         {s.item.categoryIcon ?? CATEGORY_EMOJI[s.item.category] ?? '📌'}
                       </span>
@@ -410,7 +391,7 @@ export function DashboardPage() {
                     key={`m-${s.item.reminderId}-${s.time}-${i}`}
                     className="flex items-center gap-3 rounded-card border-l-4 border-danger-500/70 bg-danger-500/5 px-4 py-3"
                   >
-                    <span className="w-14 text-right text-sm font-semibold text-danger-700">{s.time}</span>
+                    <span className="w-14 text-right text-sm font-semibold text-danger-700">{s.item.untimed ? '不定时' : s.time}</span>
                     <span className="text-lg opacity-60">
                       {s.item.categoryIcon ?? CATEGORY_EMOJI[s.item.category] ?? '📌'}
                     </span>

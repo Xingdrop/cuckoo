@@ -162,12 +162,17 @@ export class CreateReminderDto {
   @IsDateString()
   startDate: string;
 
-  /** 每日多时间点（HH:mm），daily/weekly 适用，最多 10 个 */
+  /** 每日多时间点（HH:mm），daily/weekly 适用，最多 10 个；daily 留空即"不定时" */
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(10)
   @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { each: true, message: '时间格式须为 HH:mm' })
   times?: string[];
+
+  /** 所属计划（2026-08："我的计划"内添加提醒时附带） */
+  @IsOptional()
+  @IsString()
+  planId?: string;
 
   @IsOptional()
   @IsDateString()

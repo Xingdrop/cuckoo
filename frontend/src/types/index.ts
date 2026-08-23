@@ -87,6 +87,8 @@ export interface Reminder {
   times: string[] | null;
   endDate: string | null;
   nextTriggerAt: string | null;
+  /** 所属计划名（2026-08：来自"我的计划"） */
+  planName?: string | null;
   content: ReminderContent;
   method: ReminderMethod;
   delaySettings: DelaySettings;
@@ -151,6 +153,8 @@ export interface CalendarItem {
   content: ReminderContent;
   times: { time: string; status: ReminderLogStatus | null }[];
   todayTotal: number;
+  /** 不定时每日提醒：不显示具体时间（2026-08） */
+  untimed?: boolean;
 }
 
 /** 药品（M2） */

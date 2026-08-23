@@ -35,10 +35,18 @@ export class FilesController {
 
     // ===== 视频：直接返回（无转码；thumbUrl 为空）=====
     if (VIDEO_EXT.includes(ext)) {
+      if (file.size > 60 * 1024 * 1024) {
+        fs.unlinkSync(file.path);
+        throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '视频不能超过 60MB' });
+      }
       return { url: rel(file.path), thumbUrl: null, type: 'video' };
     }
 
-    // ===== 图片：魔数校验 + sharp 压缩 =====
+    // ===== 图片：大小/魔数校验 + sharp 压缩 =====
+    if (file.size > 10 * 1024 * 1024) {
+      fs.unlinkSync(file.path);
+      throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '图片不能超过 10MB' });
+    }
     let head: Buffer;
     try {
       head = fs.readFileSync(file.path).subarray(0, 16);

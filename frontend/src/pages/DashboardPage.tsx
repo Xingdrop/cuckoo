@@ -141,6 +141,18 @@ export function DashboardPage() {
 
   const lunar = lunarInfo(selected);
 
+  /** #12：不定时提醒 完成/放弃（今日）——记录到当日正午（ack 仅需唯一时刻） */
+  const untimedAck = async (item: CalendarItem, status: 'completed' | 'skipped') => {
+    const [y, m, d] = selected.split('-').map(Number);
+    const noon = new Date(y, m - 1, d, 12, 0);
+    try {
+      await remindersApi.ack(item.reminderId, { status, scheduledTime: noon.toISOString() });
+    } catch {
+      /* 重复/失败静默，刷新后以服务端为准 */
+    }
+    void load(selected);
+  };
+
   return (
     <div
       className="mx-auto max-w-md pb-20"
@@ -342,6 +354,25 @@ export function DashboardPage() {
                     )}
                   </div>
                   {(() => {
+                    if (s.item.untimed) {
+                      // #12：不定时提醒 — 完成/放弃（今日）按钮
+                      return (
+                        <div className="flex shrink-0 gap-1.5">
+                          <button
+                            onClick={() => void untimedAck(s.item, 'completed')}
+                            className="rounded-full bg-primary-500 px-2.5 py-1 text-[11px] font-medium text-white"
+                          >
+                            完成
+                          </button>
+                          <button
+                            onClick={() => void untimedAck(s.item, 'skipped')}
+                            className="rounded-full bg-ink-100 px-2.5 py-1 text-[11px] font-medium text-ink-600"
+                          >
+                            放弃
+                          </button>
+                        </div>
+                      );
+                    }
                     // 距离该时间点触发的间隔（以当前看板日期/时间为基准；
                     // 不用 reminder.nextTriggerAt——它可能已推进到明天，导致"明天的提醒显示 10 分钟后"）
                     const label = untilLabel(selected, s.time);

@@ -74,6 +74,11 @@ class UpdateSettingsDto {
   @Min(100)
   @Max(10000)
   waterGoalMl?: number;
+
+  /** #13：喝水达标是否计入完成率 */
+  @IsOptional()
+  @IsBoolean()
+  waterInRate?: boolean;
 }
 
 @ApiTags('用户')

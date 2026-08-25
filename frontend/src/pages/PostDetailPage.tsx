@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { MediaGrid } from '../components/MediaGrid';
 import { LinkedText } from '../components/LinkedText';
+import { profileApi } from '../services/api/api.plans';
 import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
 import { socialApi, Post } from '../services/api/api.social';
@@ -31,6 +32,26 @@ export function PostDetailPage() {
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [following, setFollowing] = useState(false);
+
+  // #5：作者关注状态（非本人）
+  useEffect(() => {
+    if (!post || post.author.id === me?.id) return;
+    profileApi
+      .get(post.author.id)
+      .then((p) => setFollowing(p.isFollowing))
+      .catch(() => undefined);
+  }, [post, me?.id]);
+
+  const toggleFollowAuthor = async () => {
+    if (!post) return;
+    try {
+      const r = await profileApi.follow(post.author.id);
+      setFollowing(r.following);
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  };
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -140,6 +161,16 @@ export function PostDetailPage() {
               >
                 @{post.author.username}
               </button>
+              {post.author.id !== me?.id && (
+                <button
+                  onClick={() => void toggleFollowAuthor()}
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium ${
+                    following ? 'bg-ink-100 text-ink-500' : 'bg-primary-500 text-white'
+                  }`}
+                >
+                  {following ? '已关注' : '+ 关注'}
+                </button>
+              )}
               <span className="ml-auto text-[10px] text-ink-300">
                 {new Date(post.createdAt).toLocaleString('zh-CN', { hour12: false }).slice(0, 16)}
                 {post.updatedAt &&

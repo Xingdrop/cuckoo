@@ -478,9 +478,11 @@ export class RemindersService {
 
   /**
    * 喝水手动记录（FR-403）：写入 ReminderLog(status=manual, category=water, amount=ml)。
-   * 用于看板快捷 +200ml 等操作。
+  /**
+   * 手动喝水记录（看板 +200ml 等；#4：按日期独立——记录写入指定日期的当日正午，
+   * 永不与其它日期串扰；dateStr 缺省 = 今天（用户时区））
    */
-  async waterLog(userId: string, amountMl: number) {
+  async waterLog(userId: string, amountMl: number, scheduledAt?: Date) {
     if (!Number.isInteger(amountMl) || amountMl <= 0 || amountMl > 5000) {
       throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '水量须为 1~5000ml 的整数' });
     }
@@ -488,7 +490,7 @@ export class RemindersService {
       id: randomUUID(),
       reminderId: null,
       userId,
-      scheduledTime: new Date(),
+      scheduledTime: scheduledAt ?? new Date(),
       actualTime: new Date(),
       status: ReminderLogStatus.MANUAL,
       delayMinutes: 0,

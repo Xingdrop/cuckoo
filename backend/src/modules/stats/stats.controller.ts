@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { StatsService } from './stats.service';
 
@@ -9,6 +9,11 @@ class WaterLogDto {
   @Min(1)
   @Max(5000)
   amountMl: number;
+
+  /** 记录日期（YYYY-MM-DD，缺省今天；#4 按日期独立） */
+  @IsOptional()
+  @IsString()
+  date?: string;
 }
 
 @ApiTags('统计')
@@ -40,10 +45,16 @@ export class StatsController {
     return this.statsService.trend(userId, days ?? 7);
   }
 
+  @Get('water')
+  @ApiOperation({ summary: '某日喝水统计（#4：date 缺省今天，按用户时区日界独立）' })
+  waterInfo(@CurrentUser('sub') userId: string, @Query('date') date?: string) {
+    return this.statsService.waterInfo(userId, date);
+  }
+
   @Post('water')
-  @ApiOperation({ summary: '手动记录喝水（FR-403）' })
+  @ApiOperation({ summary: '手动记录喝水（FR-403；#4 可指定日期）' })
   waterLog(@CurrentUser('sub') userId: string, @Body() dto: WaterLogDto) {
-    return this.statsService.water(userId, dto.amountMl);
+    return this.statsService.water(userId, dto.amountMl, dto.date);
   }
 
   private currentMonth(): string {

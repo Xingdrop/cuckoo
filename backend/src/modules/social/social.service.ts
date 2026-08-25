@@ -136,6 +136,11 @@ export class SocialService {
       });
     }
     const content = await this.filterContent(dto.content.trim());
+    // #1：不允许发布"空计划"（planSnapshot 但无提醒）——前端按钮置灰 + 后端兜底
+    const snapshot = dto.planSnapshot as { reminders?: unknown[] } | null | undefined;
+    if (snapshot && Array.isArray(snapshot.reminders) && snapshot.reminders.length === 0) {
+      throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '计划还没有提醒，不能发帖' });
+    }
     const post = this.postRepo.create({
       id: randomUUID(),
       userId,
@@ -281,14 +286,17 @@ export class SocialService {
 
       // 落库计划（同帖复用；sourceTitle 展示来源用户名）
       const author = await userRepo.findOne({ where: { id: post.userId } });
-      const sourceTitle = `来自 @${author?.username ?? '用户'} 的帖子`;
+      // #3：加入的计划统一使用上传者命名的计划名（不再用"来自 @xx 的帖子"）；来源改为小注
+      const snapshotRaw = post.planSnapshot as { from?: { name?: string } } | null;
+      const planName = snapshotRaw?.from?.name?.trim() || post.content;
+      const sourceTitle = `由 @${author?.username ?? '用户'} 分享`;
       let plan = await planRepo.findOne({ where: { userId, sourceType: 'share', sourceId: postId } });
       if (!plan) {
         plan = await planRepo.save(
           planRepo.create({
             id: randomUUID(),
             userId,
-            name: sourceTitle,
+            name: planName,
             description: '',
             sourceType: 'share',
             sourceTitle,

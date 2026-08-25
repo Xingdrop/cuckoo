@@ -57,9 +57,7 @@ describe('SocialService（UT-JOIN）', () => {
   };
 
   const makePlanPost = (content: string, reminders: unknown[]) =>
-    service.createPost(USER_A, { content, planSnapshot: { version: 1, reminders } });
-
-  beforeAll(async () => {
+    service.createPost(USER_A, { content, planSnapshot: { version: 1, reminders } });  beforeAll(async () => {
     dataSource = new DataSource({
       type: 'better-sqlite3',
       database: ':memory:',
@@ -186,7 +184,20 @@ describe('SocialService（UT-JOIN）', () => {
     expect(await joinRepo.count({ where: { postId: noSnap.id } })).toBe(0);
 
     // 空 reminders（注意：实现会在抛出前先落 plan，但不写 join 也不累计 count）
-    const empty = await makePlanPost('空提醒帖子', []);
+    // 2026-08：createPost 已禁止空计划发帖 → 直接入库模拟历史帖子
+    const empty = await postRepo.save(
+      postRepo.create({
+        id: crypto.randomUUID(),
+        userId: USER_A,
+        type: 'user_plan',
+        content: '空提醒帖子（历史数据）',
+        mediaUrls: [],
+        planSnapshot: { version: 1, reminders: [] },
+        joinedCount: 0,
+        likesCount: 0,
+        commentsCount: 0,
+      }),
+    );
     await expect(service.joinPlan(USER_B, empty.id)).rejects.toBeInstanceOf(BadRequestException);
     expect((await postRepo.findOne({ where: { id: empty.id } }))?.joinedCount).toBe(0);
     expect(await joinRepo.count({ where: { postId: empty.id } })).toBe(0);

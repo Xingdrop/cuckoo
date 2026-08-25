@@ -154,9 +154,45 @@ export class StatsService {
     return result;
   }
 
-  /** 手动记录喝水（转发到 RemindersService） */
-  async water(userId: string, amountMl: number) {
-    return this.remindersService.waterLog(userId, amountMl);
+  /** #4：某日喝水统计（dateStr 缺省 = 今天；按用户时区日界独立计算） */
+  async waterInfo(userId: string, dateStr?: string) {
+    const tz = await this.getTz(userId);
+    let y: number, m: number, d: number;
+    if (dateStr) {
+      [y, m, d] = dateStr.split('-').map(Number);
+    } else {
+      const local = toLocal(new Date(), tz);
+      y = local.year;
+      m = local.month;
+      d = local.day;
+    }
+    const dayStart = localToUtc(tz, y, m, d, 0, 0);
+    const nextDay = localToUtc(tz, y, m, d + 1, 0, 0);
+    const waterLogs = await this.logRepo.find({
+      where: { userId, category: 'water', scheduledTime: Between(dayStart, nextDay) },
+    });
+    const waterMl = waterLogs.reduce((sum, l) => sum + l.amount, 0);
+    const setting = await this.settingRepo.findOne({ where: { userId } });
+    const waterGoalMl = setting?.waterGoalMl ?? 2000;
+    return {
+      date: `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+      waterMl,
+      waterGoalMl,
+      rate: Math.min(100, Math.round((waterMl / waterGoalMl) * 100)),
+      reached: waterGoalMl > 0 && waterMl >= waterGoalMl,
+    };
+  }
+
+  /** 手动记录喝水（#4：可指定日期，写入该日独立区间） */
+  async water(userId: string, amountMl: number, dateStr?: string) {
+    const tz = await this.getTz(userId);
+    let scheduledAt: Date | undefined;
+    if (dateStr) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      // 记录写在该日正午（用户时区→UTC），保证永远落到"该日"查询区间
+      scheduledAt = new Date(localToUtc(tz, y, m, d, 12, 0));
+    }
+    return this.remindersService.waterLog(userId, amountMl, scheduledAt);
   }
 
   private async getTz(userId: string): Promise<string> {

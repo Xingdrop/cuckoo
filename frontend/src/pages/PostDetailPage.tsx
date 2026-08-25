@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { MediaGrid } from '../components/MediaGrid';
+import { LinkedText } from '../components/LinkedText';
 import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
 import { socialApi, Post } from '../services/api/api.social';
@@ -174,7 +175,9 @@ export function PostDetailPage() {
                 </div>
               </div>
             ) : (
-              <p className="mt-3 text-sm leading-relaxed">{post.content}</p>
+              <p className="mt-3 text-sm leading-relaxed">
+                <LinkedText text={post.content} />
+              </p>
             )}
 
             {/* 帖子媒体（#8：多图大图预览 + 视频播放） */}

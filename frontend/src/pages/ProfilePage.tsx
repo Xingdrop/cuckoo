@@ -6,6 +6,7 @@ import { profileApi } from '../services/api/api.plans';
 import type { ProfileView } from '../services/api/api.plans';
 import { authApi } from '../services/api/api.auth';
 import { filesApi } from '../services/api/api.files';
+import { compressMediaFile } from '../utils/media';
 import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
 
@@ -61,7 +62,7 @@ export function ProfilePage() {
     if (!file) return;
     try {
       setError(null);
-      const { url } = await filesApi.upload(file);
+      const { url } = await filesApi.upload(await compressMediaFile(file));
       await authApi.updateMe({ avatarUrl: url });
       if (me) setUser({ ...me, avatarUrl: url });
       void load();

@@ -2,3 +2,12 @@ test-results/
 playwright-report/
 coverage/
 
+
+# Android（Capacitor）构建产物与本机配置
+android/local.properties
+android/build/
+android/.gradle/
+android/app/build/
+android/app/src/main/assets/public/
+android/capacitor-cordova-android-plugins/build/
+android/.idea/

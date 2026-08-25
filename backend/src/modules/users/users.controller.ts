@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Patch,
+  Post,
   Put,
   Res,
 } from '@nestjs/common';
@@ -120,6 +121,12 @@ export class UsersController {
       `attachment; filename="cuckoo-export-${userId.slice(0, 8)}.json"`,
     );
     return data;
+  }
+
+  @Post('me/import')
+  @ApiOperation({ summary: '游客数据导入合并（#3：按同类数据 created_at 较新优先）' })
+  importData(@CurrentUser('sub') userId: string, @Body() bundle: Record<string, unknown>) {
+    return this.usersService.importData(userId, bundle as never);
   }
 
   @Delete('me')

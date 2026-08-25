@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { errorMessage, tokenStore } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
+import { useGuestStore } from '../guest/guestStore';
 import { loginSchema, registerSchema } from '../types/schemas';
 
 /**
@@ -146,6 +147,16 @@ export function LoginPage() {
       <p className="mt-6 text-center text-xs text-ink-300">
         <Link to="/privacy" className="underline-offset-2 hover:underline">
           隐私政策与健康免责声明
+        </Link>
+        <span className="mx-2 text-ink-200">·</span>
+        <Link
+          to="/guest"
+          onClick={() => {
+            useGuestStore.getState().activate();
+          }}
+          className="underline-offset-2 hover:underline"
+        >
+          🎒 先以游客身份体验（数据仅存本机）
         </Link>
       </p>
     </div>

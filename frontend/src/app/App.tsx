@@ -1,5 +1,5 @@
 // @Sdrop 布谷(Cuckoo) v1 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2FwcC9BcHAudHN4fDIwMjYtMDg=
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { RequireAuth } from '../components/RequireAuth';
@@ -38,11 +38,33 @@ const ProfilePage = lazyPage(() => import('../pages/ProfilePage'), 'ProfilePage'
 const FollowListPage = lazyPage(() => import('../pages/FollowListPage'), 'FollowListPage');
 const PlansPage = lazyPage(() => import('../pages/PlansPage'), 'PlansPage');
 const PlanPreviewPage = lazyPage(() => import('../pages/PlanPreviewPage'), 'PlanPreviewPage');
+const GuestPage = lazyPage(() => import('../pages/GuestPage'), 'GuestPage');
 
 /** 路由 chunk 加载中的全屏骨架 */
 function PageFallback() {
   return (
     <div className="flex min-h-dvh items-center justify-center text-sm text-ink-300">加载中…</div>
+  );
+}
+
+/** #1：离线状态指示（浏览器断网时提示"当前离线，数据来自本地缓存"） */
+function GlobalOfflineBadge() {
+  const [online, setOnline] = useState(navigator.onLine);
+  useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => {
+      window.removeEventListener('online', on);
+      window.removeEventListener('offline', off);
+    };
+  }, []);
+  if (online) return null;
+  return (
+    <div className="fixed left-1/2 top-2 z-[70] -translate-x-1/2 rounded-full bg-warning-500 px-3 py-1 text-[11px] font-medium text-white shadow">
+      📡 当前离线 — 数据来自本地缓存，联网后自动同步
+    </div>
   );
 }
 
@@ -60,11 +82,13 @@ export function App() {
 
   return (
     <BrowserRouter>
+      <GlobalOfflineBadge />
       <ReminderScheduler />
       <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/guest" element={<GuestPage />} />
           <Route
             path="/plans"
             element={

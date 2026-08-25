@@ -36,7 +36,7 @@
 - 输入：class-validator DTO 全量校验 + zod 前端对齐 + 敏感词过滤（帖子/评论）
 - 上传：扩展名/MIME/魔数三重校验 + sharp 重编码去 EXIF + 失败清理 + 类型化大小上限
 - 数据：SQLite WAL、参数化查询（TypeORM）、审计日志（关键操作）
-- 部署建议：helmet + 反向代理（Nginx/PM2 见 docs/部署手册.md）；生产密钥仅在 `.env`（gitignored）
+- 部署建议：helmet + 反向代理（Nginx/PM2，见项目发行材料）；生产密钥仅在 `.env`（gitignored）
 
 ## 披露流程
 1. 开发者确认并修复（含补丁与致谢，如报告者同意列名）

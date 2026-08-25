@@ -544,11 +544,11 @@ export function ReminderEditPage() {
               </button>
             )}
           </div>
-          {/* 链接导入（#2：跳转到其它视频 App 平台） */}
+          {/* 外部链接导入（#2：视频/文档/网页等，点击跳转外部应用） */}
           <input
             value={linkUrl}
             onChange={(e) => setLinkUrl(e.target.value)}
-            placeholder="🔗 粘贴视频链接（B站/优酷等，提醒时点击跳转）"
+            placeholder="🔗 粘贴外部链接（视频/B站/文档/网页等，提醒时点击跳转）"
             className="mt-2 w-full rounded-btn border border-ink-100 bg-surface px-3 py-2 text-xs outline-none focus:border-primary-400"
           />
         </section>

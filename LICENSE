@@ -1,58 +1,105 @@
-# 布谷（Cuckoo）商业许可协议 v2.0（2026-08-29）
+                        布谷 CUCKOO COMMERCIAL LICENSE
+                         Version 2.1, 29 August 2026
 
-> 本协议**参考 PolyForm Commercial License v1.0**（Polyform Projects，CC BY-3.0 发布）
-> 的结构编写并改写（英文官方文本见 polyformproject.org；本文件为中文授权条款）。
+Copyright (c) 2026 Xingdrop. All rights reserved.
 
-## 许可选项一览（发布者选型说明）
+This license is modeled on the PolyForm Commercial License v1.0
+(polyformproject.org, available under CC BY 3.0) and adapted for
+the Cuckoo project. It grants a source-available use license.
 
-| 许可 | 商用方式 | 适用场景 |
-|---|---|---|
-| **本协议（默认）** | **商业用途须取得著作权人书面授权** | 个人/教学/研究免费；商业项目需授权 |
-| MIT / Apache-2.0 | 免许可商用 | 完全开源（放弃商用控制权） |
-| GPL-3.0 | 免许可商用，但衍生作品须同开源 | 传染性开源（商用需开源你的衍生） |
-| Business Source License 1.1 | 生产部署需许可 | 源码可见（Source-Available），到期转开源 |
+Definitions
 
----
+  "The Software" means the source code, compiled artifacts,
+  documentation and design assets of 布谷 Cuckoo, including any
+  visible copyright or watermark notices embedded in it.
 
-## 定义
-- **本软件**：布谷 Cuckoo 之源码、编译产物、文档、设计资产（含 `@Sdrop` 水印标记）。
-- **著作权人**：本软件开发者（发布者）。
-- **商业用途**：以营利为目的的使用、部署、分发或内嵌，包括但不限于：销售/许可本软件或其衍生、SaaS/云服务对外提供、企业内部商业化运营、商业项目集成、以本软件为基础的收费服务、捐赠/众筹驱动的商业项目。
-- **非商业用途**：个人学习、教学、研究、开源/非盈利公益项目、个人验证演示；"非商业"指使用方不以直接从本软件获益为目的。
+  "Licensor" means Xingdrop, the copyright holder.
 
-## 1. 授予的使用许可（Use License）
-著作权人授予你**个人/非商业使用的全球性、免费、非独占、不可转让、可撤销**的许可，允许：
-1. 下载、安装、运行、查看源代码；
-2. 修改并**私有使用**（不对外分发）；
-3. 为教学/研究/开源贡献目的分发修改版本（须保留第 5 条声明与 `@Sdrop` 水印）；
-4. 撰写文档/文章引用（注明出处）。
+  "You" means the licensee. If you are an entity, "You" means
+  your organization and its affiliates.
 
-## 2. 商业授权（商业用途须许可）
-1. 任何**商业用途**前，须先获得著作权人**书面授权**（含电子邮件确认）；
-2. 授权方式：**邮箱 Xingdrop@outlook.com**（模板见 `CONTACT.md`）或仓库 ISSUE；说明：单位/个人、用途、部署规模、期限；
-3. 授权通常按"项目 × 用途"授予，可一次性或按年度；未获书面授权前，商业部署/销售视为侵权；
-4. 许可费与条款由双方另行约定；授权后按第 3 条限制执行。
+  "Commercial Use" means use, deployment, distribution or
+  integration for profit, including without limitation: selling
+  or licensing the Software or derivatives, providing SaaS,
+  operating the Software in a commercial business, integrating
+  it into a commercial product, or charging fees for any
+  service based on the Software.
 
-## 3. 使用限制（所有权与商标）
-1. 不得移除、遮挡、篡改本软件中的 `@Sdrop` 水印/版权声明（校验 `tools/scripts/sdrop-verify.mjs`）；
-2. 不得使用著作权人的商标"布谷 / Cuckoo / 布谷 Cuckoo"为**你的衍生作品的品牌或名称**（不得引起混淆归属）；
-3. 不得声称本软件为你的原创，或以转售"本许可本身"为业；
-4. 不得将本软件用于违法、侵害他人权益的活动。
+Permission and Conditions
 
-## 4. 专利授权
-著作权人授予你与本软件相关的必要专利许可（仅限运行/使用本软件所需）；你对本软件的专利主张将导致本许可自动终止。
+Permission is hereby granted, free of charge, to You for
+NON-COMMERCIAL USE of the Software, provided that You comply
+with the conditions below.
 
-## 5. 声明与再分发（Notices）
-分发（含修改版）时须保留：① 本 LICENSE 全文；② 原始版权声明与 `@Sdrop` 水印；③ 显著说明"基于布谷 Cuckoo（原始出处）修改"。
+Permitted Non-Commercial Uses
 
-## 6. 免责与责任限制
-本软件按"现状"（AS IS）提供，著作权人**不作任何明示或默示担保**（适销性、适用性、不侵权等）；因使用本软件造成的任何损失，著作权人不承担责任；任何情况下责任上限不超过你为获取许可实际支付之费用（如为零则无责任）。
+  a. Downloading, installing and running the Software.
+  b. Reading, studying and privately modifying the Software
+     without distributing it.
+  c. Using the Software for personal learning, teaching,
+     research, evaluation, or not-for-profit projects.
+  d. Distributing copies or derivatives for non-commercial
+     purposes, subject to the Notices section below.
 
-## 7. 终止
-违反本协议任一条款，本许可自动终止；终止后须停止使用并销毁副本；终止不放弃著作权人其他权利。
+Commercial Use
 
-## 8. 法律适用与解释
-本协议以中文为准；适用中华人民共和国著作权法及相关法律；争议双方协商，不成则提交著作权人住所地有管辖权的人民法院。
+  a. ANY Commercial Use requires prior WRITTEN authorization
+     from the Licensor.
+  b. To request authorization, contact: Xingdrop@outlook.com
+     (see CONTACT.md for the application template).
+  c. A license is granted per project and purpose; terms and
+     fees, if any, are agreed separately.
+  d. Unauthorized commercial deployment or redistribution is
+     an infringement of the Licensor's rights.
 
----
-*参考 PolyForm Commercial License v1.0 改写（polyformproject.org，CC BY 3.0）。如需商用授权：仓库 ISSUE 联系作者。*
+Restrictions
+
+  a. You may not remove, obscure or alter the Sdrop watermark
+     or any copyright notice embedded in the Software
+     (verify with: node tools/scripts/sdrop-verify.mjs).
+  b. You may not use the trade marks "布谷", "Cuckoo" or
+     "布谷 Cuckoo" as the name or brand of your derivatives
+     in a way that suggests endorsement.
+  c. You may not claim the Software as your own original work
+     or resell this license itself.
+  d. You may not use the Software for unlawful activity.
+
+Notices
+
+When distributing the Software or derivatives, you must
+retain: (a) this license in full, (b) the original copyright
+notice and Sdrop watermark, and (c) a prominent statement that
+the material is based on 布谷 Cuckoo and has been modified.
+
+Patents
+
+The Licensor grants You a patent license only to the extent
+necessary to use the Software as licensed. Any patent claim
+you bring against the Licensor or the Software terminates
+this license.
+
+Disclaimer
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE LICENSOR BE LIABLE FOR
+ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE
+SOFTWARE. YOUR SOLE REMEDY IS TO STOP USING THE SOFTWARE.
+
+Termination
+
+This license terminates automatically upon any breach of the
+conditions above. Upon termination you must cease all use and
+destroy all copies. Termination does not waive other rights of
+the Licensor.
+
+Governing Law
+
+This license is governed by the laws of the People's Republic
+of China. The English text is authoritative.
+
+Questions
+
+For commercial licensing, contact: Xingdrop@outlook.com
+https://github.com/Xingdrop/cuckoo

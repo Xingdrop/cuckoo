@@ -1,64 +1,64 @@
 # 布谷（Cuckoo）
 
-<!-- @Sdrop 布谷(Cuckoo) v1 © 2026 开发者所有。水印校验：node tools/scripts/sdrop-verify.mjs -->
-> 版权水印解码信息与项目本地归档存于开发者本机（不随仓库发布）；
-> 公开发布前请执行本地归档中的发布审计清单。
+<!-- @Sdrop 布谷(Cuckoo) v1 © 2026 Xingdrop -->
 
 准时提醒，温柔守护——布谷，你的健康生活管家。
 
-> 📄 许可：**商业用途须书面授权**（参考 PolyForm Commercial License 改写，详见 [LICENSE](./LICENSE)，含开源协议选型对比）；授权联系与申请模板见 [CONTACT.md](./CONTACT.md)；
+> 📄 许可：**商业用途须书面授权**（PolyForm 风格商业许可，详见 [LICENSE](./LICENSE)）；授权联系与申请模板见 [CONTACT.md](./CONTACT.md)。
 > 🛡 漏洞报告：见 [SECURITY.md](./SECURITY.md)（私密报告 + 响应时间承诺）。
 
-智能提醒与健康管理社交 App（Web PWA）：用药管理、短时锻炼、生活习惯养成、计划社交分享、数据统计与成就激励。
+## ✨ 特性
 
-## 技术栈
+- **多分类提醒**：吃药 / 喝水 / 锻炼 / 休息 / 工作 / 自定义，支持每日多时间点、每周/每月、间隔循环与**不定时**提醒
+- **健康数据看板**：完成率、连续天数、分类统计、喝水进度（达成当日目标记 1 次）
+- **用药管理**：库存扣减、低库存预警、有效期临期提示、服药历史
+- **运动与专注**：微运动库、番茄钟 25+5 循环、拍照打卡
+- **社交社区**：帖子图文/视频分享、评论点赞收藏、一键加入计划、个人主页与关注、小组成长
+- **我的计划**：自建/加入/官方计划，一键发帖，计划内提醒可修改（显示来源与已修改标记）
+- **消息通知**：站内通知 + Web Push（到期/漏服/低库存三触发源）+ 全文搜索式通知中心
+- **周报/月报**：热力图、趋势、环比建议；**成就系统**：不间断坚持、用药/锻炼/喝水达人
+- **隐私与安全**：数据导出/注销、密码策略、登录锁定与限流、上传三重校验、审计日志
 
-| 层 | 技术 |
-|---|---|
-| 前端 | React 19 + TypeScript + Vite + Tailwind CSS + Zustand + Recharts（PWA） |
-| 后端 | NestJS 11 + TypeORM + SQLite（可迁移 PostgreSQL）+ JWT + Web Push |
-| 测试 | Vitest / Jest / Playwright / Supertest |
-| 质量 | 多模态 AI 视觉评审（.zcode/skills/ui-review，内置视觉直接读图，无外部 Key） |
+## 🚀 快速启动
 
-## 目录结构
+要求：Node.js 20+。
 
-```
-docs/       项目文档（需求分析 / 技术方案 / 项目计划与验收 / 源文档）
-frontend/   Web PWA 前端
-backend/    NestJS API 后端（.env.example 为可转移参数入口）
-tools/      开发工具（UI 评审、脚本）
-Plugin/     下载的第三方插件包（已评估：Vercel 系 skill 已安装至 .zcode/skills/；ui-theme-designer 为 SAP 专用、vercel-optimize 仅适用 Vercel 部署，均不适用）
-```
-
-## 快速启动
-
-```powershell
-# 方式一：一键启动（自动清理端口占用 → 启动前后端 → 打开浏览器）
-powershell -ExecutionPolicy Bypass -File tools/scripts/dev-all.ps1
-
-# 方式二：手动
+```bash
 # 后端
 cd backend
-cp .env.example .env          # 配置环境变量（JWT_SECRET、VAPID 密钥等）
+cp .env.example .env      # 配置 JWT_SECRET 等
 npm install
-npm run start:dev             # http://localhost:3000/api
+npm start                 # http://localhost:3000/api
 
 # 前端（另开终端）
 cd frontend
 npm install
-npm run dev                   # http://localhost:5173（/api 自动代理到 3000）
+npm run dev               # http://localhost:5173
 ```
 
-## 文档索引
+> 生产部署（Nginx + PM2 + 备份）说明见项目发行材料；Web Push 需在 `.env` 配置 VAPID 密钥对。
 
-- [需求分析文档](docs/需求分析文档.md)
-- [技术方案设计](docs/技术方案设计.md)
-- [项目计划与单元测试验收文档](docs/项目计划与单元测试验收文档.md)
-- [部署手册](docs/部署手册.md)（Nginx + PM2 + 备份 + Docker 可选）
-- [项目审查报告](docs/项目审查报告.md)（2026-08 深度审查 + 修复记录）
+## 🧰 技术栈
 
-## 约定
+前端：React 19 + TypeScript + Vite + Tailwind CSS v4 + Zustand + React Router 7（PWA 离线可用）
+后端：NestJS 11 + TypeORM + better-sqlite3（WAL）+ JWT + Swagger + class-validator + Web Push + 定时任务
 
-- 任何 key/token 严禁硬编码，一律走 `backend/.env`（模板 `.env.example`）
-- 新增可转移参数须同步 `.env.example` 与《技术方案设计.md》§9
-- 页面开发完成后截图 → 按 `.zcode/skills/ui-review` 用内置多模态直接读图评审（评分 ≥ 8 门禁）
+## 🧪 测试
+
+| 类型 | 命令 |
+|---|---|
+| 后端单测 | `cd backend && npx jest --runInBand` |
+| 前端单测 | `cd frontend && npx vitest run` |
+| E2E（自动拉起前后端） | `cd frontend && npm run test:e2e` |
+| 代码评审 | 提交前由 AI 助手按项目规范完成（不依赖外部服务） |
+
+## 📦 目录
+
+```
+backend/   后端服务（modules 按业务域划分）
+frontend/  前端应用（pages / components / stores / services / utils）
+```
+
+## 📜 变更记录
+
+版本迭代记录见发行说明（Release Notes）；提交历史遵循 Conventional Commits。

@@ -18,7 +18,7 @@
 ## ⚠️ 请注意
 - **未获书面授权的商业用途（含收费服务、公司内部商业化项目）视为侵权**（LICENSE §2.4）
 - 全部源码、文档与设计受 **LICENSE v2.0**（参考 PolyForm Commercial License 改写）保护
-- 源码内含 `@Sdrop` 版权水印（校验：`node tools/scripts/sdrop-verify.mjs`），授权后也不得移除
+- 源码内含 `@Sdrop` 版权水印（校验方式详询授权方），授权后也不得移除
 - 开源协作（非商用）不受影响：提 Issue/PR 交流、学习、教学、个人项目均可自由使用
 
 ## 🛡 安全漏洞

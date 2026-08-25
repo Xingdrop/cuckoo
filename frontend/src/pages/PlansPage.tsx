@@ -217,7 +217,7 @@ export function PlansPage() {
                         {p.sourceTitle ? ` · ${p.sourceTitle}` : ''}
                       </p>
                     </button>
-                    {/* #9：标准开关（inset + margin-auto 垂直居中 + translateX，任意浏览器分辨率一致） */}
+                    {/* 简洁通用开关（v3：flex + justify 切换——滑块走 flow 布局，任何浏览器/缩放必然对齐） */}
                     <button
                       onClick={async () => {
                         try {
@@ -228,15 +228,11 @@ export function PlansPage() {
                         }
                       }}
                       aria-label={p.isActive ? '停用计划' : '启用计划'}
-                      className={`relative h-6 w-10 shrink-0 rounded-full transition-colors duration-200 ${
-                        p.isActive ? 'bg-primary-500' : 'bg-ink-100'
+                      className={`flex h-6 w-10 shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 ${
+                        p.isActive ? 'justify-end bg-primary-500' : 'justify-start bg-ink-100'
                       }`}
                     >
-                      <span
-                        className={`absolute inset-0.5 m-auto h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
-                          p.isActive ? 'translate-x-4' : 'translate-x-0'
-                        }`}
-                      />
+                      <span className="h-5 w-5 rounded-full bg-white shadow-sm" />
                     </button>
                   </div>
 

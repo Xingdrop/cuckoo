@@ -185,11 +185,21 @@ export function PostDetailPage() {
 
             {post.planSnapshot && (
               <div className="mt-3 rounded-btn bg-primary-50/60 px-3.5 py-2.5">
-                <p className="text-xs font-medium text-primary-700">📋 包含可加入的提醒计划</p>
+                {/* #2：显示计划名 + 点击查看计划详情 */}
+                <button
+                  onClick={() => navigate(`/posts/${post.id}/plan`)}
+                  className="flex w-full items-center gap-1.5 text-left"
+                >
+                  <span className="text-xs font-medium text-primary-700">📋</span>
+                  <span className="min-w-0 flex-1 truncate text-xs font-medium text-primary-700">
+                    {(post.planSnapshot as { from?: { name?: string } } | null)?.from?.name || '分享的计划'}
+                  </span>
+                  <span className="shrink-0 text-[10px] text-primary-500">查看详情 ›</span>
+                </button>
                 <button
                   onClick={() => void toggleJoin()}
                   disabled={joining}
-                  className={`mt-1.5 w-full rounded-full py-1.5 text-xs font-medium disabled:opacity-50 ${
+                  className={`mt-2 w-full rounded-full py-1.5 text-xs font-medium disabled:opacity-50 ${
                     post.myJoined ? 'bg-ink-100 text-ink-700' : 'bg-primary-500 text-white'
                   }`}
                 >

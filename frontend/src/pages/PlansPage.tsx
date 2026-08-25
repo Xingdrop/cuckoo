@@ -274,7 +274,9 @@ export function PlansPage() {
                         setSharePlan(p);
                         setShareText(`📋 我的计划「${p.name}」：${p.reminderCount ?? 0} 条提醒，欢迎一键加入一起坚持！`);
                       }}
-                      className="flex h-8 flex-1 items-center justify-center gap-0.5 rounded-btn bg-ink-100/60 text-[11px] font-medium text-ink-700"
+                      disabled={(p.reminderCount ?? 0) === 0}
+                      title={(p.reminderCount ?? 0) === 0 ? '先添加提醒才能发帖' : undefined}
+                      className="flex h-8 flex-1 items-center justify-center gap-0.5 rounded-btn bg-ink-100/60 text-[11px] font-medium text-ink-700 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <Send size={12} /> 一键发帖
                     </button>

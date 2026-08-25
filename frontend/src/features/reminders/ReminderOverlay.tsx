@@ -84,7 +84,7 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
             <LinkedText text={reminder.content.text} />
           </p>
         )}
-        {/* #2：外部视频链接（点击跳转其它视频 App 平台） */}
+        {/* #2：外部链接（视频/文档/网页等，点击跳转外部应用） */}
         {reminder.content.linkUrl && (
           <a
             href={reminder.content.linkUrl}
@@ -92,7 +92,7 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
             rel="noreferrer noopener"
             className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-4 py-2 text-sm font-medium text-white"
           >
-            ▶ 打开视频链接
+            🔗 打开链接
           </a>
         )}
         {/* 媒体（#3：图片/视频） */}

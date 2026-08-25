@@ -2,7 +2,7 @@ import { Check, ChevronLeft, Camera, Settings, UserPlus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ErrorBanner, LoadingState } from '../components/ui/Feedback';
-import { profileApi } from '../services/api/api.plans';
+import { profileApi, FavPost } from '../services/api/api.plans';
 import type { ProfileView } from '../services/api/api.plans';
 import { authApi } from '../services/api/api.auth';
 import { filesApi } from '../services/api/api.files';
@@ -27,6 +27,17 @@ export function ProfilePage() {
   const [profile, setProfile] = useState<ProfileView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [following, setFollowing] = useState(false);
+  const [section, setSection] = useState<'posts' | 'favorites'>('posts');
+  const [favs, setFavs] = useState<FavPost[]>([]);
+
+  // #6：我的收藏（仅本人）
+  useEffect(() => {
+    if (!profile?.isSelf) return;
+    profileApi
+      .favorites(profile.user.id)
+      .then((r) => setFavs(r.items))
+      .catch(() => undefined);
+  }, [profile]);
 
   const load = useCallback(async () => {
     if (!targetId) return;
@@ -185,18 +196,57 @@ export function ProfilePage() {
               </div>
             </section>
 
-            {/* 发帖 */}
+            {/* 发帖/收藏（#6） */}
             <section>
-              <h2 className="px-1 text-sm font-medium">
-                {profile.isSelf ? '我的帖子' : 'TA 的帖子'}（{profile.posts.length}）
-              </h2>
-              {profile.posts.length === 0 ? (
+              {profile.isSelf && (
+                <div className="mb-2 flex gap-1 rounded-full bg-ink-100/60 p-1">
+                  <button
+                    onClick={() => setSection('posts')}
+                    className={`flex-1 rounded-full py-1.5 text-xs font-medium ${
+                      section === 'posts' ? 'bg-surface text-ink-700 shadow-sm' : 'text-ink-500'
+                    }`}
+                  >
+                    帖子（{profile.posts.length}）
+                  </button>
+                  <button
+                    onClick={() => setSection('favorites')}
+                    className={`flex-1 rounded-full py-1.5 text-xs font-medium ${
+                      section === 'favorites' ? 'bg-surface text-ink-700 shadow-sm' : 'text-ink-500'
+                    }`}
+                  >
+                    收藏（{favs.length}）
+                  </button>
+                </div>
+              )}
+              {section === 'posts' ? (
+                profile.posts.length === 0 ? (
+                  <p className="mt-2 rounded-card bg-surface p-6 text-center text-xs text-ink-300 shadow-sm">
+                    还没有发帖
+                  </p>
+                ) : (
+                  <ul className="mt-2 space-y-2">
+                    {profile.posts.map((p) => (
+                      <li key={p.id}>
+                        <button
+                          onClick={() => navigate(`/posts/${p.id}`)}
+                          className="w-full rounded-card bg-surface px-4 py-3 text-left shadow-sm"
+                        >
+                          <p className="line-clamp-2 text-sm leading-relaxed">{p.content}</p>
+                          <p className="mt-1.5 text-[10px] text-ink-300">
+                            {new Date(p.createdAt).toLocaleDateString('zh-CN')} · 👍{p.likesCount} · 💬{p.commentsCount} · 🙋{p.joinedCount}
+                          </p>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )
+              ) : favs.length === 0 ? (
                 <p className="mt-2 rounded-card bg-surface p-6 text-center text-xs text-ink-300 shadow-sm">
-                  还没有发帖
+                  还没有收藏的帖子
                 </p>
               ) : (
                 <ul className="mt-2 space-y-2">
-                  {profile.posts.map((p) => (
+                  {favs.map((p) => (
                     <li key={p.id}>
                       <button
                         onClick={() => navigate(`/posts/${p.id}`)}
@@ -204,7 +254,7 @@ export function ProfilePage() {
                       >
                         <p className="line-clamp-2 text-sm leading-relaxed">{p.content}</p>
                         <p className="mt-1.5 text-[10px] text-ink-300">
-                          {new Date(p.createdAt).toLocaleDateString('zh-CN')} · 👍{p.likesCount} · 💬{p.commentsCount} · 🙋{p.joinedCount}
+                          @{p.author.username} · {new Date(p.createdAt).toLocaleDateString('zh-CN')} · 👍{p.likesCount} · 💬{p.commentsCount} · 🙋{p.joinedCount}
                         </p>
                       </button>
                     </li>

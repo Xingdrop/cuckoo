@@ -58,7 +58,12 @@ export class MissedScanner {
         settings.map((s) => [s.userId, s.missedThresholdMinutes ?? DEFAULT_MISSED_THRESHOLD_MINUTES]),
       );
 
-      for (const reminder of overdue) {
+      // 不定时提醒（无 times 且非按小时 interval）：没有固定触发时刻，不做漏服判定（#12）
+      for (const reminder of overdue.filter(
+        (r) =>
+          (r.times !== null && r.times.length > 0) ||
+          (r.repeatRule.type === 'interval' && r.repeatRule.intervalUnit === 'hour'),
+      )) {
         const next = reminder.nextTriggerAt!;
         const responded = await this.logRepo.findOne({
           where: { reminderId: reminder.id, scheduledTime: next },

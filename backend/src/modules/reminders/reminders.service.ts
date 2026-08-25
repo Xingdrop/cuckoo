@@ -247,15 +247,19 @@ export class RemindersService {
           const slot = localToUtc(timezone, y, m, d, hh, mm);
           // 与 logs 匹配（同一天同一时刻只可能一条，取状态）
           const log = dayLogs.find((l) => Math.abs(l.scheduledTime.getTime() - slot.getTime()) < 60_000);
-          return { time: t, status: log ? log.status : null };
+          // 不定时提醒：不显示"错过"（无固定时间点，不存在超时漏服；#12）
+          const status = untimed && log?.status === ReminderLogStatus.MISSED ? null : (log?.status ?? null);
+          return { time: t, status };
         }),
         todayTotal: times.length,
         untimed,
       });
     }
 
-    // 按第一个时间点排序
-    result.sort((a, b) => a.times[0].time.localeCompare(b.times[0].time));
+    // 不定时提醒置顶（#12），其余按第一个时间点排序
+    result.sort((a, b) =>
+      a.untimed === b.untimed ? a.times[0].time.localeCompare(b.times[0].time) : a.untimed ? -1 : 1,
+    );
     return result;
   }
   async today(userId: string) {

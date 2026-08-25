@@ -25,6 +25,8 @@ export interface UserSettings {
   maxDelayCount: number;
   /** 每日喝水目标（ml） */
   waterGoalMl: number;
+  /** 喝水达标是否计入完成率（#13） */
+  waterInRate: boolean;
 }
 
 export interface AuthResponse {

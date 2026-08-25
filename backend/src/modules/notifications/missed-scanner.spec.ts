@@ -33,6 +33,8 @@ describe('MissedScanner（UT-MISS）', () => {
       nextTriggerAt: minutesAgo(40),
       medicineId: null,
       category: 'water',
+      times: ['09:00'],
+      repeatRule: { type: 'daily' },
       ...over,
     }) as Reminder;
 

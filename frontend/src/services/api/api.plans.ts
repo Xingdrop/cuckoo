@@ -44,4 +44,18 @@ export const profileApi = {
     http.get<{ id: string; username: string; avatarUrl: string | null }[]>(`/users/${userId}/followers`).then((r) => r.data),
   following: (userId: string) =>
     http.get<{ id: string; username: string; avatarUrl: string | null }[]>(`/users/${userId}/following`).then((r) => r.data),
+  /** #6：收藏列表（个人主页"我的收藏"） */
+  favorites: (userId: string) =>
+    http.get<{ items: FavPost[]; total: number }>(`/users/${userId}/favorites`).then((r) => r.data),
 };
+
+/** 收藏帖子（与社区帖结构一致，可点进详情） */
+export interface FavPost {
+  id: string;
+  content: string;
+  createdAt: string;
+  likesCount: number;
+  commentsCount: number;
+  joinedCount: number;
+  author: { id: string; username: string; avatarUrl: string | null };
+}

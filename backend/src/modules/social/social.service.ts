@@ -104,6 +104,34 @@ export class SocialService {
     };
   }
 
+  /** #6：收藏列表（个人主页"我的收藏"，帖子可点进详情） */
+  async favorites(userId: string, ownerId: string) {
+    const favInteractions = await this.interactionRepo.find({
+      where: { userId: ownerId, type: InteractionType.FAVORITE },
+      order: { createdAt: 'DESC' },
+      take: 100,
+    });
+    const postIds = favInteractions.map((i) => i.postId);
+    if (postIds.length === 0) return { items: [], total: 0 };
+    const posts = await this.postRepo.find({
+      where: { id: In(postIds), status: PostStatus.PUBLISHED },
+      relations: { user: true },
+    });
+    // 按收藏时间排序 + 附加作者与"我"的互动状态
+    const order = new Map(favInteractions.map((i, idx) => [i.postId, idx]));
+    const my = await this.interactionRepo.find({ where: { userId, postId: In(postIds) } });
+    const items = posts
+      .map((p) => ({
+        ...p,
+        author: { id: p.user.id, username: p.user.username, avatarUrl: p.user.avatarUrl },
+        myLiked: my.some((i) => i.postId === p.id && i.type === InteractionType.LIKE),
+        myFavorited: true,
+        myJoined: my.some((i) => i.postId === p.id && i.type === InteractionType.JOIN),
+      }))
+      .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+    return { items, total: items.length };
+  }
+
   async getPost(userId: string, postId: string) {
     const post = await this.postRepo.findOne({
       where: { id: postId, status: PostStatus.PUBLISHED },

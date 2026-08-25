@@ -1,5 +1,5 @@
 import { ArrowUp, Bell, Heart, ImagePlus, MessageCircle, PenSquare, Star, Users } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { useAuthStore } from '../stores/authStore';
@@ -54,14 +54,28 @@ export function SocialPage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // #6 关注 tab 数据
-  useEffect(() => {
+  // #6 关注 tab 数据 + #5 关注按钮
+  const followingIds = useMemo(() => new Set(followingUsers.map((u) => u.id)), [followingUsers]);
+  const refreshFollowing = useCallback(() => {
     if (!user) return;
     profileApi
       .following(user.id)
       .then((u) => setFollowingUsers(u.map((x) => ({ id: x.id, username: x.username }))))
       .catch(() => setFollowingUsers([]));
   }, [user]);
+  useEffect(() => {
+    refreshFollowing();
+  }, [refreshFollowing]);
+
+  /** #5：关注/取消关注 */
+  const toggleFollowAuthor = async (authorId: string) => {
+    try {
+      await profileApi.follow(authorId);
+      refreshFollowing();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -134,6 +148,12 @@ export function SocialPage() {
 
   const publish = async () => {
     if (!composerText.trim()) return;
+    // #4：引用的计划不能为空（后端同样拦截，这里提前提示）
+    const chosen = myPlans.find((p) => p.id === composerPlanId);
+    if (chosen && (chosen.reminderCount ?? 0) === 0) {
+      setError(`计划「${chosen.name}」还没有提醒，不能引用发布`);
+      return;
+    }
     try {
       let planSnapshot: Record<string, unknown> | null = null;
       if (composerPlanId) {
@@ -250,7 +270,6 @@ export function SocialPage() {
         {tab === 'following' && (
           <ul className="space-y-3">
             {(() => {
-              const followingIds = new Set(followingUsers.map((u) => u.id));
               const shown = posts.filter((p) => followingIds.has(p.author.id));
               return shown.length === 0 ? (
                 <div className="rounded-card bg-surface p-10 text-center text-sm text-ink-500 shadow-sm">
@@ -378,6 +397,21 @@ export function SocialPage() {
                       {post.updatedAt && new Date(post.updatedAt).getTime() - new Date(post.createdAt).getTime() > 60_000 ? ' · 已编辑' : ''}
                     </p>
                   </div>
+                  {post.author.id !== user?.id && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void toggleFollowAuthor(post.author.id);
+                      }}
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium ${
+                        followingIds.has(post.author.id)
+                          ? 'bg-ink-100 text-ink-500'
+                          : 'bg-primary-500 text-white'
+                      }`}
+                    >
+                      {followingIds.has(post.author.id) ? '已关注' : '+ 关注'}
+                    </button>
+                  )}
                   {post.type === 'official_plan' && (
                     <span className="rounded-full bg-accent-100 px-2 py-0.5 text-[10px] text-accent-700">官方</span>
                   )}

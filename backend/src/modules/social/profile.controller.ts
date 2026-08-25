@@ -27,6 +27,12 @@ export class ProfileController {
     return this.socialService.followList(id, 'followers');
   }
 
+  @Get('users/:id/favorites')
+  @ApiOperation({ summary: '收藏列表（个人主页"我的收藏"）' })
+  favorites(@CurrentUser('sub') viewerId: string, @Param('id') id: string) {
+    return this.socialService.favorites(viewerId, id);
+  }
+
   @Post('users/:id/follow')
   @ApiOperation({ summary: '关注/取消关注（幂等 toggle）' })
   follow(@CurrentUser('sub') viewerId: string, @Param('id') id: string) {

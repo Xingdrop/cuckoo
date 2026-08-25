@@ -25,3 +25,6 @@ Thumbs.db
 # ---- IDE ----
 .vscode/
 .idea/
+
+# 第三方 MCP 插件（本地工具，不入库）
+Plugin/

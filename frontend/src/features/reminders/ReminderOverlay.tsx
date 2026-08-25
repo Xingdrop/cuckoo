@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom';
 import { AlarmClock, Camera, Check, ChevronRight, Image as ImageIcon, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { filesApi } from '../../services/api/api.files';
+import { LinkedText } from '../../components/LinkedText';
 import type { Reminder } from '../../types';
 import type { useReminderScheduler } from './useReminderScheduler';
 
@@ -79,7 +80,20 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
       <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
         <h2 className="text-3xl font-bold leading-snug">{reminder.title}</h2>
         {reminder.content.text && (
-          <p className="mt-4 text-lg leading-relaxed text-white/80">{reminder.content.text}</p>
+          <p className="mt-4 text-lg leading-relaxed text-white/80">
+            <LinkedText text={reminder.content.text} />
+          </p>
+        )}
+        {/* #2：外部视频链接（点击跳转其它视频 App 平台） */}
+        {reminder.content.linkUrl && (
+          <a
+            href={reminder.content.linkUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-4 py-2 text-sm font-medium text-white"
+          >
+            ▶ 打开视频链接
+          </a>
         )}
         {/* 媒体（#3：图片/视频） */}
         {((reminder.content.imageUrls?.length ?? 0) > 0 || reminder.content.videoUrl) && (

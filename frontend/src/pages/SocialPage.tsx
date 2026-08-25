@@ -6,7 +6,9 @@ import { useAuthStore } from '../stores/authStore';
 import { errorMessage } from '../services/http';
 import { socialApi, Post, PlanTemplate, Group } from '../services/api/api.social';
 import { filesApi } from '../services/api/api.files';
+import { compressMediaFile } from '../utils/media';
 import { MediaGrid } from '../components/MediaGrid';
+import { LinkedText } from '../components/LinkedText';
 import { plansApi, profileApi } from '../services/api/api.plans';
 import type { Plan } from '../services/api/api.plans';
 import { notificationsApi } from '../services/api/api.social';
@@ -152,12 +154,12 @@ export function SocialPage() {
     }
   };
 
-  /** 选择图片 → 上传 → 加入 mediaUrls（#6：帖子支持传图） */
+  /** 选择图片 → 前端压缩 → 上传 → 加入 mediaUrls（#6；#1 图片压缩） */
   const pickImage = async (file: File | undefined) => {
     if (!file) return;
     try {
       setError(null);
-      const { url } = await filesApi.upload(file);
+      const { url } = await filesApi.upload(await compressMediaFile(file));
       setComposerMedia((prev) => [...prev.slice(0, 3), url]);
     } catch (e) {
       setError(errorMessage(e));
@@ -278,7 +280,9 @@ export function SocialPage() {
                       <p className="min-w-0 flex-1 truncate text-sm font-medium">@{post.author.username}</p>
                       <span className="text-[10px] text-ink-300">{fmtTime(post.createdAt)}</span>
                     </div>
-                    <p className="mt-2.5 text-sm leading-relaxed">{post.content}</p>
+                    <p className="mt-2.5 text-sm leading-relaxed">
+                      <LinkedText text={post.content} />
+                    </p>
                   </li>
                 ))
               );
@@ -322,7 +326,9 @@ export function SocialPage() {
                       详情 ›
                     </button>
                   </div>
-                  <p className="mt-2.5 text-sm leading-relaxed">{post.content}</p>
+                  <p className="mt-2.5 text-sm leading-relaxed">
+                    <LinkedText text={post.content} />
+                  </p>
                   {post.mediaUrls.length > 0 && <MediaGrid urls={post.mediaUrls} className="mt-2" />}
                 </li>
               ))}
@@ -377,7 +383,9 @@ export function SocialPage() {
                   )}
                 </div>
 
-                <p className="mt-3 text-sm leading-relaxed">{post.content}</p>
+                <p className="mt-3 text-sm leading-relaxed">
+                  <LinkedText text={post.content} />
+                </p>
 
                 {/* 帖子媒体（图片/视频 + 全屏预览，#8） */}
                 {post.mediaUrls.length > 0 && <MediaGrid urls={post.mediaUrls} className="mt-3" />}

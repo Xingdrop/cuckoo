@@ -49,6 +49,8 @@ export interface ReminderContent {
   text?: string;
   imageUrls?: string[];
   videoUrl?: string;
+  /** 外部视频/链接（2026-08 #2：跳转到其它视频 App 平台） */
+  linkUrl?: string;
   jumpTo?: string;
   /** 每次喝水量（ml，water 分类） */
   waterAmountMl?: number;

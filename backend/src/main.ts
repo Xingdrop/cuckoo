@@ -1,3 +1,4 @@
+// @Sdrop 布谷(Cuckoo) v1 SKEY_5biD6LC3KEN1Y2tvbyl8YmFja2VuZC9zcmMvbWFpbi50c3wyMDI2LTA4
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';

@@ -5,6 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { RequireAuth } from '../components/RequireAuth';
 import { ReminderScheduler } from '../features/reminders/ReminderScheduler';
 import { LoginPage } from '../pages/LoginPage';
+import { GuestHomePage } from '../pages/GuestPage';
 import { useAuthStore } from '../stores/authStore';
 
 /**
@@ -38,7 +39,6 @@ const ProfilePage = lazyPage(() => import('../pages/ProfilePage'), 'ProfilePage'
 const FollowListPage = lazyPage(() => import('../pages/FollowListPage'), 'FollowListPage');
 const PlansPage = lazyPage(() => import('../pages/PlansPage'), 'PlansPage');
 const PlanPreviewPage = lazyPage(() => import('../pages/PlanPreviewPage'), 'PlanPreviewPage');
-const GuestPage = lazyPage(() => import('../pages/GuestPage'), 'GuestPage');
 
 /** 路由 chunk 加载中的全屏骨架 */
 function PageFallback() {
@@ -88,7 +88,14 @@ export function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/guest" element={<GuestPage />} />
+          <Route
+            path="/guest"
+            element={
+              <RequireAuth guestView={<GuestHomePage initial="today" />}>
+                <GuestHomePage initial="today" />
+              </RequireAuth>
+            }
+          />
           <Route
             path="/plans"
             element={
@@ -108,7 +115,7 @@ export function App() {
           <Route
             path="/today"
             element={
-              <RequireAuth>
+              <RequireAuth guestView={<GuestHomePage initial="today" />}>
                 <DashboardPage />
               </RequireAuth>
             }
@@ -116,7 +123,7 @@ export function App() {
           <Route
             path="/reminders"
             element={
-              <RequireAuth>
+              <RequireAuth guestView={<GuestHomePage initial="reminders" />}>
                 <ReminderListPage />
               </RequireAuth>
             }
@@ -124,7 +131,7 @@ export function App() {
           <Route
             path="/reminders/new"
             element={
-              <RequireAuth>
+              <RequireAuth guestView={<GuestHomePage initial="reminders" />}>
                 <ReminderEditPage />
               </RequireAuth>
             }
@@ -132,7 +139,7 @@ export function App() {
           <Route
             path="/reminders/:id/edit"
             element={
-              <RequireAuth>
+              <RequireAuth guestView={<GuestHomePage initial="reminders" />}>
                 <ReminderEditPage />
               </RequireAuth>
             }
@@ -172,7 +179,7 @@ export function App() {
           <Route
             path="/stats"
             element={
-              <RequireAuth>
+              <RequireAuth guestView={<GuestHomePage initial="stats" />}>
                 <StatsPage />
               </RequireAuth>
             }

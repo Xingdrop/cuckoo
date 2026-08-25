@@ -309,13 +309,16 @@ export class RemindersService {
     const reminder = await this.findOne(userId, id);
     const timezone = await this.getUserTimezone(userId);
 
-    const next = { ...reminder.repeatRule, ...(dto.repeatRule ?? {}) };
-    const startDate = dto.startDate ? new Date(dto.startDate) : reminder.startDate;
-    const endDate = dto.endDate !== undefined ? (dto.endDate ? new Date(dto.endDate) : null) : reminder.endDate;
-    const times = dto.times !== undefined ? dto.times : reminder.times;
+    // 剔除非 Reminder 实体字段（waterGoalMl 属 UserSetting，误入 dto 展开会导致 TypeORM 500）
+    const { waterGoalMl: _waterGoalMl, ...dtoRest } = dto as UpdateReminderDto & { waterGoalMl?: number };
+
+    const next = { ...reminder.repeatRule, ...(dtoRest.repeatRule ?? {}) };
+    const startDate = dtoRest.startDate ? new Date(dtoRest.startDate) : reminder.startDate;
+    const endDate = dtoRest.endDate !== undefined ? (dtoRest.endDate ? new Date(dtoRest.endDate) : null) : reminder.endDate;
+    const times = dtoRest.times !== undefined ? dtoRest.times : reminder.times;
 
     const patch: Partial<Reminder> = {
-      ...dto,
+      ...dtoRest,
       repeatRule: next,
       startDate,
       endDate,

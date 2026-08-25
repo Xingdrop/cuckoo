@@ -19,7 +19,7 @@ export class StatsService {
     private readonly settingRepo: Repository<UserSetting>,
   ) {}
 
-  /** 某天的完成率（planned=应执行数，done=完成数 + 手动喝水 #3） */
+  /** 某天的完成率（planned=应执行数，done=完成数）——纯提醒计划口径；水达标单独记录（#3 分开） */
   private async dayRate(userId: string, dateStr: string) {
     const plan = await this.remindersService.dayPlan(userId, dateStr);
     let planned = 0;
@@ -30,18 +30,6 @@ export class StatsService {
         if (t.status === 'completed' || t.status === 'challenge_completed') done += 1;
       }
     }
-    // 喝水计入达成（2026-08 修正口径：完成当日目标算 1 次，不按次数累加）
-    const tz = await this.getTz(userId);
-    const [y, m, d] = dateStr.split('-').map(Number);
-    const dayStart = localToUtc(tz, y, m, d, 0, 0);
-    const nextDay = localToUtc(tz, y, m, d + 1, 0, 0);
-    const waterLogs = await this.logRepo.find({
-      where: { userId, category: 'water', scheduledTime: Between(dayStart, nextDay) },
-    });
-    const waterMl = waterLogs.reduce((sum, l) => sum + l.amount, 0);
-    const setting = await this.settingRepo.findOne({ where: { userId } });
-    const waterGoalMl = setting?.waterGoalMl ?? 2000;
-    if (waterGoalMl > 0 && waterMl >= waterGoalMl) done += 1;
     return { planned, done, rate: planned > 0 ? Math.round((done / planned) * 100) : 0 };
   }
 
@@ -92,7 +80,13 @@ export class StatsService {
       ),
       streakDays: await this.calcStreak(userId, dateStr),
       categoryStats,
-      water: { waterMl, waterGoalMl, rate: Math.min(100, Math.round((waterMl / waterGoalMl) * 100)) },
+      water: {
+        waterMl,
+        waterGoalMl,
+        rate: Math.min(100, Math.round((waterMl / waterGoalMl) * 100)),
+        // #3：水目标达成独立标记（后台以 waterLogs 记录，不混入完成率/连续天数）
+        waterGoalReached: waterGoalMl > 0 && waterMl >= waterGoalMl,
+      },
     };
   }
 

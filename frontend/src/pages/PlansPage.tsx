@@ -217,7 +217,7 @@ export function PlansPage() {
                         {p.sourceTitle ? ` · ${p.sourceTitle}` : ''}
                       </p>
                     </button>
-                    {/* #1：开关尺寸与滑块匹配（h-6 轨道 / h-5 滑块） */}
+                    {/* #9：标准开关（inset + margin-auto 垂直居中 + translateX，任意浏览器分辨率一致） */}
                     <button
                       onClick={async () => {
                         try {
@@ -233,8 +233,8 @@ export function PlansPage() {
                       }`}
                     >
                       <span
-                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all duration-200 ${
-                          p.isActive ? 'left-[calc(100%-1.375rem)]' : 'left-0.5'
+                        className={`absolute inset-0.5 m-auto h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
+                          p.isActive ? 'translate-x-4' : 'translate-x-0'
                         }`}
                       />
                     </button>

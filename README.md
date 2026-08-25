@@ -6,7 +6,7 @@
 
 准时提醒，温柔守护——布谷，你的健康生活管家。
 
-> 📄 许可：**商业用途须书面授权**（参考 PolyForm Commercial License 改写，详见 [LICENSE](./LICENSE)，含开源协议选型对比）；
+> 📄 许可：**商业用途须书面授权**（参考 PolyForm Commercial License 改写，详见 [LICENSE](./LICENSE)，含开源协议选型对比）；授权联系与申请模板见 [CONTACT.md](./CONTACT.md)；
 > 🛡 漏洞报告：见 [SECURITY.md](./SECURITY.md)（私密报告 + 响应时间承诺）。
 
 智能提醒与健康管理社交 App（Web PWA）：用药管理、短时锻炼、生活习惯养成、计划社交分享、数据统计与成就激励。

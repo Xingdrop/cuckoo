@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { remindersApi } from '../services/api/api.reminders';
-import { statsApi, DashboardStats } from '../services/api/api.stats';
+import { statsApi, DashboardStats, WaterInfo } from '../services/api/api.stats';
 import { dateHead, festivalIcon, lunarInfo, shiftKey, todayKey } from '../utils/calendar';
 import type { CalendarItem } from '../types';
 
@@ -65,7 +65,11 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addedFlash, setAddedFlash] = useState<number | null>(null);
+  /** #4：各日期独立喝水统计（key=YYYY-MM-DD） */
+  const [waterStats, setWaterStats] = useState<Record<string, WaterInfo>>({});
   const touchX = useRef<number | null>(null);
+  /** 当前列水数据（今天用 dashboard 的 water，其他列用 waterInfo） */
+  const water = selected === today && stats ? stats.water : waterStats[selected];
 
   const load = useCallback(
     async (date: string) => {
@@ -74,6 +78,8 @@ export function DashboardPage() {
         if (date === today) {
           statsApi.dashboard().then(setStats).catch(() => undefined);
         }
+        // #4：喝水按日期独立（各列显示/记录各自日期）
+        statsApi.waterInfo(date).then((w) => setWaterStats((m) => ({ ...m, [date]: w }))).catch(() => undefined);
       } catch {
         setError('加载失败，请刷新重试');
       } finally {
@@ -218,14 +224,14 @@ export function DashboardPage() {
 
           <section
             className={`rounded-card p-4 shadow-sm transition-colors ${
-              stats && stats.water.rate >= 100
+              water && water.rate >= 100
                 ? 'bg-gradient-to-r from-primary-500/15 to-primary-100/40 ring-2 ring-primary-500/60'
                 : 'bg-surface'
             }`}
           >
             <div className="flex items-center justify-between">
-              <p className="text-xs text-ink-500">💧 喝水</p>
-              {stats && stats.water.rate >= 100 && (
+              <p className="text-xs text-ink-500">💧 喝水{selected !== today ? `（${selected.slice(5)}）` : ''}</p>
+              {water && water.rate >= 100 && (
                 <span className="animate-pop-in rounded-full bg-primary-500 px-2 py-0.5 text-[10px] font-medium text-white">
                   ✓ 目标达成
                 </span>
@@ -233,8 +239,12 @@ export function DashboardPage() {
               <div className="relative">
                 <button
                   onClick={async () => {
-                    await statsApi.water(200).catch(() => undefined);
-                    statsApi.dashboard().then(setStats).catch(() => undefined);
+                    // #4：记录到当前列日期（明天列 → 明天的水，不污染今天）
+                    await statsApi.water(200, selected === today ? undefined : selected).catch(() => undefined);
+                    if (selected === today) {
+                      statsApi.dashboard().then(setStats).catch(() => undefined);
+                    }
+                    statsApi.waterInfo(selected).then((w) => setWaterStats((m) => ({ ...m, [selected]: w }))).catch(() => undefined);
                     const t = Date.now();
                     setAddedFlash(t);
                     setTimeout(() => setAddedFlash((v) => (v === t ? null : v)), 900);
@@ -253,14 +263,14 @@ export function DashboardPage() {
                 )}
               </div>
             </div>
-            {stats ? (
+            {water ? (
               <>
-                <p className="mt-1 text-2xl font-bold text-primary-600">{stats.water.waterMl}</p>
-                <p className="text-[11px] text-ink-500">目标 {stats.water.waterGoalMl}ml</p>
+                <p className="mt-1 text-2xl font-bold text-primary-600">{water.waterMl}</p>
+                <p className="text-[11px] text-ink-500">目标 {water.waterGoalMl}ml</p>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-100">
                   <div
                     className="h-full rounded-full bg-primary-500 transition-all"
-                    style={{ width: `${stats.water.rate}%` }}
+                    style={{ width: `${water.rate}%` }}
                   />
                 </div>
               </>

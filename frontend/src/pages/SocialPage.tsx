@@ -392,9 +392,20 @@ export function SocialPage() {
 
                 {post.planSnapshot && (
                   <div className="mt-3 rounded-btn bg-primary-50/60 px-3.5 py-3">
-                    <p className="text-xs font-medium text-primary-700">
-                      📋 包含可加入的提醒计划
-                    </p>
+                    {/* #2：计划名 + 点击查看详情 */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/posts/${post.id}/plan`);
+                      }}
+                      className="flex w-full items-center gap-1.5 text-left"
+                    >
+                      <span className="text-xs font-medium text-primary-700">📋</span>
+                      <span className="min-w-0 flex-1 truncate text-xs font-medium text-primary-700">
+                        {(post.planSnapshot as { from?: { name?: string } } | null)?.from?.name || '分享的计划'}
+                      </span>
+                      <span className="shrink-0 text-[10px] text-primary-500">查看详情 ›</span>
+                    </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

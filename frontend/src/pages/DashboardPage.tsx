@@ -237,22 +237,29 @@ export function DashboardPage() {
                 </span>
               )}
               <div className="relative">
-                <button
-                  onClick={async () => {
-                    // #4：记录到当前列日期（明天列 → 明天的水，不污染今天）
-                    await statsApi.water(200, selected === today ? undefined : selected).catch(() => undefined);
-                    if (selected === today) {
+                {selected === today ? (
+                  <button
+                    onClick={async () => {
+                      // #11：仅今日可记录
+                      await statsApi.water(200).catch(() => undefined);
                       statsApi.dashboard().then(setStats).catch(() => undefined);
-                    }
-                    statsApi.waterInfo(selected).then((w) => setWaterStats((m) => ({ ...m, [selected]: w }))).catch(() => undefined);
-                    const t = Date.now();
-                    setAddedFlash(t);
-                    setTimeout(() => setAddedFlash((v) => (v === t ? null : v)), 900);
-                  }}
-                  className="rounded-full bg-primary-500 px-2.5 py-1 text-[11px] font-medium text-white"
-                >
-                  +200
-                </button>
+                      statsApi.waterInfo(selected).then((w) => setWaterStats((m) => ({ ...m, [selected]: w }))).catch(() => undefined);
+                      const t = Date.now();
+                      setAddedFlash(t);
+                      setTimeout(() => setAddedFlash((v) => (v === t ? null : v)), 900);
+                    }}
+                    className="rounded-full bg-primary-500 px-2.5 py-1 text-[11px] font-medium text-white"
+                  >
+                    +200
+                  </button>
+                ) : (
+                  <span
+                    className="rounded-full bg-ink-100 px-2.5 py-1 text-[11px] font-medium text-ink-300"
+                    title="只能记录今天的水"
+                  >
+                    +200
+                  </span>
+                )}
                 {addedFlash !== null && (
                   <span
                     key={addedFlash}

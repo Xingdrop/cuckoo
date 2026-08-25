@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
 import { localToUtc, toLocal } from '../../common/reminder-schedule';
@@ -183,16 +183,18 @@ export class StatsService {
     };
   }
 
-  /** 手动记录喝水（#4：可指定日期，写入该日独立区间） */
+  /** 手动记录喝水（#4 日期独立；#11 只允许修改今日） */
   async water(userId: string, amountMl: number, dateStr?: string) {
     const tz = await this.getTz(userId);
-    let scheduledAt: Date | undefined;
     if (dateStr) {
-      const [y, m, d] = dateStr.split('-').map(Number);
-      // 记录写在该日正午（用户时区→UTC），保证永远落到"该日"查询区间
-      scheduledAt = new Date(localToUtc(tz, y, m, d, 12, 0));
+      // #11：仅今日可修改（历史与未来日期一律拒绝）
+      const local = toLocal(new Date(), tz);
+      const todayStr = `${local.year}-${String(local.month).padStart(2, '0')}-${String(local.day).padStart(2, '0')}`;
+      if (dateStr !== todayStr) {
+        throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '只能记录今天的水' });
+      }
     }
-    return this.remindersService.waterLog(userId, amountMl, scheduledAt);
+    return this.remindersService.waterLog(userId, amountMl);
   }
 
   private async getTz(userId: string): Promise<string> {

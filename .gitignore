@@ -1,23 +1,23 @@
-# ---- 依赖 ----
+﻿# ---- 渚濊禆 ----
 node_modules/
 
-# ---- 环境与密钥（严禁提交）----
+# ---- 鐜涓庡瘑閽ワ紙涓ョ鎻愪氦锛?---
 .env
 *.local
 
-# ---- 构建产物 ----
+# ---- 鏋勫缓浜х墿 ----
 dist/
 build/
 *.tsbuildinfo
 frontend/dev-dist/
 
-# ---- 数据与上传（运行时产生）----
+# ---- 鏁版嵁涓庝笂浼狅紙杩愯鏃朵骇鐢燂級----
 backend/data/
 backend/uploads/
 tools/screenshots/*.png
 tools/screenshots/*-report.md
 
-# ---- 日志与系统 ----
+# ---- 鏃ュ織涓庣郴缁?----
 *.log
 .DS_Store
 Thumbs.db
@@ -26,13 +26,15 @@ Thumbs.db
 .vscode/
 .idea/
 
-# ������ MCP ��������ع��ߣ�����⣩
+# 第三方 MCP 插件（本地工具，不入库）
 Plugin/
 
-# AI/���������ļ������빫���ֿ⣬���ر�����
+# AI/开发辅助文件（不入公开仓库，本地保留）
 /.zcode/
 /docs/
-/��ʼ.md
-/tools/scripts/
-/tools/screenshots/
+/开始.md
+
+
 /CHANGELOG.md
+
+/tools/

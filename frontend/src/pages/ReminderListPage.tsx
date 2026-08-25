@@ -1,7 +1,8 @@
-import { ChevronDown, ChevronRight, Pencil, Plus, Power, Settings2, Trash2 } from 'lucide-react';
+import { ChevronRight, Pencil, Plus, Power, Settings2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
+import { CollapsibleSection } from '../components/CollapsibleSection';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { errorMessage } from '../services/http';
 import { remindersApi } from '../services/api/api.reminders';
@@ -64,8 +65,6 @@ export function ReminderListPage() {
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Reminder | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [remindersOpen, setRemindersOpen] = useState(() => localStorage.getItem('cuckoo_reminders_collapsed') !== '1');
-  const [manageOpen, setManageOpen] = useState(() => localStorage.getItem('cuckoo_manage_collapsed') !== '1');
   const [filters, setFilters] = useState<Record<ReminderCategory, boolean>>(() => {
     try {
       const raw = localStorage.getItem('cuckoo_reminder_filter');
@@ -182,23 +181,18 @@ export function ReminderListPage() {
       )}
 
       <main className="px-4 pt-4">
-        {/* ============ 分区一：服务与管理（#1：放在前面 + 可折叠） ============ */}
-        <p className="mb-2 mt-6 flex items-center justify-between px-1 text-xs font-medium text-ink-500">
-          <span>🧰 服务与管理</span>
-          <button
-            onClick={() => {
-              setManageOpen((v) => !v);
-              localStorage.setItem('cuckoo_manage_collapsed', manageOpen ? '1' : '0');
-            }}
-            aria-expanded={manageOpen}
-            className="flex items-center gap-0.5 text-ink-400"
-          >
-            <ChevronDown size={13} className={`transition-transform ${manageOpen ? '' : '-rotate-90'}`} />
-            {manageOpen ? '收起' : '展开'}
-          </button>
-        </p>
-        {manageOpen && (
-          <div className="mb-4 grid grid-cols-2 gap-2">
+        {toast && (
+          <div className="mb-3 rounded-btn bg-primary-50 px-4 py-3 text-sm text-primary-700">
+            ✅ 提醒已创建，下次触发：{formatFullTime(toast.nextTriggerAt)}
+          </div>
+        )}
+        {error && (
+          <p className="mb-3 rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
+        )}
+
+        {/* 通用折叠分区：服务与管理（含我的计划入口 #5） */}
+        <CollapsibleSection id="manage" icon="🧰" title="服务与管理">
+          <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => navigate('/medicines')}
               className="flex items-center gap-2.5 rounded-card bg-surface p-3.5 text-left shadow-sm"
@@ -244,13 +238,10 @@ export function ReminderListPage() {
               <ChevronRight size={16} className="shrink-0 text-ink-300" />
             </button>
           </div>
-        )}
-
-        {/* 我的计划入口（#7：点击进入独立页，而非内联展开） */}
-        <section className="mb-4">
+          {/* 我的计划（#5：并入服务与管理） */}
           <button
             onClick={() => navigate('/plans')}
-            className="flex w-full items-center gap-3 rounded-card bg-surface px-4 py-3.5 text-left shadow-sm"
+            className="mt-2 flex w-full items-center gap-3 rounded-card bg-surface px-4 py-3.5 text-left shadow-sm"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">
               📋
@@ -263,18 +254,10 @@ export function ReminderListPage() {
             </span>
             <ChevronRight size={16} className="shrink-0 text-ink-300" />
           </button>
-        </section>
+        </CollapsibleSection>
 
-        {/* ============ 分区二：全部提醒 ============ */}
-        <p className="mb-2 mt-2 px-1 text-xs font-medium text-ink-500">📌 全部提醒</p>
-        {toast && (
-          <div className="mb-3 rounded-btn bg-primary-50 px-4 py-3 text-sm text-primary-700">
-            ✅ 提醒已创建，下次触发：{formatFullTime(toast.nextTriggerAt)}
-          </div>
-        )}
-        {error && (
-          <p className="mb-3 rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
-        )}
+        {/* 通用折叠分区：全部提醒 */}
+        <CollapsibleSection id="reminders" icon="📌" title="全部提醒" badge={`（${items.length}）`}>
         {loading ? (
           <div className="py-16 text-center text-sm text-ink-500">加载中…</div>
         ) : items.length === 0 ? (
@@ -292,21 +275,7 @@ export function ReminderListPage() {
             当前筛选下没有提醒（点右上角 ⚙ 恢复分类显示）
           </div>
         ) : (
-          <>
-            {/* #2：全部提醒可折叠 */}
-            <button
-              onClick={() => {
-                setRemindersOpen((v) => !v);
-                localStorage.setItem('cuckoo_reminders_collapsed', remindersOpen ? '1' : '0');
-              }}
-              className="mb-2 flex w-full items-center gap-1.5 px-1 text-left text-xs font-medium text-ink-500"
-              aria-expanded={remindersOpen}
-            >
-              <ChevronDown size={13} className={`transition-transform ${remindersOpen ? '' : '-rotate-90'}`} />
-              📌 全部提醒 <span className="text-ink-300">（{items.length}）</span>
-            </button>
-            {remindersOpen && (
-              <ul className="space-y-3">
+          <ul className="space-y-3">
               {visibleItems.map((r) => {
                 const meta = CATEGORY_META[r.category];
                 const icon = r.categoryIcon ?? meta.emoji;
@@ -390,10 +359,8 @@ export function ReminderListPage() {
                 );
               })}
               </ul>
-            )}
-          </>
         )}
-
+        </CollapsibleSection>
       </main>
 
       {/* 删除确认弹窗 */}

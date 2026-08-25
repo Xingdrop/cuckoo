@@ -51,6 +51,9 @@ http.interceptors.response.use(
 /** 提取统一错误信息（组件内直接用 errorMessage(e) 展示） */
 export function errorMessage(e: unknown): string {
   if (axios.isAxiosError<ApiErrorBody>(e)) {
+    const status = e.response?.status;
+    // 500（无业务 message）统一友好提示（#7）
+    if (status === 500) return '服务器内部错误，请稍后重试或联系管理员';
     return e.response?.data?.message ?? e.message;
   }
   return e instanceof Error ? e.message : '未知错误';

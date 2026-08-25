@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Backend install & build & unit tests
+        working-directory: backend
+        run: |
+          npm ci || npm install
+          npm run build
+          npx jest --runInBand
+
+      - name: Frontend install & build & unit tests
+        working-directory: frontend
+        run: |
+          npm ci || npm install
+          npm run build
+          npx vitest run --pool=threads
+
+      - name: Security audit (vulnerabilities)
+        working-directory: backend
+        run: npm audit --omit=dev --audit-level=high --registry=https://registry.npmjs.org || true
+
+      - name: Sdrop watermark verify
+        run: node tools/scripts/sdrop-verify.mjs
+
+      # 说明：E2E 需要本地 dev 服务与时间调度，示例中跳过；
+      # 本地开发用 `npm run test:e2e`（frontend/ 目录）验证，需手动起服务或复用 playwright webServer。

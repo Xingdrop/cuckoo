@@ -1,4 +1,5 @@
 import { FormEvent, useState } from 'react';
+import { ChevronRight } from 'lucide-react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { errorMessage, tokenStore } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
@@ -142,6 +143,27 @@ export function LoginPage() {
             {submitting ? '请稍候…' : mode === 'login' ? '登录' : '注册并开始'}
           </button>
         </form>
+
+        {/* 游客入口（#2：显著的次级入口） */}
+        <div className="mt-5 flex items-center gap-3">
+          <span className="h-px flex-1 bg-ink-100" />
+          <span className="text-xs text-ink-300">或</span>
+          <span className="h-px flex-1 bg-ink-100" />
+        </div>
+        <Link
+          to="/guest"
+          onClick={() => useGuestStore.getState().activate()}
+          className="mt-4 flex items-center gap-3 rounded-card border border-primary-100 bg-primary-50/50 px-4 py-3.5 transition-colors hover:bg-primary-50"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-lg shadow-sm">
+            🎒
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium text-ink-700">先以游客身份体验</span>
+            <span className="block text-[11px] text-ink-500">无需注册 · 数据仅存本机 · 可随时升级同步</span>
+          </span>
+          <ChevronRight size={16} className="shrink-0 text-ink-300" />
+        </Link>
       </div>
 
       <p className="mt-6 text-center text-xs text-ink-300">
@@ -149,14 +171,8 @@ export function LoginPage() {
           隐私政策与健康免责声明
         </Link>
         <span className="mx-2 text-ink-200">·</span>
-        <Link
-          to="/guest"
-          onClick={() => {
-            useGuestStore.getState().activate();
-          }}
-          className="underline-offset-2 hover:underline"
-        >
-          🎒 先以游客身份体验（数据仅存本机）
+        <Link to="/privacy" className="underline-offset-2 hover:underline">
+          隐私政策
         </Link>
       </p>
     </div>

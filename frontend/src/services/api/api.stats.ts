@@ -32,7 +32,8 @@ export interface DayStat {
 
 const useLocal = () => {
   const g = useGuestStore.getState();
-  return g.active || (g.mirrorOf !== null && !navigator.onLine);
+  // #16：seed 离线账户恒走本地；其他镜像仅断网时本地
+  return g.active || (g.mirrorOf !== null && (g.mirrorOf.startsWith('seed:') || !navigator.onLine));
 };
 
 export const statsApi = {
@@ -61,5 +62,6 @@ export const statsApi = {
       ? Promise.resolve(guestApi.water(amountMl))
       : http.post<WaterInfo>('/stats/water', { amountMl, ...(date ? { date } : {}) }).then((r) => r.data),
 };
+
 
 

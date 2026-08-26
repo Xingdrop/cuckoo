@@ -3,6 +3,9 @@ import type { ReactNode } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { useGuestStore } from '../guest/guestStore';
 
+/** #16：seed 离线账户（APK 预置）在社交/账户类页面同样受限 */
+const isSeedMode = () => (useGuestStore.getState().mirrorOf ?? '').startsWith('seed:');
+
 /**
  * 路由守卫（#1 游客复用原界面；#14 边界）：
  * - 已登录 → 放行（原界面）
@@ -26,6 +29,7 @@ const GUEST_LOCK_PREFIXES = [
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { user, initialized } = useAuthStore();
   const guestActive = useGuestStore((s) => s.active);
+  const seedMode = isSeedMode();
   const location = useLocation();
 
   if (!initialized) {
@@ -38,6 +42,16 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   if (!user && !guestActive) {
     const redirect = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?redirect=${redirect}`} replace />;
+  }
+  // seed 离线账户（已伪登录 user，但无 token）：社交/账户类同样受限
+  if (seedMode) {
+    if (GUEST_SOCIAL_PREFIXES.some((p) => location.pathname.startsWith(p))) {
+      return <GuestHint variant="social" />;
+    }
+    if (GUEST_LOCK_PREFIXES.some((p) => location.pathname.startsWith(p))) {
+      return <GuestHint variant="lock" />;
+    }
+    return <>{children}</>;
   }
   if (!user && guestActive) {
     if (GUEST_SOCIAL_PREFIXES.some((p) => location.pathname.startsWith(p))) {

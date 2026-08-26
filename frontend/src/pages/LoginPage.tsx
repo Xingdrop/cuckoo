@@ -22,8 +22,10 @@ export function LoginPage() {
   const [params] = useSearchParams();
   void params; // redirect 已废弃：登录后统一进入 /today（#2）
 
-  // 仅当会话有效（token 存在）时才跳过登录页；persist 残留 user 但 token 已清 → 显示登录表单
-  if (user && tokenStore.get()) return <Navigate to="/today" replace />;
+  // 仅当会话有效（token 存在）或 seed 离线账户（APK 预置）时才跳过登录页
+  if (user && (tokenStore.get() || (useGuestStore.getState().mirrorOf ?? '').startsWith('seed:'))) {
+    return <Navigate to="/today" replace />;
+  }
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();

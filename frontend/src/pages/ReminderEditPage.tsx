@@ -193,7 +193,8 @@ export function ReminderEditPage() {
         ...(repeatType === 'monthly' ? { dayOfMonth } : {}),
         ...(repeatType === 'interval' ? { intervalValue, intervalUnit } : {}),
       },
-      startDate: startDate.toISOString(),
+      // #5：用本地日期串提交（ISO UTC 会偏移一天——"选今日却建到昨天/明天"）
+      startDate: `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`,
       ...(planId ? { planId } : {}),
       ...(cleanTimes ? { times: cleanTimes } : {}),
       content: {

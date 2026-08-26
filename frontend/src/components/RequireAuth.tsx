@@ -4,22 +4,31 @@ import { useAuthStore } from '../stores/authStore';
 import { useGuestStore } from '../guest/guestStore';
 
 /**
- * 路由守卫（#3 游客支持）：
- * - 已登录 → 放行 children
- * - 游客激活：指定 guestView 的路由展示游客本地视图；其余（账户/社交等）展示 guestBlocked 升级提示
+ * 路由守卫（#1 游客复用原界面）：
+ * - 已登录 → 放行（原界面）
+ * - 游客：今日/提醒/统计等主功能放行（API 层自动切本地适配）；
+ *   账户+社交路由（路径黑名单）→ 升级提示页
  * - 未登录非游客 → 跳登录页（带回跳）
  */
-export function RequireAuth({
-  children,
-  guestView,
-  guestBlocked = <GuestUpgradeHint />,
-}: {
-  children: ReactNode;
-  /** 游客可用页面（今日/提醒/统计 → 本地数据视图） */
-  guestView?: ReactNode;
-  /** 游客不可用页面（默认：升级提示） */
-  guestBlocked?: ReactNode;
-}) {
+const GUEST_LOCK_PREFIXES = [
+  '/social',
+  '/plans',
+  '/posts',
+  '/medicines',
+  '/exercises',
+  '/pomodoro',
+  '/water-settings',
+  '/notifications',
+  '/reports',
+  '/achievements',
+  '/settings',
+  '/profile',
+  '/users',
+  '/devices',
+  '/privacy',
+];
+
+export function RequireAuth({ children }: { children: ReactNode }) {
   const { user, initialized } = useAuthStore();
   const guestActive = useGuestStore((s) => s.active);
   const location = useLocation();
@@ -35,9 +44,8 @@ export function RequireAuth({
     const redirect = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?redirect=${redirect}`} replace />;
   }
-  // 游客：主功能页 → guestView；账户/社交页 → 升级提示
-  if (!user && guestActive) {
-    return <>{guestView ?? guestBlocked}</>;
+  if (!user && guestActive && GUEST_LOCK_PREFIXES.some((p) => location.pathname.startsWith(p))) {
+    return <GuestUpgradeHint />;
   }
   return <>{children}</>;
 }

@@ -1,4 +1,5 @@
 import { http } from '../http';
+import { useGuestStore } from '../../guest/guestStore';
 
 export type PlanSourceType = 'self' | 'official' | 'share';
 
@@ -16,7 +17,8 @@ export interface Plan {
 }
 
 export const plansApi = {
-  list: () => http.get<Plan[]>('/plans').then((r) => r.data),
+  list: () =>
+    useGuestStore.getState().active ? Promise.resolve([] as Plan[]) : http.get<Plan[]>('/plans').then((r) => r.data),
   create: (body: { name: string; description?: string }) =>
     http.post<Plan>('/plans', body).then((r) => r.data),
   snapshot: (id: string) => http.get<Record<string, unknown>>(`/plans/${id}/snapshot`).then((r) => r.data),

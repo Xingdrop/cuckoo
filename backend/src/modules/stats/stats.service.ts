@@ -44,7 +44,8 @@ export class StatsService {
       const waterGoalMl = setting?.waterGoalMl ?? 2000;
       if (waterGoalMl > 0 && waterMl >= waterGoalMl) done += 1;
     }
-    return { planned, done, rate: planned > 0 ? Math.round((done / planned) * 100) : 0 };
+    // #15：当日无计划但水达标（开关开启）→ 完成率显示 100%（水计入完成率可见）
+    return { planned, done, rate: planned > 0 ? Math.round((done / planned) * 100) : done > 0 ? 100 : 0 };
   }
 
   /**

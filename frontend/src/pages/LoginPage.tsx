@@ -20,10 +20,10 @@ export function LoginPage() {
   const { user, login, register } = useAuthStore();
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  void params; // redirect 已废弃：登录后统一进入 /today（#2）
 
   // 仅当会话有效（token 存在）时才跳过登录页；persist 残留 user 但 token 已清 → 显示登录表单
   if (user && tokenStore.get()) return <Navigate to="/today" replace />;
-  const redirect = params.get('redirect') ?? '/today';
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -44,7 +44,8 @@ export function LoginPage() {
       } else {
         await register(username.trim(), password);
       }
-      navigate(redirect, { replace: true });
+      // #2：登录成功后统一进入今日界面（退出所有其它界面状态）
+      navigate('/today', { replace: true });
     } catch (err) {
       setError(errorMessage(err));
     } finally {

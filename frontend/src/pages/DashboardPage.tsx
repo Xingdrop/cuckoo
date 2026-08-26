@@ -1,4 +1,4 @@
-import { BarChart3, Check, ChevronLeft, ChevronRight, Plus, Settings } from 'lucide-react';
+import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Plus, Settings } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -65,6 +65,9 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addedFlash, setAddedFlash] = useState<number | null>(null);
+  /** #6：已完成/已错过分组折叠 */
+  const [doneOpen, setDoneOpen] = useState(false);
+  const [missedOpen, setMissedOpen] = useState(false);
   /** #4：各日期独立喝水统计（key=YYYY-MM-DD） */
   const [waterStats, setWaterStats] = useState<Record<string, WaterInfo>>({});
   const touchX = useRef<number | null>(null);
@@ -118,14 +121,15 @@ export function DashboardPage() {
       isDone: t.status === 'completed' || t.status === 'challenge_completed',
       // 已错过：missed/skipped 状态，或（未完成 且 时间已过：今天已过 / 历史日期）
       // delayed（延迟执行中）不算错过，显示在待办
+      // #4：不定时无固定时刻 → 永不判错过（保持 pending，可完成/放弃）
       isMissed:
-        t.status === 'missed' ||
-        t.status === 'skipped' ||
-        (t.status === null &&
-          (selected < today || (selected === today && t.time < nowTime))),
+        !item.untimed &&
+        (t.status === 'missed' ||
+          t.status === 'skipped' ||
+          (t.status === null &&
+            (selected < today || (selected === today && t.time < nowTime)))),
     })),
-  );
-  const pendingSlots = slots
+  );  const pendingSlots = slots
     .filter((s) => !s.isDone && !s.isMissed)
     .sort((a, b) => a.time.localeCompare(b.time));
   const doneSlots = slots
@@ -224,8 +228,8 @@ export function DashboardPage() {
             <p className="mt-1 text-[11px] text-ink-500">
               {selected === today && stats ? stats.done : totalDone}/{selected === today && stats ? stats.planned : totalPlanned} 完成
             </p>
-            {selected === today && stats && stats.missed > 0 && (
-              <p className="mt-0.5 text-[10px] text-danger-700">错过 {stats.missed}</p>
+            {selected === today && missedSlots.length > 0 && (
+              <p className="mt-0.5 text-[10px] text-danger-700">错过 {missedSlots.length}</p>
             )}
             {selected === today && stats && (
               <p className="mt-1.5 rounded-full bg-accent-100 px-2 py-0.5 text-center text-[10px] font-medium text-accent-700">
@@ -391,14 +395,22 @@ export function DashboardPage() {
           {!loading && !error && doneSlots.length > 0 && (
             <div className="mt-5">
               <div className="flex items-center gap-2">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 text-[10px] text-white">
-                  <Check size={12} />
-                </span>
-                <h3 className="text-xs font-medium uppercase tracking-wide text-ink-500">
-                  已完成（{doneSlots.length}）
-                </h3>
+                <button
+                  onClick={() => setDoneOpen((v) => !v)}
+                  className="flex items-center gap-2"
+                  aria-expanded={doneOpen}
+                >
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 text-[10px] text-white">
+                    <Check size={12} />
+                  </span>
+                  <h3 className="text-xs font-medium uppercase tracking-wide text-ink-500">
+                    已完成（{doneSlots.length}）
+                  </h3>
+                  <ChevronDown size={13} className={`text-ink-400 transition-transform ${doneOpen ? '' : '-rotate-90'}`} />
+                </button>
                 <span className="h-px flex-1 bg-ink-100" />
               </div>
+              {doneOpen && (
               <ul className="mt-2 space-y-2">
                 {doneSlots.map((s, i) => {
                   const k = doneCount(s.item);
@@ -437,21 +449,30 @@ export function DashboardPage() {
                   );
                 })}
               </ul>
+              )}
             </div>
           )}
 
-          {/* 已错过分组（今天已过未完成，醒目红色） */}
+          {/* 已错过分组（今天已过未完成，醒目红色；#6 可折叠） */}
           {!loading && !error && missedSlots.length > 0 && (
             <div className="mt-5">
               <div className="flex items-center gap-2">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-danger-500 text-[10px] font-bold text-white">
-                  !
-                </span>
-                <h3 className="text-xs font-medium uppercase tracking-wide text-danger-700">
-                  已错过（{missedSlots.length}）
-                </h3>
+                <button
+                  onClick={() => setMissedOpen((v) => !v)}
+                  className="flex items-center gap-2"
+                  aria-expanded={missedOpen}
+                >
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-danger-500 text-[10px] font-bold text-white">
+                    !
+                  </span>
+                  <h3 className="text-xs font-medium uppercase tracking-wide text-danger-700">
+                    已错过（{missedSlots.length}）
+                  </h3>
+                  <ChevronDown size={13} className={`text-danger-400 transition-transform ${missedOpen ? '' : '-rotate-90'}`} />
+                </button>
                 <span className="h-px flex-1 bg-danger-500/30" />
               </div>
+              {missedOpen && (
               <ul className="mt-2 space-y-2">
                 {missedSlots.map((s, i) => (
                   <li
@@ -482,9 +503,25 @@ export function DashboardPage() {
                         ✗ 已错过
                       </span>
                     )}
+                    {/* #4：已放弃（跳过）的允许再次确认完成 */}
+                    {s.status === 'skipped' && (
+                      <button
+                        onClick={() => {
+                          const noon = new Date(`${selected}T12:00:00`);
+                          void remindersApi
+                            .ack(s.item.reminderId, { status: 'completed', scheduledTime: noon.toISOString() })
+                            .catch(() => undefined)
+                            .then(() => load(selected));
+                        }}
+                        className="flex shrink-0 items-center gap-1 rounded-full bg-primary-500 px-2.5 py-1 text-[10px] font-medium text-white"
+                      >
+                        <Check size={11} /> 再次完成
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
+              )}
             </div>
           )}
         </section>

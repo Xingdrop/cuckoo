@@ -33,7 +33,9 @@ test('E2E-02 看板计数：完成提醒后今日完成率更新', async ({ page
     data: { username, password: PASSWORD },
   });
   const token = (await reg.json()).token;
-  const today = new Date().toISOString().slice(0, 10);
+  // #：本地日期串（UTC toISOString 会在跨零点时落到前一天）
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const rem = await request.post(
     `${process.env.API ?? 'http://localhost:3000/api/v1'}/reminders`,
     {
@@ -44,7 +46,8 @@ test('E2E-02 看板计数：完成提醒后今日完成率更新', async ({ page
   const reminder = (await rem.json());
   // 页面注入 token 建立会话（复用本用例 API 注册得到的 token，不额外调用 /auth/login，避免限流）
   await pageAuth(page, token);
-  await expect(page.getByText('看板测试')).toBeVisible();
+  // 完成率卡（顶部）出现 0/1（提醒已进入当日计划；列表项在默认折叠的分组中，不依赖其可见性）
+  await expect(page.getByText('0/1 完成')).toBeVisible();
   // API 完成（按"今天 09:00"本地时间上报，与今日看板匹配）→ 刷新看板 → 完成率 100%
   const today0900 = new Date();
   today0900.setHours(9, 0, 0, 0);

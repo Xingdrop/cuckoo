@@ -53,7 +53,8 @@ export function GuestHomePage({ initial = 'today' }: { initial?: Tab }) {
       await usersApi.importData(guest.exportBundle());
       guest.clear();
       setDone(true);
-      setTimeout(() => navigate('/reminders'), 1200);
+      // #2：升级后进入今日界面（退出游客其它界面状态）
+      setTimeout(() => navigate('/today'), 1200);
     } catch (e) {
       setError(e instanceof Error ? e.message : '合并失败，请重试');
     } finally {

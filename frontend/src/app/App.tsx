@@ -91,8 +91,8 @@ export function App() {
           <Route
             path="/guest"
             element={
-              <RequireAuth guestView={<GuestHomePage initial="today" />}>
-                <GuestHomePage initial="today" />
+              <RequireAuth>
+                <GuestHomePage />
               </RequireAuth>
             }
           />
@@ -115,7 +115,7 @@ export function App() {
           <Route
             path="/today"
             element={
-              <RequireAuth guestView={<GuestHomePage initial="today" />}>
+              <RequireAuth>
                 <DashboardPage />
               </RequireAuth>
             }
@@ -123,7 +123,7 @@ export function App() {
           <Route
             path="/reminders"
             element={
-              <RequireAuth guestView={<GuestHomePage initial="reminders" />}>
+              <RequireAuth>
                 <ReminderListPage />
               </RequireAuth>
             }
@@ -131,7 +131,7 @@ export function App() {
           <Route
             path="/reminders/new"
             element={
-              <RequireAuth guestView={<GuestHomePage initial="reminders" />}>
+              <RequireAuth>
                 <ReminderEditPage />
               </RequireAuth>
             }
@@ -139,7 +139,7 @@ export function App() {
           <Route
             path="/reminders/:id/edit"
             element={
-              <RequireAuth guestView={<GuestHomePage initial="reminders" />}>
+              <RequireAuth>
                 <ReminderEditPage />
               </RequireAuth>
             }
@@ -179,7 +179,7 @@ export function App() {
           <Route
             path="/stats"
             element={
-              <RequireAuth guestView={<GuestHomePage initial="stats" />}>
+              <RequireAuth>
                 <StatsPage />
               </RequireAuth>
             }

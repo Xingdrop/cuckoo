@@ -374,7 +374,7 @@ export class SocialService {
             startDate,
             null,
             'Asia/Shanghai',
-            r.times ?? null,
+            r.times ?? (r.startTime ? [r.startTime] : null),
           ),
         });
         createdReminder = await reminderRepo.save(reminder);
@@ -448,6 +448,13 @@ export class SocialService {
     });
   }
 
+  /** 官方计划详情（供预览页） */
+  async getTemplate(templateId: string) {
+    const template = await this.templateRepo.findOne({ where: { id: templateId, status: PlanTemplateStatus.PUBLISHED } });
+    if (!template) throw new NotFoundException({ code: 'NOT_FOUND', message: '官方计划不存在' });
+    return template;
+  }
+
   /** 官方计划一键加入（reminderConfig 批量建提醒） */
   async joinTemplate(userId: string, templateId: string) {
     const template = await this.templateRepo.findOne({ where: { id: templateId, status: PlanTemplateStatus.PUBLISHED } });
@@ -459,20 +466,22 @@ export class SocialService {
     let plan = await this.planRepo.findOne({
       where: { userId, sourceType: 'official', sourceId: template.id },
     });
-    if (!plan) {
-      plan = await this.planRepo.save(
-        this.planRepo.create({
-          id: randomUUID(),
-          userId,
-          name: sourceTitle,
-          description: template.description,
-          sourceType: 'official',
-          sourceTitle,
-          sourceId: template.id,
-          isActive: true,
-        }),
-      );
+    if (plan) {
+      // #14：幂等——已在"我的计划"中，不再重复新建提醒
+      return { joined: true, duplicate: true, reminderCount: plan.id ? undefined : 0 };
     }
+    plan = await this.planRepo.save(
+      this.planRepo.create({
+        id: randomUUID(),
+        userId,
+        name: template.title,
+        description: template.description,
+        sourceType: 'official',
+        sourceTitle,
+        sourceId: template.id,
+        isActive: true,
+      }),
+    );
 
     let created: Reminder | null = null;
     for (const cfg of template.reminderConfig) {
@@ -497,6 +506,8 @@ export class SocialService {
         repeatRule: (r.repeatRule as Reminder['repeatRule']) ?? { type: 'daily' },
         startDate,
         times: r.times ?? null,
+        // #14：官方计划模板只带 startTime 时回填为当日时间点（避免被判"不定时"）
+        ...(r.startTime && !r.times?.length ? { times: [r.startTime] } : {}),
         content: r.content ?? {},
         method: {},
         delaySettings: {},
@@ -510,7 +521,7 @@ export class SocialService {
           startDate,
           null,
           'Asia/Shanghai',
-          r.times ?? null,
+          r.times ?? (r.startTime ? [r.startTime] : null),
         ),
       });
       created = await this.reminderRepo.save(reminder);

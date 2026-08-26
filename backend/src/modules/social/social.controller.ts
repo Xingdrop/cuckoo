@@ -142,6 +142,12 @@ export class SocialController {
     return this.socialService.listTemplates();
   }
 
+  @Get('plan-templates/:id')
+  @ApiOperation({ summary: '官方计划详情（预览页）' })
+  template(@Param('id') id: string) {
+    return this.socialService.getTemplate(id);
+  }
+
   @Post('plan-templates/:id/join')
   @ApiOperation({ summary: '加入官方计划' })
   joinTemplate(@CurrentUser('sub') userId: string, @Param('id') id: string) {

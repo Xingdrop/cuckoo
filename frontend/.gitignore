@@ -11,3 +11,5 @@ android/app/build/
 android/app/src/main/assets/public/
 android/capacitor-cordova-android-plugins/build/
 android/.idea/
+frontend/public/offline-seed.json
+public/offline-seed.json

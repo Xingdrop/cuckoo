@@ -1,4 +1,4 @@
-import { http } from '../http';
+﻿import { http } from '../http';
 import { useGuestStore } from '../../guest/guestStore';
 
 export type PlanSourceType = 'self' | 'official' | 'share';
@@ -19,7 +19,7 @@ export interface Plan {
 export const plansApi = {
   list: () => {
     const g = useGuestStore.getState();
-    const local = g.active || (g.mirrorOf !== null && !navigator.onLine);
+    const local = g.active || (g.mirrorOf !== null && (g.mirrorOf.startsWith('seed:') || !navigator.onLine));
     return local ? Promise.resolve([] as Plan[]) : http.get<Plan[]>('/plans').then((r) => r.data);
   },
   create: (body: { name: string; description?: string }) =>
@@ -31,7 +31,7 @@ export const plansApi = {
   share: (id: string) => http.post(`/plans/${id}/share`).then((r) => r.data),
 };
 
-/** 个人主页（2026-08） */
+/** 涓汉涓婚〉锛?026-08锛?*/
 export interface ProfileView {
   user: { id: string; username: string; avatarUrl: string | null; healthGoals: string[] | null; createdAt: string };
   followersCount: number;
@@ -49,12 +49,12 @@ export const profileApi = {
     http.get<{ id: string; username: string; avatarUrl: string | null }[]>(`/users/${userId}/followers`).then((r) => r.data),
   following: (userId: string) =>
     http.get<{ id: string; username: string; avatarUrl: string | null }[]>(`/users/${userId}/following`).then((r) => r.data),
-  /** #6：收藏列表（个人主页"我的收藏"） */
+  /** #6锛氭敹钘忓垪琛紙涓汉涓婚〉"鎴戠殑鏀惰棌"锛?*/
   favorites: (userId: string) =>
     http.get<{ items: FavPost[]; total: number }>(`/users/${userId}/favorites`).then((r) => r.data),
 };
 
-/** 收藏帖子（与社区帖结构一致，可点进详情） */
+/** 鏀惰棌甯栧瓙锛堜笌绀惧尯甯栫粨鏋勪竴鑷达紝鍙偣杩涜鎯咃級 */
 export interface FavPost {
   id: string;
   content: string;
@@ -64,3 +64,4 @@ export interface FavPost {
   joinedCount: number;
   author: { id: string; username: string; avatarUrl: string | null };
 }
+

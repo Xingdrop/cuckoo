@@ -36,7 +36,8 @@ export interface CreateReminderInput {
 /** 鎻愰啋 API锛團R-201~209锛夆€斺€旀父瀹?绂荤嚎闀滃儚鑷姩璧版湰鍦伴€傞厤灞傦紙澶嶇敤鍘熺晫闈級 */
 const useLocal = () => {
   const g = useGuestStore.getState();
-  return g.active || (g.mirrorOf !== null && !navigator.onLine);
+  // #16：seed 离线账户恒走本地；其他镜像仅断网时本地
+  return g.active || (g.mirrorOf !== null && (g.mirrorOf.startsWith('seed:') || !navigator.onLine));
 };
 
 export const remindersApi = {
@@ -94,5 +95,6 @@ export const remindersApi = {
       ? Promise.resolve({ items: [], total: 0, page, pageSize } as Page<ReminderLog>)
       : http.get<Page<ReminderLog>>(`/reminders/${id}/logs`, { params: { page, pageSize } }).then((r) => r.data),
 };
+
 
 

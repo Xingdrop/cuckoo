@@ -29,6 +29,11 @@ export const useAuthStore = create<AuthState>()(
 
       init: async () => {
         if (!tokenStore.get()) {
+          // #16：seed 离线账户（APK 预置）→ 保留本地伪登录态
+          if ((useGuestStore.getState().mirrorOf ?? '').startsWith('seed:') && get().user) {
+            set({ initialized: true });
+            return;
+          }
           // #15：离线会话——无 token 且断网 + 本地缓存的账号资料 → 允许离线登录（镜像模式）
           try {
             const raw = localStorage.getItem('cuckoo_offline_session');

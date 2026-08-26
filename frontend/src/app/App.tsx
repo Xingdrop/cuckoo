@@ -113,6 +113,8 @@ export function App() {
 
   useEffect(() => {
     void init();
+    // #16：APK 预置离线账户（asd seed）——首次启动自动本地登录
+    void import('../guest/seed').then((m) => m.bootstrapSeed()).then(() => void init());
   }, [init]);
 
   return (

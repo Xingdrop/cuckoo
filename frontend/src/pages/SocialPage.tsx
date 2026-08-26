@@ -135,10 +135,19 @@ export function SocialPage() {
   };
 
   const joinTemplate = async (t: PlanTemplate) => {
-    await socialApi.joinTemplate(t.id);
-    window.dispatchEvent(new CustomEvent('cuckoo:reminders-changed'));
-    setError(null);
-    alert(`已加入「${t.title}」，可在提醒列表查看`);
+    try {
+      const r = (await socialApi.joinTemplate(t.id)) as { duplicate?: boolean };
+      window.dispatchEvent(new CustomEvent('cuckoo:reminders-changed'));
+      setError(null);
+      if (r.duplicate) {
+        // 已在"我的计划" → 直达计划页管理
+        navigate('/plans');
+      } else {
+        alert(`已加入「${t.title}」到我的计划，可在「我的计划」中查看和管理`);
+      }
+    } catch (e) {
+      setError(errorMessage(e));
+    }
   };
 
   const joinGroup = async (g: Group) => {
@@ -499,14 +508,30 @@ export function SocialPage() {
           <ul className="space-y-3">
             {templates.map((t) => (
               <li key={t.id} className="rounded-card bg-surface p-4 shadow-sm">
-                <p className="text-sm font-medium">{t.title}</p>
-                <p className="mt-1 text-xs leading-relaxed text-ink-500">{t.description}</p>
                 <button
-                  onClick={() => void joinTemplate(t)}
-                  className="mt-3 w-full rounded-btn bg-primary-500 py-2.5 text-sm font-medium text-white"
+                  onClick={() => navigate(`/plan-templates/${t.id}`)}
+                  className="flex w-full items-center gap-1.5 text-left"
                 >
-                  一键加入
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium">{t.title}</span>
+                    <span className="mt-0.5 block text-xs leading-relaxed text-ink-500">{t.description}</span>
+                  </span>
+                  <span className="shrink-0 text-[10px] text-primary-500">查看详情 ›</span>
                 </button>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={() => navigate(`/plan-templates/${t.id}`)}
+                    className="flex-1 rounded-btn bg-ink-100/60 py-2.5 text-sm font-medium text-ink-700"
+                  >
+                    查看详情
+                  </button>
+                  <button
+                    onClick={() => void joinTemplate(t)}
+                    className="flex-1 rounded-btn bg-primary-500 py-2.5 text-sm font-medium text-white"
+                  >
+                    加入我的计划
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

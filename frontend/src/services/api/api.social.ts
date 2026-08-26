@@ -72,6 +72,8 @@ export const socialApi = {
 
   // 官方计划
   templates: () => http.get<PlanTemplate[]>('/plan-templates').then((r) => r.data),
+  /** 官方计划详情（预览页） */
+  template: (id: string) => http.get<PlanTemplate>(`/plan-templates/${id}`).then((r) => r.data),
   joinTemplate: (id: string) => http.post(`/plan-templates/${id}/join`).then((r) => r.data),
 
   // 小组

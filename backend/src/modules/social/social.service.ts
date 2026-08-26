@@ -359,6 +359,8 @@ export class SocialService {
           repeatRule: (r.repeatRule as Reminder['repeatRule']) ?? { type: 'daily' },
           startDate,
           times: r.times ?? null,
+          // #14：快照/模板只带 startTime 时，用 startTime 作为当日时间点（否则会被误判为"不定时"）
+          ...(r.startTime && !r.times?.length ? { times: [r.startTime] } : {}),
           content: r.content ?? {},
           method: {},
           delaySettings: {},

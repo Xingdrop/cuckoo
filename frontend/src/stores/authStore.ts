@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { tokenStore } from '../services/http';
 import { authApi } from '../services/api/api.auth';
+import { useGuestStore } from '../guest/guestStore';
+import { cacheMirrorData } from '../guest/mirror';
 import type { User } from '../types';
 
 interface AuthState {
@@ -27,6 +29,19 @@ export const useAuthStore = create<AuthState>()(
 
       init: async () => {
         if (!tokenStore.get()) {
+          // #15：离线会话——无 token 且断网 + 本地缓存的账号资料 → 允许离线登录（镜像模式）
+          try {
+            const raw = localStorage.getItem('cuckoo_offline_session');
+            if (!navigator.onLine && raw && useGuestStore.getState().mirrorOf) {
+              const cached = JSON.parse(raw) as { user: User };
+              if (cached.user) {
+                set({ user: cached.user, initialized: true });
+                return;
+              }
+            }
+          } catch {
+            /* 忽略缓存损坏 */
+          }
           // 会话失效（token 已清但 persist 仍残留 user）→ 同步清 user，避免 LoginPage↔/today 死循环
           if (get().user) set({ user: null });
           set({ initialized: true });
@@ -45,17 +60,23 @@ export const useAuthStore = create<AuthState>()(
         const res = await authApi.login({ username, password });
         tokenStore.set(res.token);
         set({ user: res.user });
+        // #15：本地缓存账号（离线登录用）
+        localStorage.setItem('cuckoo_offline_session', JSON.stringify({ user: res.user, at: Date.now() }));
+        void cacheMirrorData();
       },
 
       register: async (username, password, healthGoals) => {
         const res = await authApi.register({ username, password, healthGoals });
         tokenStore.set(res.token);
         set({ user: res.user });
+        localStorage.setItem('cuckoo_offline_session', JSON.stringify({ user: res.user, at: Date.now() }));
+        void cacheMirrorData();
       },
 
       logout: () => {
         tokenStore.clear();
         set({ user: null });
+        localStorage.removeItem('cuckoo_offline_session');
       },
 
       setUser: (user) => set({ user }),

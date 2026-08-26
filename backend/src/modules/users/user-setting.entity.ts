@@ -37,7 +37,7 @@ export class UserSetting {
   @Column({ type: 'int', default: 2000 })
   waterGoalMl: number;
 
-  /** #13：喝水达标是否计入完成率（默认计入；看板/统计口径） */
-  @Column({ type: 'boolean', default: true })
+  /** #14：喝水达标是否计入完成率（默认不计入；可在喝水管理开启） */
+  @Column({ type: 'boolean', default: false })
   waterInRate: boolean;
 }

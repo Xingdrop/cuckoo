@@ -47,9 +47,43 @@ function PageFallback() {
   );
 }
 
+/** #15：联网恢复 → 自动把离线镜像变更合并回远端 */
+function SyncOnOnline() {
+  const [synced, setSynced] = useState(false);
+  useEffect(() => {
+    let last = navigator.onLine;
+    const on = () => {
+      setSynced(false);
+      last = true;
+    };
+    const handleOnline = async () => {
+      if (!last) {
+        const { syncMirrorToCloud } = await import('../guest/mirror');
+        const ok = await syncMirrorToCloud();
+        if (ok) {
+          setSynced(true);
+          setTimeout(() => setSynced(false), 2500);
+        }
+      }
+      last = true;
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', on);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', on);
+    };
+  }, []);
+  if (!synced) return null;
+  return (
+    <div className="fixed left-1/2 top-2 z-[70] -translate-x-1/2 rounded-full bg-primary-500 px-3 py-1 text-[11px] font-medium text-white shadow">
+      ☁️ 网络已恢复，本地修改已同步到云端
+    </div>
+  );
+}
+
 /** #1：离线状态指示（浏览器断网时提示"当前离线，数据来自本地缓存"） */
-function GlobalOfflineBadge() {
-  const [online, setOnline] = useState(navigator.onLine);
+function GlobalOfflineBadge() {  const [online, setOnline] = useState(navigator.onLine);
   useEffect(() => {
     const on = () => setOnline(true);
     const off = () => setOnline(false);
@@ -83,6 +117,7 @@ export function App() {
   return (
     <BrowserRouter>
       <GlobalOfflineBadge />
+      <SyncOnOnline />
       <ReminderScheduler />
       <Suspense fallback={<PageFallback />}>
         <Routes>

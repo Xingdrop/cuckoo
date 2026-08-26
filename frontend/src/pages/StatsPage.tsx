@@ -34,9 +34,9 @@ export function StatsPage() {
   useEffect(() => {
     statsApi.dashboard().then(setStats).catch(() => undefined);
     statsApi.trend(7).then(setTrend).catch(() => undefined);
-    // #13：水统计与"计入完成率"开关状态（统计页联动）
+    // #14：水统计与"计入完成率"开关状态（开关默认关）
     statsApi.waterInfo().then(setWater).catch(() => undefined);
-    authApi.getSettings().then((s) => setWaterInRate(s.waterInRate ?? true)).catch(() => undefined);
+    authApi.getSettings().then((s) => setWaterInRate(s.waterInRate === true)).catch(() => undefined);
   }, []);
 
   useEffect(() => {

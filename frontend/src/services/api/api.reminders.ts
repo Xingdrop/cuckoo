@@ -1,4 +1,4 @@
-import { http } from '../http';
+﻿import { http } from '../http';
 import { useGuestStore } from '../../guest/guestStore';
 import { guestApi } from '../../guest/guestApi';
 import type {
@@ -29,65 +29,70 @@ export interface CreateReminderInput {
   challenge?: ChallengeSettings;
   medicineId?: string;
   isActive?: boolean;
-  /** 喝水每日目标（water 分类） */
+  /** 鍠濇按姣忔棩鐩爣锛坵ater 鍒嗙被锛?*/
   waterGoalMl?: number;
 }
 
-/** 提醒 API（FR-201~209）——游客模式自动走本地适配层（#1 复用原界面） */
-const isGuest = () => useGuestStore.getState().active;
+/** 鎻愰啋 API锛團R-201~209锛夆€斺€旀父瀹?绂荤嚎闀滃儚鑷姩璧版湰鍦伴€傞厤灞傦紙澶嶇敤鍘熺晫闈級 */
+const useLocal = () => {
+  const g = useGuestStore.getState();
+  return g.active || (g.mirrorOf !== null && !navigator.onLine);
+};
 
 export const remindersApi = {
   list: (params?: { category?: string; isActive?: boolean }) =>
-    isGuest() ? Promise.resolve(guestApi.list()) : http.get<Reminder[]>('/reminders', { params }).then((r) => r.data),
+    useLocal() ? Promise.resolve(guestApi.list()) : http.get<Reminder[]>('/reminders', { params }).then((r) => r.data),
 
-  /** 今日概览：将触发 + 已执行（含次数） */
+  /** 浠婃棩姒傝锛氬皢瑙﹀彂 + 宸叉墽琛岋紙鍚鏁帮級 */
   today: () =>
-    isGuest()
+    useLocal()
       ? Promise.resolve(guestApi.list() as unknown as TodayReminder[])
       : http.get<TodayReminder[]>('/reminders/today').then((r) => r.data),
 
-  /** 指定日期规划（日期切换视图） */
+  /** 鎸囧畾鏃ユ湡瑙勫垝锛堟棩鏈熷垏鎹㈣鍥撅級 */
   calendar: (date: string) =>
-    isGuest()
+    useLocal()
       ? Promise.resolve(guestApi.calendar(date))
       : http.get<CalendarItem[]>('/reminders/calendar', { params: { date } }).then((r) => r.data),
 
   get: (id: string) =>
-    isGuest()
+    useLocal()
       ? Promise.resolve(guestApi.list().find((r) => r.id === id) as Reminder)
       : http.get<Reminder>(`/reminders/${id}`).then((r) => r.data),
 
   create: (body: CreateReminderInput) =>
-    isGuest()
+    useLocal()
       ? Promise.resolve(guestApi.create(body))
       : http.post<Reminder>('/reminders', body).then((r) => r.data),
 
   update: (id: string, body: Partial<CreateReminderInput>) =>
-    isGuest()
+    useLocal()
       ? Promise.resolve(guestApi.update(id, body))
       : http.put<Reminder>(`/reminders/${id}`, body).then((r) => r.data),
 
   remove: (id: string) =>
-    isGuest() ? Promise.resolve(guestApi.remove(id)) : http.delete(`/reminders/${id}`).then((r) => r.data),
+    useLocal() ? Promise.resolve(guestApi.remove(id)) : http.delete(`/reminders/${id}`).then((r) => r.data),
 
   setActive: (id: string, isActive: boolean) =>
-    isGuest()
+    useLocal()
       ? Promise.resolve(guestApi.setActive(id, isActive))
       : http.patch<Reminder>(`/reminders/${id}/active`, { isActive }).then((r) => r.data),
 
-  /** 执行上报（幂等：同一 scheduledTime 只记一次） */
+  /** 鎵ц涓婃姤锛堝箓绛夛細鍚屼竴 scheduledTime 鍙涓€娆★級 */
   ack: (id: string, body: { status: ReminderLogStatus; scheduledTime: string; delayMinutes?: number; photoUrl?: string }) =>
-    isGuest()
+    useLocal()
       ? Promise.resolve(guestApi.ack(id, body.status, body.scheduledTime))
       : http.post(`/reminders/${id}/ack`, body).then((r) => r.data),
 
   delay: (id: string, minutes: number) =>
-    isGuest()
+    useLocal()
       ? Promise.resolve({ ok: true })
       : http.post(`/reminders/${id}/delay`, { minutes }).then((r) => r.data),
 
   logs: (id: string, page = 1, pageSize = 20) =>
-    isGuest()
+    useLocal()
       ? Promise.resolve({ items: [], total: 0, page, pageSize } as Page<ReminderLog>)
       : http.get<Page<ReminderLog>>(`/reminders/${id}/logs`, { params: { page, pageSize } }).then((r) => r.data),
 };
+
+

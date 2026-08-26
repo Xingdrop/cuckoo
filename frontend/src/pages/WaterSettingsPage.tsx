@@ -16,7 +16,7 @@ export function WaterSettingsPage() {
   const [waterReminder, setWaterReminder] = useState<Reminder | null>(null);
   const [waterAmount, setWaterAmount] = useState(200);
   const [waterGoal, setWaterGoal] = useState(2000);
-  const [waterInRate, setWaterInRate] = useState(true);
+  const [waterInRate, setWaterInRate] = useState(false);
   const [todayMl, setTodayMl] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +32,8 @@ export function WaterSettingsPage() {
       const wa = (water?.content as { waterAmountMl?: number } | undefined)?.waterAmountMl;
       if (wa) setWaterAmount(wa);
       setWaterGoal(settings.waterGoalMl);
-      setWaterInRate(settings.waterInRate ?? true);
+      // #14：默认关闭（与后端默认一致；由开关决定是否计入）
+      setWaterInRate(settings.waterInRate === true);
       setTodayMl(dashboard.water.waterMl);
     } catch (e) {
       setError(errorMessage(e));
@@ -163,7 +164,7 @@ export function WaterSettingsPage() {
             <div className="mt-2 flex items-center justify-between">
               <div>
                 <p className="text-sm text-ink-700">喝水计入完成率</p>
-                <p className="text-[11px] text-ink-500">当日喝水达成目标后，今日完成率 +1（#13 可关闭）</p>
+                <p className="text-[11px] text-ink-500">打开后：当日喝水达成目标 → 完成率 +1</p>
               </div>
               <button
                 onClick={async () => {

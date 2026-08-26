@@ -30,9 +30,9 @@ export class StatsService {
         if (t.status === 'completed' || t.status === 'challenge_completed') done += 1;
       }
     }
-    // #13：水当日达标（累计 ≥ waterGoalMl）→ 记 1 次达成；可由喝水管理开关关闭
+    // #14：水当日达标是否计入完成率 —— 完全由「喝水管理 → 喝水计入完成率」开关决定（默认关）
     const setting = await this.settingRepo.findOne({ where: { userId } });
-    if (setting?.waterInRate ?? true) {
+    if (setting?.waterInRate === true) {
       const tz = await this.getTz(userId);
       const [y, m, d] = dateStr.split('-').map(Number);
       const dayStart = localToUtc(tz, y, m, d, 0, 0);

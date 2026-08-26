@@ -68,6 +68,8 @@ export function DashboardPage() {
   /** #6：已完成/已错过分组折叠 */
   const [doneOpen, setDoneOpen] = useState(false);
   const [missedOpen, setMissedOpen] = useState(false);
+  /** #4：间隔提醒聚合卡展开（item -> expanded） */
+  const [expandedInterval, setExpandedInterval] = useState<Record<string, boolean>>({});
   /** #4：各日期独立喝水统计（key=YYYY-MM-DD） */
   const [waterStats, setWaterStats] = useState<Record<string, WaterInfo>>({});
   const touchX = useRef<number | null>(null);
@@ -144,6 +146,10 @@ export function DashboardPage() {
   const rate = totalPlanned > 0 ? Math.round((totalDone / totalPlanned) * 100) : 0;
 
   const lunar = lunarInfo(selected);
+  // #14：今日前后天数差（不定时 ±3 天可确认）
+  const dayDiff = Math.round(
+    (new Date(`${selected}T00:00:00`).getTime() - new Date(`${today}T00:00:00`).getTime()) / 86_400_000,
+  );
 
   /** #12：不定时提醒 完成/放弃（今日）——记录到当日正午（ack 仅需唯一时刻） */
   const untimedAck = async (item: CalendarItem, status: 'completed' | 'skipped') => {
@@ -336,8 +342,23 @@ export function DashboardPage() {
             </div>
           ) : (
             <ul className="mt-3 space-y-2">
-              {/* 未到时间点 */}
-              {pendingSlots.map((s, i) => (
+              {/* 未到时间点（#4 间隔提醒聚合为单卡） */}
+              {pendingSlots.map((s, i) => {
+                const prev = pendingSlots[i - 1];
+                if (prev && prev.item.reminderId === s.item.reminderId) return null; // 已聚合
+                if (isIntervalMulti(s.item)) {
+                  return (
+                    <IntervalAggCard
+                      key={`p-agg-${s.item.reminderId}`}
+                      item={s.item}
+                      list={pendingSlots.filter((x) => x.item.reminderId === s.item.reminderId)}
+                      group="pending"
+                      expanded={!!expandedInterval[s.item.reminderId]}
+                      onToggle={() => setExpandedInterval((m) => ({ ...m, [s.item.reminderId]: !m[s.item.reminderId] }))}
+                    />
+                  );
+                }
+                return (
                 <li
                   key={`p-${s.item.reminderId}-${s.time}-${i}`}
                   className="flex items-center gap-3 rounded-card bg-surface px-4 py-3 shadow-sm"
@@ -359,8 +380,9 @@ export function DashboardPage() {
                   </div>
                   {(() => {
                     if (s.item.untimed) {
-                      // #12：不定时提醒 — 完成/放弃（今日）按钮
-                      return (
+                      // #12/#14：不定时 — 完成/放弃（仅限今日前后 3 天可操作）
+                      const canOperate = Math.abs(dayDiff) <= 3;
+                      return canOperate ? (
                         <div className="flex shrink-0 gap-1.5">
                           <button
                             onClick={() => void untimedAck(s.item, 'completed')}
@@ -375,6 +397,10 @@ export function DashboardPage() {
                             放弃
                           </button>
                         </div>
+                      ) : (
+                        <span className="shrink-0 rounded-full bg-ink-100 px-2.5 py-1 text-[10px] text-ink-300">
+                          仅±3天可确认
+                        </span>
                       );
                     }
                     // 距离该时间点触发的间隔（以当前看板日期/时间为基准；
@@ -387,7 +413,8 @@ export function DashboardPage() {
                     ) : null;
                   })()}
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
 
@@ -413,6 +440,21 @@ export function DashboardPage() {
               {doneOpen && (
               <ul className="mt-2 space-y-2">
                 {doneSlots.map((s, i) => {
+                  // #4：间隔提醒当日多次 → 已完成聚合单卡
+                  if (isIntervalMulti(s.item)) {
+                    const prev = doneSlots[i - 1];
+                    if (prev && prev.item.reminderId === s.item.reminderId) return null;
+                    return (
+                      <IntervalAggCard
+                        key={`d-agg-${s.item.reminderId}`}
+                        item={s.item}
+                        list={doneSlots.filter((x) => x.item.reminderId === s.item.reminderId)}
+                        group="done"
+                        expanded={!!expandedInterval[s.item.reminderId]}
+                        onToggle={() => setExpandedInterval((m) => ({ ...m, [s.item.reminderId]: !m[s.item.reminderId] }))}
+                      />
+                    );
+                  }
                   const k = doneCount(s.item);
                   // 分母 = 有效计划数（总次数 - 错过次数），错过不计入
                   const effective = Math.max(1, s.item.todayTotal - missedCount(s.item, selected, today, nowTime));
@@ -474,7 +516,23 @@ export function DashboardPage() {
               </div>
               {missedOpen && (
               <ul className="mt-2 space-y-2">
-                {missedSlots.map((s, i) => (
+                {missedSlots.map((s, i) => {
+                  // #4：间隔提醒当日多次 → 已错过聚合单卡
+                  if (isIntervalMulti(s.item)) {
+                    const prev = missedSlots[i - 1];
+                    if (prev && prev.item.reminderId === s.item.reminderId) return null;
+                    return (
+                      <IntervalAggCard
+                        key={`m-agg-${s.item.reminderId}`}
+                        item={s.item}
+                        list={missedSlots.filter((x) => x.item.reminderId === s.item.reminderId)}
+                        group="missed"
+                        expanded={!!expandedInterval[s.item.reminderId]}
+                        onToggle={() => setExpandedInterval((m) => ({ ...m, [s.item.reminderId]: !m[s.item.reminderId] }))}
+                      />
+                    );
+                  }
+                  return (
                   <li
                     key={`m-${s.item.reminderId}-${s.time}-${i}`}
                     className="flex items-center gap-3 rounded-card border-l-4 border-danger-500/70 bg-danger-500/5 px-4 py-3"
@@ -519,7 +577,8 @@ export function DashboardPage() {
                       </button>
                     )}
                   </li>
-                ))}
+                );
+              })}
               </ul>
               )}
             </div>
@@ -530,4 +589,66 @@ export function DashboardPage() {
       <BottomNav />
     </div>
   );
+}
+
+/** #4：间隔提醒（当日多次）聚合卡——每个分组仅一张卡，点击展开明细 */
+function IntervalAggCard({
+  item,
+  list,
+  group,
+  expanded,
+  onToggle,
+}: {
+  item: CalendarItem;
+  list: { time: string; status: string | null }[];
+  group: 'pending' | 'done' | 'missed';
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const total = item.times.length;
+  const n = list.length;
+  const label =
+    group === 'pending'
+      ? `每 ${item.repeatRule?.intervalValue ?? 1} 小时 · 今日 ${total} 次 · 待完成 ${n}`
+      : group === 'done'
+        ? `已完成 ${n}/${total}`
+        : `错过 ${n}/${total}`;
+  const tone =
+    group === 'missed' ? 'border-danger-500/70 bg-danger-500/5' : group === 'done' ? 'border-primary-500/60 bg-ink-100/60' : 'border-transparent';
+  return (
+    <div className={`rounded-card border-l-4 px-4 py-3 shadow-sm ${tone}`}>
+      <button onClick={onToggle} className="flex w-full items-center gap-3 text-left">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">
+          {item.categoryIcon ?? CATEGORY_EMOJI[item.category] ?? '📌'}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium">{item.title}</span>
+          <span className={`block text-[11px] ${group === 'missed' ? 'text-danger-700' : 'text-ink-500'}`}>{label}</span>
+        </span>
+        <span className="shrink-0 text-xs text-ink-400">{expanded ? '收起' : '查看'}</span>
+      </button>
+      {expanded && (
+        <ul className="mt-2 space-y-1 border-t border-ink-100 pt-2">
+          {item.times.map((t, i) => {
+            const state =
+              t.status === 'completed' ? '✅' : t.status === 'skipped' || t.status === 'missed' || (group === 'missed' && i < total) ? '⭕' : '🕒';
+            return (
+              <li key={i} className="flex items-center gap-2 px-1 text-xs">
+                <span>{state}</span>
+                <span className="font-medium">{t.time}</span>
+                <span className="ml-auto text-ink-400">
+                  {t.status === 'completed' ? '已完成' : t.status === 'skipped' ? '已放弃' : t.status === 'missed' ? '已错过' : '未完成'}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** #4：间隔提醒（当日多次）聚合判定 */
+function isIntervalMulti(item: CalendarItem): boolean {
+  return item.repeatRule?.type === 'interval' && item.times.length > 1;
 }

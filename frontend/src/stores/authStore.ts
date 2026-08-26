@@ -60,7 +60,9 @@ export const useAuthStore = create<AuthState>()(
         const res = await authApi.login({ username, password });
         tokenStore.set(res.token);
         set({ user: res.user });
-        // #15：本地缓存账号（离线登录用）
+        // #15：登录即退出游客模式（避免界面/数据停留在游客态）
+        useGuestStore.getState().deactivate();
+        // 本地缓存账号（离线登录用）
         localStorage.setItem('cuckoo_offline_session', JSON.stringify({ user: res.user, at: Date.now() }));
         void cacheMirrorData();
       },
@@ -69,6 +71,7 @@ export const useAuthStore = create<AuthState>()(
         const res = await authApi.register({ username, password, healthGoals });
         tokenStore.set(res.token);
         set({ user: res.user });
+        useGuestStore.getState().deactivate();
         localStorage.setItem('cuckoo_offline_session', JSON.stringify({ user: res.user, at: Date.now() }));
         void cacheMirrorData();
       },

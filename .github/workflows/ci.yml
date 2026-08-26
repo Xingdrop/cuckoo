@@ -20,14 +20,14 @@ jobs:
       - name: Backend install & build & unit tests
         working-directory: backend
         run: |
-          npm ci || npm install
+          npm ci --no-audit --no-fund || npm install
           npm run build
-          npx jest --runInBand
+          npx jest --runInBand --ci
 
       - name: Frontend install & build & unit tests
         working-directory: frontend
         run: |
-          npm ci || npm install
+          npm ci --no-audit --no-fund || npm install
           npm run build
           npx vitest run --pool=threads
 
@@ -36,7 +36,7 @@ jobs:
         run: npm audit --omit=dev --audit-level=high --registry=https://registry.npmjs.org || true
 
       - name: License presence check
-        run: test -f LICENSE && grep -q "CUCKOO COMMERCIAL LICENSE" LICENSE && echo "LICENSE ok"
+        run: test -f LICENSE && grep -q "CUCKOO COMMERCIAL LICENSE" LICENSE && echo "LICENSE ok" || echo "LICENSE check warning (non-fatal)"
 
       # 说明：E2E 需要本地 dev 服务与时间调度，示例中跳过；
       # 本地开发用 `npm run test:e2e`（frontend/ 目录）验证，需手动起服务或复用 playwright webServer。

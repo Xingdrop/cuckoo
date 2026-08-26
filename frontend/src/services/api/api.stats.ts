@@ -1,8 +1,8 @@
-import { http } from '../http';
+﻿import { http } from '../http';
 import { useGuestStore } from '../../guest/guestStore';
 import { guestApi } from '../../guest/guestApi';
 
-/** 统计 API（FR-701~707）——游客模式走本地适配层 */
+/** 缁熻 API锛團R-701~707锛夆€斺€旀父瀹㈡ā寮忚蛋鏈湴閫傞厤灞?*/
 export interface DashboardStats {
   date: string;
   planned: number;
@@ -14,7 +14,7 @@ export interface DashboardStats {
   water: WaterInfo;
 }
 
-/** #4：某日喝水统计（按用户时区日界独立） */
+/** #4锛氭煇鏃ュ枬姘寸粺璁★紙鎸夌敤鎴锋椂鍖烘棩鐣岀嫭绔嬶級 */
 export interface WaterInfo {
   date: string;
   waterMl: number;
@@ -30,31 +30,36 @@ export interface DayStat {
   rate: number;
 }
 
-const isGuest = () => useGuestStore.getState().active;
+const useLocal = () => {
+  const g = useGuestStore.getState();
+  return g.active || (g.mirrorOf !== null && !navigator.onLine);
+};
 
 export const statsApi = {
   dashboard: () =>
-    isGuest() ? Promise.resolve(guestApi.dashboard()) : http.get<DashboardStats>('/stats/dashboard').then((r) => r.data),
+    useLocal() ? Promise.resolve(guestApi.dashboard()) : http.get<DashboardStats>('/stats/dashboard').then((r) => r.data),
 
   heatmap: (month: string) =>
-    isGuest()
+    useLocal()
       ? Promise.resolve(guestApi.heatmap())
       : http.get<DayStat[]>('/stats/heatmap', { params: { month } }).then((r) => r.data),
 
   trend: (days = 7) =>
-    isGuest()
+    useLocal()
       ? Promise.resolve(guestApi.trend())
       : http.get<DayStat[]>('/stats/trend', { params: { days } }).then((r) => r.data),
 
-  /** 某日喝水统计（缺省今天） */
+  /** 鏌愭棩鍠濇按缁熻锛堢己鐪佷粖澶╋級 */
   waterInfo: (date?: string) =>
-    isGuest()
+    useLocal()
       ? Promise.resolve(guestApi.waterInfo(date))
       : http.get<WaterInfo>('/stats/water', { params: { date } }).then((r) => r.data),
 
-  /** 手动记录喝水（#4：可指定日期，默认今天） */
+  /** 鎵嬪姩璁板綍鍠濇按锛?4锛氬彲鎸囧畾鏃ユ湡锛岄粯璁や粖澶╋級 */
   water: (amountMl: number, date?: string) =>
-    isGuest()
+    useLocal()
       ? Promise.resolve(guestApi.water(amountMl))
       : http.post<WaterInfo>('/stats/water', { amountMl, ...(date ? { date } : {}) }).then((r) => r.data),
 };
+
+

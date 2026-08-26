@@ -4,27 +4,22 @@ import { useAuthStore } from '../stores/authStore';
 import { useGuestStore } from '../guest/guestStore';
 
 /**
- * 路由守卫（#1 游客复用原界面）：
+ * 路由守卫（#1 游客复用原界面；#14 边界）：
  * - 已登录 → 放行（原界面）
- * - 游客：今日/提醒/统计等主功能放行（API 层自动切本地适配）；
- *   账户+社交路由（路径黑名单）→ 升级提示页
+ * - 游客：主功能放行（API 层自动切本地适配）；
+ *   社交（/social /posts）→ 显示"请登录后使用"；账户/数据页 → 升级提示
  * - 未登录非游客 → 跳登录页（带回跳）
  */
+const GUEST_SOCIAL_PREFIXES = ['/social', '/posts'];
 const GUEST_LOCK_PREFIXES = [
-  '/social',
-  '/plans',
-  '/posts',
-  '/medicines',
-  '/exercises',
-  '/pomodoro',
-  '/water-settings',
+  '/profile',
+  '/settings',
   '/notifications',
   '/reports',
   '/achievements',
-  '/settings',
-  '/profile',
-  '/users',
+  '/medicines',
   '/devices',
+  '/water-settings',
   '/privacy',
 ];
 
@@ -44,20 +39,29 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     const redirect = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?redirect=${redirect}`} replace />;
   }
-  if (!user && guestActive && GUEST_LOCK_PREFIXES.some((p) => location.pathname.startsWith(p))) {
-    return <GuestUpgradeHint />;
+  if (!user && guestActive) {
+    if (GUEST_SOCIAL_PREFIXES.some((p) => location.pathname.startsWith(p))) {
+      return <GuestHint variant="social" />;
+    }
+    if (GUEST_LOCK_PREFIXES.some((p) => location.pathname.startsWith(p))) {
+      return <GuestHint variant="lock" />;
+    }
   }
   return <>{children}</>;
 }
 
-/** 游客锁定页（账户/社交等）：提示注册升级 */
-export function GuestUpgradeHint() {
+/** 游客提示页（社交 = 请登录后使用；其它 = 升级提示） */
+export function GuestHint({ variant }: { variant: 'social' | 'lock' }) {
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center px-8 text-center">
-      <span className="text-4xl">🔒</span>
-      <h2 className="mt-3 text-lg font-semibold">该功能需要登录</h2>
+      <span className="text-4xl">{variant === 'social' ? '👥' : '🔒'}</span>
+      <h2 className="mt-3 text-lg font-semibold">
+        {variant === 'social' ? '请登录后使用社交功能' : '该功能需要登录'}
+      </h2>
       <p className="mt-2 text-sm text-ink-500">
-        游客模式已开放今日 / 提醒 / 统计；账户、社交与更多功能请注册或登录（本机数据将自动同步合并）。
+        {variant === 'social'
+          ? '社区帖子的发布、互动、加入计划等需要账号；游客数据保存在本机，注册后自动同步合并。'
+          : '游客模式已开放今日 / 提醒 / 统计；更多功能请注册或登录（本机数据将自动同步合并）。'}
       </p>
       <button
         onClick={() => {

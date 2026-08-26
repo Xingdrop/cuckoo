@@ -42,6 +42,10 @@ interface GuestState {
     exportedAt: string;
   };
   clear: () => void;
+  /** #15：离线镜像所属账号（非空 = 已登录用户离线时使用的本地镜像） */
+  mirrorOf: string | null;
+  setMirror: (userId: string) => void;
+  clearMirror: () => void;
 }
 
 const nowIso = () => new Date().toISOString();
@@ -53,9 +57,18 @@ export const useGuestStore = create<GuestState>()(
       active: false,
       reminders: [],
       logs: [],
+      mirrorOf: null,
 
       activate: () => set({ active: true }),
       deactivate: () => set({ active: false }),
+      setMirror: (userId) => set({ mirrorOf: userId }),
+      clearMirror: () =>
+        set((s) => ({
+          mirrorOf: null,
+          // 镜像数据清除（游客数据仅在游客模式下保留）
+          reminders: s.active ? s.reminders : [],
+          logs: s.active ? s.logs : [],
+        })),
 
       saveReminder: (r) =>
         set((s) => ({

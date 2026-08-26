@@ -17,8 +17,11 @@ export interface Plan {
 }
 
 export const plansApi = {
-  list: () =>
-    useGuestStore.getState().active ? Promise.resolve([] as Plan[]) : http.get<Plan[]>('/plans').then((r) => r.data),
+  list: () => {
+    const g = useGuestStore.getState();
+    const local = g.active || (g.mirrorOf !== null && !navigator.onLine);
+    return local ? Promise.resolve([] as Plan[]) : http.get<Plan[]>('/plans').then((r) => r.data);
+  },
   create: (body: { name: string; description?: string }) =>
     http.post<Plan>('/plans', body).then((r) => r.data),
   snapshot: (id: string) => http.get<Record<string, unknown>>(`/plans/${id}/snapshot`).then((r) => r.data),

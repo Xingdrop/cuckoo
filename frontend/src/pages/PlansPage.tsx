@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronLeft, GripVertical, Pencil, Plus, Send, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGuestStore } from '../guest/guestStore';
 import { BottomNav } from '../components/BottomNav';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { ErrorBanner, EmptyState, LoadingState } from '../components/ui/Feedback';
@@ -22,6 +23,7 @@ export function PlansPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const guestActive = useGuestStore((s) => s.active);
   const [planName, setPlanName] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [sharePlan, setSharePlan] = useState<Plan | null>(null);
@@ -119,13 +121,20 @@ export function PlansPage() {
         <h1 className="flex-1 text-lg font-semibold">我的计划</h1>
         <button
           onClick={() => setCreating((v) => !v)}
-          className="flex h-9 items-center gap-1 rounded-full bg-primary-500 px-3.5 text-xs font-medium text-white"
+          disabled={guestActive}
+          title={guestActive ? '登录后可新建计划' : undefined}
+          className="flex h-9 items-center gap-1 rounded-full bg-primary-500 px-3.5 text-xs font-medium text-white disabled:opacity-40"
         >
           <Plus size={14} /> 新建计划
         </button>
       </header>
 
       <main className="px-4 pt-3">
+        {guestActive && (
+          <p className="mb-3 rounded-btn bg-accent-100/60 px-3 py-2 text-[11px] text-accent-700">
+            🎒 游客模式：我的计划（含一键发帖）需登录后使用；今日 / 提醒 / 统计照常可用
+          </p>
+        )}
         <ErrorBanner message={error} />
 
         {creating && (
@@ -274,8 +283,14 @@ export function PlansPage() {
                         setSharePlan(p);
                         setShareText(`📋 我的计划「${p.name}」：${p.reminderCount ?? 0} 条提醒，欢迎一键加入一起坚持！`);
                       }}
-                      disabled={(p.reminderCount ?? 0) === 0}
-                      title={(p.reminderCount ?? 0) === 0 ? '先添加提醒才能发帖' : undefined}
+                      disabled={(p.reminderCount ?? 0) === 0 || guestActive}
+                      title={
+                        guestActive
+                          ? '登录后可一键发帖（#14：游客禁用社交）'
+                          : (p.reminderCount ?? 0) === 0
+                            ? '先添加提醒才能发帖'
+                            : undefined
+                      }
                       className="flex h-8 flex-1 items-center justify-center gap-0.5 rounded-btn bg-ink-100/60 text-[11px] font-medium text-ink-700 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <Send size={12} /> 一键发帖

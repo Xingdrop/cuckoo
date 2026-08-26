@@ -163,6 +163,8 @@ export interface CalendarItem {
   todayTotal: number;
   /** 不定时每日提醒：不显示具体时间（2026-08） */
   untimed?: boolean;
+  /** 重复规则（2026-08 间隔提醒聚合展示用） */
+  repeatRule?: RepeatRule;
 }
 
 /** 药品（M2） */

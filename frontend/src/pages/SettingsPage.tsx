@@ -178,6 +178,31 @@ export function SettingsPage() {
       </header>
 
       <main className="space-y-4 px-4 pt-4">
+        {/* 账号卡（顶部：快捷退出登录） */}
+        {user && (
+          <section className="rounded-card bg-surface p-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-primary-50 text-lg font-semibold text-primary-600">
+                {user.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="头像" className="h-full w-full object-cover" />
+                ) : (
+                  user.username.slice(0, 1).toUpperCase()
+                )}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">@{user.username}</p>
+                <p className="text-[11px] text-ink-500">健康提醒 · 坚持每天</p>
+              </div>
+              <button
+                onClick={logout}
+                className="flex h-9 items-center gap-1 rounded-full bg-danger-500/10 px-3.5 text-xs font-medium text-danger-600"
+              >
+                <LogOut size={14} /> 退出登录
+              </button>
+            </div>
+          </section>
+        )}
+
         {error && (
           <p className="rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
         )}

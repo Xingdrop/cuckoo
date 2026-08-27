@@ -1,5 +1,5 @@
 import { compareSync } from 'bcryptjs';
-import type { SeedDataset } from './guestStore';
+import { useGuestStore, type SeedDataset } from './guestStore';
 
 /**
  * APK 预置离线种子（#17）：
@@ -125,4 +125,21 @@ export async function verifyOfflineLogin(
     exercises: seed.exercises,
   };
   return { user: toPublicUser(u), dataset };
+}
+
+/**
+ * #19：游客 = 本地账户——进入游客模式后把**公共**社交缓存（广场帖/官方计划/小组/微运动）
+ * 复制到游客数据集（不含个人关注/收藏/通知），使游客界面与离线账户一致。
+ */
+export async function seedGuestSocialCache(): Promise<void> {
+  const seed = await bootstrapSeed();
+  if (!seed) return;
+  const g = useGuestStore.getState();
+  if (!g.active || g.feed.length) return;
+  useGuestStore.getState().seedSocial({
+    feed: seed.feed,
+    templates: seed.templates,
+    groups: seed.groups,
+    exercises: seed.exercises,
+  });
 }

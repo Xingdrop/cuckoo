@@ -171,7 +171,11 @@ export function LoginPage() {
         </div>
         <Link
           to="/guest"
-          onClick={() => useGuestStore.getState().activate()}
+          onClick={() => {
+            useGuestStore.getState().activate();
+            // #19：游客 = 本地账户——复制公共社交缓存，界面与离线账户一致
+            void import('../guest/seed').then((m) => m.seedGuestSocialCache());
+          }}
           className="mt-4 flex items-center gap-3 rounded-card border border-primary-100 bg-primary-50/50 px-4 py-3.5 transition-colors hover:bg-primary-50"
         >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-lg shadow-sm">

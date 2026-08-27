@@ -14,6 +14,8 @@ export interface GuestReminder {
   category: string;
   times: string[]; // HH:mm（无 = 不定时）
   startDate: string; // YYYY-MM-DD
+  /** 起始时刻（HH:mm）——按小时间隔提醒用于生成本日时点 */
+  startHour?: string;
   createdAt: string; // ISO（合并优先级）
   updatedAt?: string;
   isActive: boolean;
@@ -62,6 +64,8 @@ export interface GuestPlan {
   isActive: boolean;
   createdAt: string;
   reminderCount?: number;
+  /** #18：加入计划保存的提醒配置（开启开关时重建提醒） */
+  config?: Array<Record<string, unknown>> | null;
 }
 
 export interface GuestSettings {
@@ -193,6 +197,8 @@ interface GuestState {
   saveNow: () => void;
 
   saveReminder: (r: Omit<GuestReminder, 'id' | 'createdAt'>) => void;
+  /** 指定 id 插入（计划配置重建提醒用） */
+  insertReminder: (r: GuestReminder) => void;
   updateReminder: (id: string, patch: Partial<GuestReminder>) => void;
   removeReminder: (id: string) => void;
   ack: (id: string, status: 'completed' | 'skipped', at?: string) => void;
@@ -205,10 +211,16 @@ interface GuestState {
 
   savePlan: (p: { name: string; description?: string }) => void;
   patchPlan: (id: string, patch: Partial<GuestPlan>) => void;
+  /** 仅切换计划开关标志（不联动提醒——供"删除提醒→计划自动关"用） */
+  patchPlanFlag: (id: string, isActive: boolean) => void;
   removePlan: (id: string) => void;
 
   saveSettings: (patch: Partial<GuestSettings>) => void;
-  seedSocial: (d: SeedDataset) => void;
+  seedSocial: (
+    d: Partial<
+      Pick<SeedDataset, 'feed' | 'templates' | 'groups' | 'exercises' | 'followings' | 'favorites' | 'notifications'>
+    >,
+  ) => void;
 
   exportBundle: () => {
     reminders: unknown[];
@@ -373,6 +385,11 @@ export const useGuestStore = create<GuestState>()(
           persistNow();
         },
 
+        insertReminder: (r) => {
+          set((s) => ({ reminders: [r, ...s.reminders] }));
+          persistNow();
+        },
+
         updateReminder: (id, patch) => {
           set((s) => ({
             reminders: s.reminders.map((r) =>
@@ -452,7 +469,7 @@ export const useGuestStore = create<GuestState>()(
         savePlan: (p) => {
           set((s) => ({
             plans: [
-              { id: uid('p'), name: p.name, description: p.description ?? '', sourceType: 'self', isActive: true, createdAt: nowIso(), reminderCount: 0 },
+              { id: uid('p'), name: p.name, description: p.description ?? '', sourceType: 'self', isActive: true, createdAt: nowIso(), reminderCount: 0, config: null },
               ...s.plans,
             ],
           }));
@@ -461,6 +478,12 @@ export const useGuestStore = create<GuestState>()(
         patchPlan: (id, patch) => {
           set((s) => ({
             plans: s.plans.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+          }));
+          persistNow();
+        },
+        patchPlanFlag: (id, isActive) => {
+          set((s) => ({
+            plans: s.plans.map((p) => (p.id === id ? { ...p, isActive } : p)),
           }));
           persistNow();
         },

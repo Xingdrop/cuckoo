@@ -307,7 +307,7 @@ export class SocialService {
       // 幂等：已加入直接返回
       const existing = await joinRepo.findOne({ where: { postId, userId } });
       if (existing?.isActive) {
-        return { joined: true, duplicate: true, reminderId: existing.reminderId };
+        return { joined: true, duplicate: true, planId: existing.reminderId };
       }
       // 曾退出（isActive=false）：复用旧 join 记录（避免 UNIQUE(postId,userId) 冲突而无法再次加入）
       const reuseJoin = existing ?? null;
@@ -329,12 +329,14 @@ export class SocialService {
             sourceType: 'share',
             sourceTitle,
             sourceId: postId,
-            isActive: true,
+            // #18：加入只保存计划+配置，不创建提醒（isActive=false，由用户在计划页开启）
+            isActive: false,
+            config: null,
           }),
         );
       }
 
-      // 解析快照并创建提醒
+      // 解析快照并保存提醒配置（不创建提醒）
       const snapshot = post.planSnapshot as {
         reminders?: { category?: string; title?: string; repeatRule?: unknown; times?: string[]; startTime?: string; content?: Record<string, unknown> }[];
       };
@@ -342,56 +344,29 @@ export class SocialService {
       if (reminders.length === 0) {
         throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '计划内容为空' });
       }
+      const config = reminders.map((r) => ({
+        category: (r.category as string) ?? 'custom',
+        title: r.title ?? '加入的计划',
+        repeatRule: r.repeatRule ?? { type: 'daily' },
+        times: Array.isArray(r.times) ? r.times : null,
+        // #14：快照/模板只带 startTime 时，用 startTime 作为当日时间点（否则会被误判为"不定时"）
+        ...(r.startTime && !Array.isArray(r.times) ? { times: [r.startTime] } : {}),
+        content: r.content ?? {},
+      }));
+      await planRepo.update({ id: plan.id, userId }, { config: config as never });
 
-      const now = new Date();
-      let createdReminder: Reminder | null = null;
-      for (const r of reminders) {
-        const startDate = new Date(now);
-        if (r.startTime) {
-          const [h, m] = (r.startTime as string).split(':').map(Number);
-          startDate.setHours(h, m, 0, 0);
-        }
-        const reminder = reminderRepo.create({
-          id: randomUUID(),
-          userId,
-          category: (r.category as Reminder['category']) ?? 'custom',
-          title: r.title ?? '加入的计划',
-          repeatRule: (r.repeatRule as Reminder['repeatRule']) ?? { type: 'daily' },
-          startDate,
-          times: r.times ?? null,
-          // #14：快照/模板只带 startTime 时，用 startTime 作为当日时间点（否则会被误判为"不定时"）
-          ...(r.startTime && !r.times?.length ? { times: [r.startTime] } : {}),
-          content: r.content ?? {},
-          method: {},
-          delaySettings: {},
-          challenge: {},
-          medicineId: null,
-          planId: plan.id,
-          isActive: true,
-          nextTriggerAt: computeNextTrigger(
-            (r.repeatRule as Reminder['repeatRule']) ?? { type: 'daily' },
-            now,
-            startDate,
-            null,
-            'Asia/Shanghai',
-            r.times ?? (r.startTime ? [r.startTime] : null),
-          ),
-        });
-        createdReminder = await reminderRepo.save(reminder);
-      }
-
-      // 加入/复用 join 记录（退出后再次加入：复用旧记录并更新为新提醒）
+      // 加入/复用 join 记录（reminderId 字段存计划 id：加入=保存计划）
       if (reuseJoin) {
         await joinRepo.update(
           { id: reuseJoin.id },
-          { reminderId: createdReminder!.id, isActive: true },
+          { reminderId: plan.id, isActive: true },
         );
       } else {
         const join = joinRepo.create({
           id: randomUUID(),
           postId,
           userId,
-          reminderId: createdReminder!.id,
+          reminderId: plan.id,
           isActive: true,
         });
         await joinRepo.save(join);
@@ -408,7 +383,7 @@ export class SocialService {
         .orIgnore()
         .execute();
 
-      return { joined: true, duplicate: false, reminderId: createdReminder!.id };
+      return { joined: true, duplicate: false, planId: plan.id, configCount: config.length };
     });
   }
 
@@ -423,10 +398,11 @@ export class SocialService {
       const join = await joinRepo.findOne({ where: { postId, userId, isActive: true } });
       if (!join) return { left: false };
 
-      // 软删该计划下全部关联提醒（join 只记录最后一条 reminderId，故按 planId 批量删除）
+      // 退出 = 从「我的计划」移除：清除该计划全部关联提醒 + 删除计划（配置一并移除）
       const plan = await planRepo.findOne({ where: { userId, sourceType: 'share', sourceId: postId } });
       if (plan) {
         await reminderRepo.softDelete({ userId, planId: plan.id });
+        await planRepo.delete({ id: plan.id, userId });
       } else {
         await reminderRepo.softDelete(join.reminderId);
       }
@@ -455,20 +431,40 @@ export class SocialService {
     return template;
   }
 
-  /** 官方计划一键加入（reminderConfig 批量建提醒） */
+  /** 官方计划一键加入（#18：只保存计划+提醒配置，不创建提醒；由用户在计划页开启） */
   async joinTemplate(userId: string, templateId: string) {
     const template = await this.templateRepo.findOne({ where: { id: templateId, status: PlanTemplateStatus.PUBLISHED } });
     if (!template) throw new NotFoundException({ code: 'NOT_FOUND', message: '官方计划不存在' });
 
-    const now = new Date();
-    // 官方计划落库计划（sourceType=official，同模板复用）
     const sourceTitle = `官方计划：${template.title}`;
+    const config = template.reminderConfig.map((c) => {
+      const r = c as {
+        category?: string;
+        title?: string;
+        repeatRule?: unknown;
+        times?: string[];
+        startTime?: string;
+        content?: Record<string, unknown>;
+      };
+      return {
+        category: r.category ?? 'custom',
+        title: r.title ?? template.title,
+        repeatRule: r.repeatRule ?? { type: 'daily' },
+        times: Array.isArray(r.times) ? r.times : null,
+        // #14：官方计划模板只带 startTime 时回填为当日时间点（避免被判"不定时"）
+        ...(r.startTime && !Array.isArray(r.times) ? { times: [r.startTime] } : {}),
+        content: r.content ?? {},
+      };
+    });
+    // 落库计划（sourceType=official，同模板复用；isActive=false 等待用户在计划页启用）
     let plan = await this.planRepo.findOne({
       where: { userId, sourceType: 'official', sourceId: template.id },
     });
     if (plan) {
-      // #14：幂等——已在"我的计划"中，不再重复新建提醒
-      return { joined: true, duplicate: true, reminderCount: plan.id ? undefined : 0 };
+      if (!plan.config) {
+        await this.planRepo.update({ id: plan.id, userId }, { config: config as never });
+      }
+      return { joined: true, duplicate: true, planId: plan.id, configCount: config.length };
     }
     plan = await this.planRepo.save(
       this.planRepo.create({
@@ -479,54 +475,11 @@ export class SocialService {
         sourceType: 'official',
         sourceTitle,
         sourceId: template.id,
-        isActive: true,
+        isActive: false,
+        config: config as never,
       }),
     );
-
-    let created: Reminder | null = null;
-    for (const cfg of template.reminderConfig) {
-      const r = cfg as {
-        category?: string;
-        title?: string;
-        repeatRule?: unknown;
-        times?: string[];
-        startTime?: string;
-        content?: Record<string, unknown>;
-      };
-      const startDate = new Date(now);
-      if (r.startTime) {
-        const [h, m] = r.startTime.split(':').map(Number);
-        startDate.setHours(h, m, 0, 0);
-      }
-      const reminder = this.reminderRepo.create({
-        id: randomUUID(),
-        userId,
-        category: (r.category as Reminder['category']) ?? 'custom',
-        title: r.title ?? template.title,
-        repeatRule: (r.repeatRule as Reminder['repeatRule']) ?? { type: 'daily' },
-        startDate,
-        times: r.times ?? null,
-        // #14：官方计划模板只带 startTime 时回填为当日时间点（避免被判"不定时"）
-        ...(r.startTime && !r.times?.length ? { times: [r.startTime] } : {}),
-        content: r.content ?? {},
-        method: {},
-        delaySettings: {},
-        challenge: {},
-        medicineId: null,
-        planId: plan.id,
-        isActive: true,
-        nextTriggerAt: computeNextTrigger(
-          (r.repeatRule as Reminder['repeatRule']) ?? { type: 'daily' },
-          now,
-          startDate,
-          null,
-          'Asia/Shanghai',
-          r.times ?? (r.startTime ? [r.startTime] : null),
-        ),
-      });
-      created = await this.reminderRepo.save(reminder);
-    }
-    return { joined: true, reminderId: created?.id };
+    return { joined: true, duplicate: false, planId: plan.id, configCount: config.length };
   }
 
   // ============ 兴趣小组（FR-605） ============

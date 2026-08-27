@@ -37,6 +37,7 @@ export async function refreshLocalCache(): Promise<boolean> {
         categoryIcon: r.categoryIcon ?? null,
         times: (r.times ?? []).length ? [...(r.times ?? [])] : [],
         startDate: (r.startDate ?? new Date().toISOString()).slice(0, 10),
+        startHour: (r.startDate ?? '').slice(11, 16) || undefined,
         createdAt: r.createdAt ?? new Date().toISOString(),
         updatedAt: r.updatedAt ?? r.createdAt ?? new Date().toISOString(),
         isActive: r.isActive,

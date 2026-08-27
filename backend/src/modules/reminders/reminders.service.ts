@@ -18,6 +18,7 @@ import {
 import { Medicine } from '../medicines/medicine.entity';
 import { AuditService } from '../audit/audit.service';
 import { PlansService } from '../plans/plans.service';
+import { Plan } from '../plans/plan.entity';
 import { AchievementsService } from '../achievements/achievements.service';
 import { Notification, NotificationType } from '../notifications/notification.entity';
 import { User } from '../users/user.entity';
@@ -338,10 +339,18 @@ export class RemindersService {
     return this.findOne(userId, id);
   }
 
-  /** 软删除 */
+  /** 软删除：#18 删除计划内（部分/全部）提醒 → 对应计划开关自动关闭（其余提醒保留、配置可重建） */
   async remove(userId: string, id: string) {
     const reminder = await this.findOne(userId, id);
     await this.reminderRepo.softDelete(reminder.id);
+    if (reminder.planId) {
+      try {
+        // 只关开关，不删除其余提醒（仅计划开关本身才清除全部提醒）
+        await this.dataSource.getRepository(Plan).update({ id: reminder.planId, userId }, { isActive: false });
+      } catch {
+        /* 计划已删除等：忽略 */
+      }
+    }
     void this.audit.record('reminder.delete', userId, { targetType: 'reminder', targetId: id });
     return { success: true };
   }

@@ -39,6 +39,10 @@ export class Plan {
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
+  /** #18：加入计划（官方/帖子）时保存的提醒配置快照；开启开关时按它（重新）创建提醒 */
+  @Column({ type: 'simple-json', nullable: true })
+  config: Array<Record<string, unknown>> | null;
+
   @CreateDateColumn({ transformer: utcDateTime })
   createdAt: Date;
 }

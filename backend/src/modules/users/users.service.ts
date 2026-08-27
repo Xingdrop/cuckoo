@@ -85,6 +85,7 @@ export class UsersService {
       medicines?: unknown[];
       plans?: unknown[];
       posts?: unknown[];
+      settings?: unknown;
     },
   ) {
     type Item = Record<string, unknown>;
@@ -228,14 +229,16 @@ export class UsersService {
         'waterGoalMl', 'waterInRate',
       ].filter((k) => s[k] !== undefined) as (keyof UserSetting)[];
       if (fields.length > 0) {
+        // user_settings 无 updated_at 列：本地显式提供的设置视为较新并覆盖（部分字段合并不覆盖未提供项）
         await this.dataSource.transaction(async (manager) => {
           const repo = manager.getRepository(UserSetting);
           const cloud = await repo.findOne({ where: { userId } });
-          const guestAt = typeof s.updatedAt === 'string' ? new Date(s.updatedAt as string).getTime() : 0;
-          if (!cloud || guestAt === 0 || guestAt >= new Date(cloud.updatedAt ?? cloud.createdAt ?? 0).getTime()) {
-            const patch: Record<string, unknown> = {};
-            for (const f of fields) patch[f] = s[f];
-            patch.userId = userId;
+          const patch: Record<string, unknown> = {};
+          for (const f of fields) patch[f] = s[f];
+          patch.userId = userId;
+          if (cloud) {
+            await repo.update({ userId }, patch as never);
+          } else {
             await repo.save(repo.create(patch));
           }
         });

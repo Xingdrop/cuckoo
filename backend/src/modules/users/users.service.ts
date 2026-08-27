@@ -92,7 +92,7 @@ export class UsersService {
       (Array.isArray(arr) ? (arr as Item[]) : []).slice(0, 2000);
     const counts: Record<string, { imported: number; skipped: number }> = {};
 
-    /** 按 id+createdAt 合并的通用实现：云端较新跳过，游客较新 upsert */
+    /** 按 id+更新时间合并的通用实现：云端较新跳过，本地较新 upsert（updatedAt 优先，回退 createdAt） */
     const mergeRows = async (
       repo: any,
       items: Item[],
@@ -104,8 +104,17 @@ export class UsersService {
         const id = raw.id as string;
         if (!id || typeof id !== 'string') continue;
         const cloud = await repo.findOne({ where: { id }, withDeleted: true });
-        const guestAt = typeof raw.createdAt === 'string' ? new Date(raw.createdAt as string).getTime() : 0;
-        const cloudAt = cloud?.createdAt ? new Date(cloud.createdAt).getTime() : 0;
+        const guestAt =
+          typeof raw.updatedAt === 'string'
+            ? new Date(raw.updatedAt as string).getTime()
+            : typeof raw.createdAt === 'string'
+              ? new Date(raw.createdAt as string).getTime()
+              : 0;
+        const cloudAt =
+          (cloud && (cloud as { updatedAt?: Date }).updatedAt
+            ? new Date((cloud as { updatedAt: Date }).updatedAt).getTime()
+            : 0) ||
+          (cloud?.createdAt ? new Date(cloud.createdAt).getTime() : 0);
         if (cloud && guestAt <= cloudAt) {
           skipped += 1;
           continue;
@@ -209,6 +218,29 @@ export class UsersService {
         mediaUrls: Array.isArray(raw.mediaUrls) ? (raw.mediaUrls as string[]) : [],
         planSnapshot: (raw.planSnapshot as Record<string, unknown>) ?? null,
       }));
+    }
+    // 用户设置（#17：离线本地设置合并回流——仅覆盖显式提供的字段）
+    if (bundle.settings && typeof bundle.settings === 'object') {
+      const s = bundle.settings as Item;
+      const fields = [
+        'notificationEnabled', 'soundEnabled', 'vibrationEnabled', 'theme',
+        'missedThresholdMinutes', 'showSkipButton', 'maxDelayCount',
+        'waterGoalMl', 'waterInRate',
+      ].filter((k) => s[k] !== undefined) as (keyof UserSetting)[];
+      if (fields.length > 0) {
+        await this.dataSource.transaction(async (manager) => {
+          const repo = manager.getRepository(UserSetting);
+          const cloud = await repo.findOne({ where: { userId } });
+          const guestAt = typeof s.updatedAt === 'string' ? new Date(s.updatedAt as string).getTime() : 0;
+          if (!cloud || guestAt === 0 || guestAt >= new Date(cloud.updatedAt ?? cloud.createdAt ?? 0).getTime()) {
+            const patch: Record<string, unknown> = {};
+            for (const f of fields) patch[f] = s[f];
+            patch.userId = userId;
+            await repo.save(repo.create(patch));
+          }
+        });
+        counts.settings = { imported: 1, skipped: 0 };
+      }
     }
 
     void this.audit.record('user.import', userId, { targetType: 'user', targetId: userId, detail: counts });

@@ -40,6 +40,7 @@ export function GuestHomePage({ initial = 'today' }: { initial?: Tab }) {
     setSyncing(true);
     try {
       let token = tokenStore.get();
+      let userId: string | null = null;
       if (!token) {
         const res =
           mode === 'register'
@@ -47,11 +48,15 @@ export function GuestHomePage({ initial = 'today' }: { initial?: Tab }) {
             : await authApi.login({ username, password });
         tokenStore.set(res.token);
         setUser(res.user);
+        userId = res.user.id;
         token = res.token;
       }
       if (!token) throw new Error('未获得登录凭证');
       await usersApi.importData(guest.exportBundle());
       guest.clear();
+      // #17：升级后切换为在线账户上下文并预拉全量镜像（断网可用）
+      useGuestStore.getState().loginAccount(userId ?? useAuthStore.getState().user?.id ?? 'online', 'online');
+      void import('../guest/mirror').then((m) => m.refreshLocalCache());
       setDone(true);
       // #2：升级后进入今日界面（退出游客其它界面状态）
       setTimeout(() => navigate('/today'), 1200);
@@ -82,9 +87,9 @@ export function GuestHomePage({ initial = 'today' }: { initial?: Tab }) {
       </header>
 
       <main className="px-4 pt-3">
-        {/* 提示条（#2：数据本机 + 升级入口） */}
+        {/* 提示条（#2/#17：数据本机 + 升级入口） */}
         <p className="mb-3 rounded-btn bg-accent-100/60 px-3 py-2 text-[11px] text-accent-700">
-          🎒 游客模式：数据仅保存在本机浏览器；账户与社交功能暂未开放，注册后自动同步升级
+          🎒 游客模式：数据仅保存在本机。今日 / 提醒 / 统计、服务与管理、我的计划均可使用；社交（点赞 / 发帖 / 评论）需登录；注册后自动同步升级
         </p>
 
         {/* tab：今日 / 提醒 / 统计 */}

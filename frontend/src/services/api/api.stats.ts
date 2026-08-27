@@ -1,5 +1,5 @@
-﻿import { http } from '../http';
-import { useGuestStore } from '../../guest/guestStore';
+import { http } from '../http';
+import { useLocal } from '../../guest/localMode';
 import { guestApi } from '../../guest/guestApi';
 
 /** 缁熻 API锛團R-701~707锛夆€斺€旀父瀹㈡ā寮忚蛋鏈湴閫傞厤灞?*/
@@ -30,24 +30,18 @@ export interface DayStat {
   rate: number;
 }
 
-const useLocal = () => {
-  const g = useGuestStore.getState();
-  // #16：seed 离线账户恒走本地；其他镜像仅断网时本地
-  return g.active || (g.mirrorOf !== null && (g.mirrorOf.startsWith('seed:') || !navigator.onLine));
-};
-
 export const statsApi = {
   dashboard: () =>
     useLocal() ? Promise.resolve(guestApi.dashboard()) : http.get<DashboardStats>('/stats/dashboard').then((r) => r.data),
 
   heatmap: (month: string) =>
     useLocal()
-      ? Promise.resolve(guestApi.heatmap())
+      ? Promise.resolve(guestApi.heatmap(month))
       : http.get<DayStat[]>('/stats/heatmap', { params: { month } }).then((r) => r.data),
 
   trend: (days = 7) =>
     useLocal()
-      ? Promise.resolve(guestApi.trend())
+      ? Promise.resolve(guestApi.trend(days))
       : http.get<DayStat[]>('/stats/trend', { params: { days } }).then((r) => r.data),
 
   /** 鏌愭棩鍠濇按缁熻锛堢己鐪佷粖澶╋級 */

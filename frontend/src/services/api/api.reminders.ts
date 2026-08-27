@@ -1,5 +1,5 @@
-﻿import { http } from '../http';
-import { useGuestStore } from '../../guest/guestStore';
+import { http } from '../http';
+import { useLocal } from '../../guest/localMode';
 import { guestApi } from '../../guest/guestApi';
 import type {
   ChallengeSettings,
@@ -34,12 +34,6 @@ export interface CreateReminderInput {
 }
 
 /** 鎻愰啋 API锛團R-201~209锛夆€斺€旀父瀹?绂荤嚎闀滃儚鑷姩璧版湰鍦伴€傞厤灞傦紙澶嶇敤鍘熺晫闈級 */
-const useLocal = () => {
-  const g = useGuestStore.getState();
-  // #16：seed 离线账户恒走本地；其他镜像仅断网时本地
-  return g.active || (g.mirrorOf !== null && (g.mirrorOf.startsWith('seed:') || !navigator.onLine));
-};
-
 export const remindersApi = {
   list: (params?: { category?: string; isActive?: boolean }) =>
     useLocal() ? Promise.resolve(guestApi.list()) : http.get<Reminder[]>('/reminders', { params }).then((r) => r.data),

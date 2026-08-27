@@ -1,4 +1,7 @@
 import { http } from '../http';
+import { useLocal } from '../../guest/localMode';
+import { guestApi } from '../../guest/guestApi';
+import { useGuestStore } from '../../guest/guestStore';
 import type { Page } from '../../types';
 
 export interface PostAuthor {
@@ -44,43 +47,136 @@ export interface Group {
   memberCount: number;
 }
 
+/** #17：在线拉取成功后写入本地缓存（断网时由 guestApi 供数——"断网前接收的数据"） */
+const cacheWrite = (patch: Record<string, unknown>) => {
+  const s = useGuestStore.getState();
+  if (s.mirrorOf === null) return; // 无账户上下文（游客/未登录）不缓存
+  useGuestStore.setState(patch as never);
+  useGuestStore.getState().saveNow();
+};
+
 export const socialApi = {
   // 帖子
-  listPosts: (page = 1, pageSize = 20) =>
-    http.get<Page<Post>>('/posts', { params: { page, pageSize } }).then((r) => r.data),
-  getPost: (id: string) => http.get<Post>(`/posts/${id}`).then((r) => r.data),
+  listPosts: (page = 1, pageSize = 20) => {
+    if (useLocal()) {
+      const all = guestApi.feedPosts();
+      const start = (page - 1) * pageSize;
+      return Promise.resolve<Page<Post>>({
+        items: all.slice(start, start + pageSize),
+        total: all.length,
+        page,
+        pageSize,
+      });
+    }
+    return http.get<Page<Post>>('/posts', { params: { page, pageSize } }).then((r) => {
+      cacheWrite({ feed: r.data.items });
+      return r.data;
+    });
+  },
+  getPost: (id: string) => {
+    if (useLocal()) {
+      const p = guestApi.getFeedPost(id);
+      if (p) return Promise.resolve<Post>(p);
+      return Promise.reject(new Error('该帖子不在本地缓存中（断网前未加载过）'));
+    }
+    return http.get<Post>(`/posts/${id}`).then((r) => {
+      const all = useGuestStore.getState().feed;
+      const exists = all.some((x) => x.id === r.data.id);
+      cacheWrite({ feed: exists ? all.map((x) => (x.id === r.data.id ? r.data : x)) : [r.data, ...all].slice(0, 200) });
+      return r.data;
+    });
+  },
   createPost: (body: {
     content: string;
     mediaUrls?: string[];
     type?: string;
     planSnapshot?: Record<string, unknown> | null;
-  }) => http.post<Post>('/posts', body).then((r) => r.data),
+  }) =>
+    useLocal()
+      ? Promise.reject(new Error('当前未联网：发布帖子需联网后使用'))
+      : http.post<Post>('/posts', body).then((r) => r.data),
   updatePost: (id: string, content: string) =>
-    http.patch<Post>(`/posts/${id}`, { content }).then((r) => r.data),
-  removePost: (id: string) => http.delete(`/posts/${id}`).then((r) => r.data),
+    useLocal()
+      ? Promise.reject(new Error('当前未联网：编辑帖子需联网后使用'))
+      : http.patch<Post>(`/posts/${id}`, { content }).then((r) => r.data),
+  removePost: (id: string) =>
+    useLocal()
+      ? Promise.reject(new Error('当前未联网：删除帖子需联网后使用'))
+      : http.delete(`/posts/${id}`).then((r) => r.data),
 
   // 互动
-  like: (id: string) => http.post(`/posts/${id}/like`).then((r) => r.data),
-  favorite: (id: string) => http.post(`/posts/${id}/favorite`).then((r) => r.data),
+  like: (id: string) =>
+    useLocal()
+      ? Promise.reject(new Error('当前未联网：点赞需联网后使用'))
+      : http.post(`/posts/${id}/like`).then((r) => r.data),
+  favorite: (id: string) =>
+    useLocal()
+      ? Promise.reject(new Error('当前未联网：收藏需联网后使用'))
+      : http.post(`/posts/${id}/favorite`).then((r) => r.data),
   comment: (id: string, content: string) =>
-    http.post(`/posts/${id}/comment`, { content }).then((r) => r.data),
-  comments: (id: string) => http.get<Page<{ id: string; content: string; createdAt: string }>>(`/posts/${id}/comments`).then((r) => r.data),
+    useLocal()
+      ? Promise.reject(new Error('当前未联网：评论需联网后使用'))
+      : http.post(`/posts/${id}/comment`, { content }).then((r) => r.data),
+  comments: (id: string) =>
+    useLocal()
+      ? Promise.reject(new Error('当前离线，仅可浏览缓存内容'))
+      : http
+          .get<Page<{ id: string; content: string; createdAt: string }>>(`/posts/${id}/comments`)
+          .then((r) => r.data),
 
   // 一键加入
-  join: (id: string) => http.post(`/posts/${id}/join`).then((r) => r.data),
-  leave: (id: string) => http.delete(`/posts/${id}/join`).then((r) => r.data),
+  join: (id: string) =>
+    useLocal()
+      ? Promise.reject(new Error('当前未联网：加入计划需联网后使用'))
+      : http.post(`/posts/${id}/join`).then((r) => r.data),
+  leave: (id: string) =>
+    useLocal()
+      ? Promise.reject(new Error('当前未联网：退出计划需联网后使用'))
+      : http.delete(`/posts/${id}/join`).then((r) => r.data),
 
   // 官方计划
-  templates: () => http.get<PlanTemplate[]>('/plan-templates').then((r) => r.data),
+  templates: () => {
+    if (useLocal()) return Promise.resolve<PlanTemplate[]>(guestApi.templates());
+    return http.get<PlanTemplate[]>('/plan-templates').then((r) => {
+      cacheWrite({ templates: r.data });
+      return r.data;
+    });
+  },
   /** 官方计划详情（预览页） */
-  template: (id: string) => http.get<PlanTemplate>(`/plan-templates/${id}`).then((r) => r.data),
-  joinTemplate: (id: string) => http.post(`/plan-templates/${id}/join`).then((r) => r.data),
+  template: (id: string) => {
+    if (useLocal()) {
+      const t = guestApi.getTemplate(id);
+      if (t) return Promise.resolve<PlanTemplate>(t);
+      return Promise.reject(new Error('该官方计划不在本地缓存中'));
+    }
+    return http.get<PlanTemplate>(`/plan-templates/${id}`).then((r) => {
+      const all = useGuestStore.getState().templates;
+      const exists = all.some((x) => x.id === id);
+      cacheWrite({ templates: exists ? all.map((x) => (x.id === id ? r.data : x)) : [r.data, ...all] });
+      return r.data;
+    });
+  },
+  joinTemplate: (id: string) =>
+    useLocal()
+      ? Promise.reject(new Error('当前未联网：加入计划需联网后使用'))
+      : http.post(`/plan-templates/${id}/join`).then((r) => r.data),
 
   // 小组
-  groups: () => http.get<Group[]>('/groups').then((r) => r.data),
+  groups: () => {
+    if (useLocal()) return Promise.resolve<Group[]>(guestApi.groups());
+    return http.get<Group[]>('/groups').then((r) => {
+      cacheWrite({ groups: r.data });
+      return r.data;
+    });
+  },
   createGroup: (body: { name: string; description: string }) =>
-    http.post<Group>('/groups', body).then((r) => r.data),
-  joinGroup: (id: string) => http.post(`/groups/${id}/join`).then((r) => r.data),
+    useLocal()
+      ? Promise.reject(new Error('当前未联网：创建小组需联网后使用'))
+      : http.post<Group>('/groups', body).then((r) => r.data),
+  joinGroup: (id: string) =>
+    useLocal()
+      ? Promise.reject(new Error('当前未联网：加入小组需联网后使用'))
+      : http.post(`/groups/${id}/join`).then((r) => r.data),
 };
 
 /** 通知中心 */
@@ -96,6 +192,15 @@ export interface NotificationItem {
 }
 
 export const notificationsApi = {
-  list: () => http.get<Page<NotificationItem> & { unread: number }>('/notifications').then((r) => r.data),
-  markRead: (id?: string) => http.patch('/notifications/read', { id }).then((r) => r.data),
+  list: () => {
+    if (useLocal()) return Promise.resolve(guestApi.notifications());
+    return http.get<Page<NotificationItem> & { unread: number }>('/notifications').then((r) => {
+      cacheWrite({ notifications: r.data.items });
+      return r.data;
+    });
+  },
+  markRead: (id?: string) =>
+    useLocal()
+      ? Promise.reject(new Error('当前未联网：标记已读需联网后使用'))
+      : http.patch('/notifications/read', { id }).then((r) => r.data),
 };

@@ -2,6 +2,7 @@ import { ChevronLeft, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { LoadingState } from '../components/ui/Feedback';
+import { useConnectionStore } from '../stores/connectionStore';
 import { socialApi } from '../services/api/api.social';
 import type { PlanTemplate } from '../services/api/api.social';
 
@@ -18,6 +19,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
 export function TemplatePreviewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const online = useConnectionStore((s) => s.online);
   const [tpl, setTpl] = useState<PlanTemplate | null>(null);
   const [loading, setLoading] = useState(true);
   const [joined, setJoined] = useState(false);
@@ -26,7 +28,7 @@ export function TemplatePreviewPage() {
   useEffect(() => {
     if (!id) return;
     socialApi
-      .template(id)
+      .template(id) // #17：离线时读本地缓存
       .then(setTpl)
       .catch(() => undefined)
       .finally(() => setLoading(false));
@@ -34,6 +36,10 @@ export function TemplatePreviewPage() {
 
   const join = async () => {
     if (!tpl || joining) return;
+    if (!online) {
+      alert('当前未联网：加入官方计划需联网后使用');
+      return;
+    }
     setJoining(true);
     try {
       const r = await socialApi.joinTemplate(tpl.id);
@@ -109,11 +115,17 @@ export function TemplatePreviewPage() {
 
             <button
               onClick={() => void join()}
-              disabled={joining || joined}
+              disabled={joining || joined || !online}
               className="flex w-full items-center justify-center gap-1 rounded-btn bg-primary-500 py-3 text-sm font-medium text-white disabled:opacity-50"
             >
               <Plus size={15} />
-              {joined ? '✓ 已加入我的计划（可在我的计划中管理）' : joining ? '加入中…' : '一键加入我的计划'}
+              {!online
+                ? '离线状态（需联网加入）'
+                : joined
+                  ? '✓ 已加入我的计划（可在我的计划中管理）'
+                  : joining
+                    ? '加入中…'
+                    : '一键加入我的计划'}
             </button>
             <p className="px-1 text-[11px] text-ink-400">
               加入后计划进入「我的计划」，提醒跟随计划启停，可修改时间或删除

@@ -1,7 +1,9 @@
 import { http } from '../http';
+import { useLocal } from '../../guest/localMode';
+import { guestApi } from '../../guest/guestApi';
 import type { AuthResponse, User, UserSettings } from '../../types';
 
-/** 认证与用户 API（FR-101~104） */
+/** 认证与用户 API（FR-101~104）——#17 设置读写支持本地模式 */
 export const authApi = {
   register: (body: { username: string; password: string; healthGoals?: string[]; phone?: string }) =>
     http.post<AuthResponse>('/auth/register', body).then((r) => r.data),
@@ -14,8 +16,13 @@ export const authApi = {
   updateMe: (patch: Partial<Pick<User, 'avatarUrl' | 'healthGoals' | 'timezone'>>) =>
     http.patch<User>('/users/me', patch).then((r) => r.data),
 
-  getSettings: () => http.get<UserSettings>('/users/me/settings').then((r) => r.data),
+  getSettings: () =>
+    useLocal()
+      ? Promise.resolve(guestApi.settings())
+      : http.get<UserSettings>('/users/me/settings').then((r) => r.data),
 
   updateSettings: (patch: Partial<UserSettings>) =>
-    http.put<UserSettings>('/users/me/settings', patch).then((r) => r.data),
+    useLocal()
+      ? Promise.resolve(guestApi.saveSettings(patch))
+      : http.put<UserSettings>('/users/me/settings', patch).then((r) => r.data),
 };

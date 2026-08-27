@@ -56,6 +56,26 @@ html {
   -webkit-font-smoothing: antialiased;
 }
 
+/* #17 移动端适配：禁止水平滚动（内容极端窄屏时收缩而非溢出）；WebView 字号不受系统字体缩放影响 */
+html,
+body {
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  max-width: 100%;
+}
+
+/* 底部导航常驻：内容 padding 保证不被遮挡（各页面已 pb-20） */
+#root {
+  min-height: 100dvh;
+}
+
+/* 兼容旧 WebView（Android 7 内置 Chromium < 108 不支持 dvh）：回退 100vh */
+@supports not (height: 100dvh) {
+  .min-h-dvh {
+    min-height: 100vh;
+  }
+}
+
 /* 触摸目标最小 44px（无障碍基线 NFR-09） */
 button,
 [role="button"],

@@ -126,34 +126,31 @@ export function SocialPage() {
   }, [load]);
 
   const toggleLike = async (post: Post) => {
-    if (!online) {
-      setError('当前未联网：点赞需联网后使用');
-      return;
+    // #22：账户操作统一走 api → 游客/离线给出明确提示（游客需登录；离线需联网）
+    try {
+      await socialApi.like(post.id);
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === post.id
+            ? { ...p, myLiked: !p.myLiked, likesCount: p.likesCount + (p.myLiked ? -1 : 1) }
+            : p,
+        ),
+      );
+    } catch (e) {
+      setError(errorMessage(e));
     }
-    await socialApi.like(post.id);
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.id === post.id
-          ? { ...p, myLiked: !p.myLiked, likesCount: p.likesCount + (p.myLiked ? -1 : 1) }
-          : p,
-      ),
-    );
   };
 
   const toggleFavorite = async (post: Post) => {
-    if (!online) {
-      setError('当前未联网：收藏需联网后使用');
-      return;
+    try {
+      await socialApi.favorite(post.id);
+      setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, myFavorited: !p.myFavorited } : p)));
+    } catch (e) {
+      setError(errorMessage(e));
     }
-    await socialApi.favorite(post.id);
-    setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, myFavorited: !p.myFavorited } : p)));
   };
 
   const joinPost = async (post: Post) => {
-    if (!online) {
-      setError('当前未联网：一键加入计划需联网后使用');
-      return;
-    }
     setJoining(post.id);
     try {
       if (post.myJoined) {
@@ -168,18 +165,16 @@ export function SocialPage() {
             : p,
         ),
       );
+    } catch (e) {
+      setError(errorMessage(e));
     } finally {
       setJoining(null);
     }
   };
 
   const joinTemplate = async (t: PlanTemplate) => {
-    if (!online) {
-      setError('当前未联网：加入官方计划需联网后使用');
-      return;
-    }
     try {
-      // #18/#21：保存到「我的计划」（不直接建提醒），在计划页开启开关
+      // #18/#22：保存到「我的计划」（本地=游客/离线可用；云端=服务器保存），计划页开启开关建提醒
       const r = (await socialApi.joinTemplate(t.id)) as { duplicate?: boolean };
       window.dispatchEvent(new CustomEvent('cuckoo:reminders-changed'));
       setError(null);
@@ -190,12 +185,8 @@ export function SocialPage() {
     }
   };
 
-  /** #21：退出官方计划（从我的计划移除，状态回退未加入） */
+  /** #22：退出官方计划（本地=从我的计划移除；云端=移除+状态回退未加入） */
   const leaveTemplate = async (t: PlanTemplate) => {
-    if (!online) {
-      setError('当前未联网：退出官方计划需联网后使用');
-      return;
-    }
     try {
       await socialApi.leaveTemplate(t.id);
       setNotice(`已退出「${t.title}」，从我的计划移除`);

@@ -242,6 +242,8 @@ interface GuestState {
       Pick<SeedDataset, 'feed' | 'templates' | 'groups' | 'exercises' | 'followings' | 'favorites' | 'notifications'>
     >,
   ) => void;
+  /** #22：把游客数据集合并进当前账户（按 id + updatedAt 较新）；返回 {merged, skipped} */
+  mergeGuestData: () => { merged: number; skipped: number };
 
   exportBundle: () => {
     reminders: unknown[];
@@ -531,6 +533,70 @@ export const useGuestStore = create<GuestState>()(
           persistNow();
         },
 
+        mergeGuestData: () => {
+          // 仅账户上下文可合并（游客上下文无意义）
+          const s = get();
+          if (s.active || s.owner?.mode === 'guest' || !s.owner) {
+            throw new Error('请先登录账户，再合并游客数据');
+          }
+          const raw = localStorage.getItem('cuckoo_local:guest');
+          if (!raw) return { merged: 0, skipped: 0 };
+          let guest: Record<string, unknown>;
+          try {
+            guest = JSON.parse(raw) as Record<string, unknown>;
+          } catch {
+            return { merged: 0, skipped: 0 };
+          }
+          const at = (x: unknown): number => {
+            const v = (x as { updatedAt?: unknown; createdAt?: unknown })?.updatedAt ?? (x as { createdAt?: unknown })?.createdAt;
+            return typeof v === 'string' && !Number.isNaN(new Date(v).getTime()) ? new Date(v).getTime() : 0;
+          };
+          /** 按 id 合并：updatedAt 较新者胜（无时间戳则云端/账户侧保留） */
+          const mergeById = <T extends { id: string; [k: string]: unknown }>(
+            cur: T[],
+            inc: unknown[],
+          ): { list: T[]; merged: number; skipped: number } => {
+            const map = new Map(cur.map((x) => [x.id, x]));
+            let merged = 0;
+            let skipped = 0;
+            for (const item of inc as T[]) {
+              const ex = map.get(item.id);
+              if (!ex) {
+                map.set(item.id, item);
+                merged += 1;
+              } else if (at(item) > at(ex)) {
+                map.set(item.id, item);
+                merged += 1;
+              } else {
+                skipped += 1;
+              }
+            }
+            return { list: [...map.values()], merged, skipped };
+          };
+          const cur = get();
+          const reminders = mergeById(cur.reminders as never, (guest.reminders as unknown[]) ?? []);
+          const medicines = mergeById(cur.medicines as never, (guest.medicines as unknown[]) ?? []);
+          const plans = mergeById(cur.plans as never, (guest.plans as unknown[]) ?? []);
+          const logsMerge = (() => {
+            const seen = new Set(cur.logs.map((l) => l.id));
+            const inc = ((guest.logs as unknown[]) ?? []).filter((l) => !seen.has((l as { id: string }).id));
+            return { list: [...cur.logs, ...(inc as GuestLog[])], merged: inc.length, skipped: 0 };
+          })();
+          set({
+            reminders: reminders.list as never,
+            medicines: medicines.list as never,
+            plans: plans.list as never,
+            logs: logsMerge.list,
+          });
+          persistNow();
+          try {
+            localStorage.removeItem('cuckoo_local:guest');
+          } catch {
+            /* 忽略 */
+          }
+          return { merged: reminders.merged + medicines.merged + plans.merged + logsMerge.merged, skipped: reminders.skipped + medicines.skipped + plans.skipped };
+        },
+
         exportBundle: () => ({
           reminders: get().reminders.map((r) => ({
             id: r.id,
@@ -583,6 +649,7 @@ export const useGuestStore = create<GuestState>()(
             isActive: p.isActive,
             createdAt: p.createdAt,
             updatedAt: p.createdAt,
+            config: p.config ?? null,
           })),
           settings: { ...get().settings, updatedAt: nowIso() },
           exportedAt: nowIso(),

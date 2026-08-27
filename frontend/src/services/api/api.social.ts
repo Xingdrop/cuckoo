@@ -1,5 +1,5 @@
 import { http } from '../http';
-import { useLocal } from '../../guest/localMode';
+import { useLocal, useGuestMode } from '../../guest/localMode';
 import { guestApi } from '../../guest/guestApi';
 import { useGuestStore } from '../../guest/guestStore';
 import type { Page } from '../../types';
@@ -50,6 +50,10 @@ export interface Group {
 }
 
 /** #17：在线拉取成功后写入本地缓存（断网时由 guestApi 供数——"断网前接收的数据"） */
+/** #22：游客/离线禁用的账户操作统一错误（游客提示需登录；离线账户提示需联网） */
+const accountOpErr = (act: string) =>
+  new Error(useGuestMode() ? `请登录后使用（${act}需要正常账户）` : `当前未联网：${act}需联网后使用`);
+
 const cacheWrite = (patch: Record<string, unknown>) => {
   const s = useGuestStore.getState();
   if (s.mirrorOf === null) return; // 无账户上下文（游客/未登录）不缓存
@@ -95,29 +99,29 @@ export const socialApi = {
     planSnapshot?: Record<string, unknown> | null;
   }) =>
     useLocal()
-      ? Promise.reject(new Error('当前未联网：发布帖子需联网后使用'))
+      ? Promise.reject(accountOpErr('发布帖子'))
       : http.post<Post>('/posts', body).then((r) => r.data),
   updatePost: (id: string, content: string) =>
     useLocal()
-      ? Promise.reject(new Error('当前未联网：编辑帖子需联网后使用'))
+      ? Promise.reject(accountOpErr('编辑帖子'))
       : http.patch<Post>(`/posts/${id}`, { content }).then((r) => r.data),
   removePost: (id: string) =>
     useLocal()
-      ? Promise.reject(new Error('当前未联网：删除帖子需联网后使用'))
+      ? Promise.reject(accountOpErr('删除帖子'))
       : http.delete(`/posts/${id}`).then((r) => r.data),
 
   // 互动
   like: (id: string) =>
     useLocal()
-      ? Promise.reject(new Error('当前未联网：点赞需联网后使用'))
+      ? Promise.reject(accountOpErr('点赞'))
       : http.post(`/posts/${id}/like`).then((r) => r.data),
   favorite: (id: string) =>
     useLocal()
-      ? Promise.reject(new Error('当前未联网：收藏需联网后使用'))
+      ? Promise.reject(accountOpErr('收藏'))
       : http.post(`/posts/${id}/favorite`).then((r) => r.data),
   comment: (id: string, content: string) =>
     useLocal()
-      ? Promise.reject(new Error('当前未联网：评论需联网后使用'))
+      ? Promise.reject(accountOpErr('评论'))
       : http.post(`/posts/${id}/comment`, { content }).then((r) => r.data),
   comments: (id: string) =>
     useLocal()
@@ -126,17 +130,21 @@ export const socialApi = {
           .get<Page<{ id: string; content: string; createdAt: string }>>(`/posts/${id}/comments`)
           .then((r) => r.data),
 
-  // 一键加入
+  // 一键加入（社群/分享计划：仅账户可用；游客仅可加入官方计划）
   join: (id: string) =>
     useLocal()
-      ? Promise.reject(new Error('当前未联网：加入计划需联网后使用'))
+      ? Promise.reject(
+          new Error(useGuestMode() ? '游客仅可加入官方计划，社群计划请登录后加入' : '当前未联网：加入社群计划需联网后使用'),
+        )
       : http.post(`/posts/${id}/join`).then((r) => r.data),
   leave: (id: string) =>
     useLocal()
-      ? Promise.reject(new Error('当前未联网：退出计划需联网后使用'))
+      ? Promise.reject(
+          new Error(useGuestMode() ? '游客仅可加入官方计划，社群计划请登录后操作' : '当前未联网：退出计划需联网后使用'),
+        )
       : http.delete(`/posts/${id}/join`).then((r) => r.data),
 
-  // 官方计划
+  // 官方计划（#22：游客/离线账户本地加入——保存到我的计划）
   templates: () => {
     if (useLocal()) return Promise.resolve<PlanTemplate[]>(guestApi.templates());
     return http.get<PlanTemplate[]>('/plan-templates').then((r) => {
@@ -160,12 +168,12 @@ export const socialApi = {
   },
   joinTemplate: (id: string) =>
     useLocal()
-      ? Promise.reject(new Error('当前未联网：加入计划需联网后使用'))
+      ? Promise.resolve(guestApi.joinOfficialTemplate(id))
       : http.post(`/plan-templates/${id}/join`).then((r) => r.data),
-  /** #21：退出官方计划（从我的计划移除，状态回退未加入） */
+  /** #22：退出官方计划（本地=从我的计划移除；云端=移除+状态回退未加入） */
   leaveTemplate: (id: string) =>
     useLocal()
-      ? Promise.reject(new Error('当前未联网：退出计划需联网后使用'))
+      ? Promise.resolve(guestApi.leaveOfficialTemplate(id))
       : http.delete(`/plan-templates/${id}/join`).then((r) => r.data),
 
   // 小组
@@ -178,11 +186,11 @@ export const socialApi = {
   },
   createGroup: (body: { name: string; description: string }) =>
     useLocal()
-      ? Promise.reject(new Error('当前未联网：创建小组需联网后使用'))
+      ? Promise.reject(accountOpErr('创建小组'))
       : http.post<Group>('/groups', body).then((r) => r.data),
   joinGroup: (id: string) =>
     useLocal()
-      ? Promise.reject(new Error('当前未联网：加入小组需联网后使用'))
+      ? Promise.reject(accountOpErr('加入小组'))
       : http.post(`/groups/${id}/join`).then((r) => r.data),
 };
 
@@ -208,6 +216,6 @@ export const notificationsApi = {
   },
   markRead: (id?: string) =>
     useLocal()
-      ? Promise.reject(new Error('当前未联网：标记已读需联网后使用'))
+      ? Promise.reject(accountOpErr('标记已读'))
       : http.patch('/notifications/read', { id }).then((r) => r.data),
 };

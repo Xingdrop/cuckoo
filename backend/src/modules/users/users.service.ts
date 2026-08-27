@@ -195,7 +195,7 @@ export class UsersService {
         expiryDate: raw.expiryDate ? new Date(raw.expiryDate as string) : null,
       }));
     }
-    // 计划
+    // 计划（#22：合并 config —— 加入时保存的提醒配置，可重建提醒）
     if (bundle.plans?.length) {
       const repo = this.dataSource.getRepository(Plan);
       counts.plans = await mergeRows(repo as never, asItems(bundle.plans), (id, raw) => ({
@@ -207,6 +207,7 @@ export class UsersService {
         sourceTitle: (raw.sourceTitle as string) ?? null,
         sourceId: (raw.sourceId as string) ?? null,
         isActive: raw.isActive !== false,
+        config: Array.isArray(raw.config) ? (raw.config as Record<string, unknown>[]) : null,
       }));
     }
     // 帖子

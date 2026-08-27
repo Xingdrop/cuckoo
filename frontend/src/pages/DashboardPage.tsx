@@ -689,7 +689,9 @@ function IntervalCard({
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">{item.title}</span>
           <span className="mt-0.5 block truncate text-[11px] text-ink-500">
-            每 {item.repeatRule?.intervalValue ?? 1} {(item.repeatRule?.intervalUnit as string) === 'minute' ? '分钟' : item.repeatRule?.intervalUnit === 'week' ? '周' : '小时'}
+            {item.repeatRule?.type === 'interval'
+              ? `每 ${item.repeatRule?.intervalValue ?? 1} ${(item.repeatRule?.intervalUnit as string) === 'minute' ? '分钟' : item.repeatRule?.intervalUnit === 'week' ? '周' : '小时'}`
+              : `每日 ${total} 次`}
             <span className="text-ink-300"> · 共 {total} 次</span>
           </span>
           <span className="mt-1 flex flex-wrap items-center gap-1">
@@ -763,7 +765,7 @@ function IntervalCard({
   );
 }
 
-/** #4：间隔提醒（当日多次）聚合判定 */
+/** #4/#22：当日多次点聚合——"间隔重复"或"每日多次(≥4 个时间点)"都合并为单卡（避免十几行横条） */
 function isIntervalMulti(item: CalendarItem): boolean {
-  return item.repeatRule?.type === 'interval' && item.times.length > 1;
+  return item.times.length > 1 && (item.repeatRule?.type === 'interval' || item.times.length >= 4);
 }

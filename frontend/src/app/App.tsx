@@ -8,6 +8,7 @@ import { ReminderScheduler } from '../features/reminders/ReminderScheduler';
 import { LoginPage } from '../pages/LoginPage';
 import { useAuthStore } from '../stores/authStore';
 import { useConnectionStore } from '../stores/connectionStore';
+import { useGuestStore } from '../guest/guestStore';
 import { tokenStore } from '../services/http';
 
 /**
@@ -50,30 +51,49 @@ function PageFallback() {
   );
 }
 
-/** #15/#17：联网恢复 → 本地变更合并回远端 + 重新拉取全量镜像 */
+/**
+ * #15/#17/#23：同步结果横幅——
+ * 联网恢复 或 打开 App（已有离线镜像）时尝试同步：
+ * 成功 → 「✓ 数据同步成功」；失败 → 「✗ 数据同步失败，请检查网络后重试」
+ */
 function SyncOnOnline() {
-  const [synced, setSynced] = useState(false);
+  const [msg, setMsg] = useState<null | 'ok' | 'fail'>(null);
   useEffect(() => {
-    const unsub = useConnectionStore.subscribe((s, prev) => {
-      if (s.online && !prev.online) {
-        void (async () => {
-          const { syncMirrorToCloud } = await import('../guest/mirror');
-          const ok = await syncMirrorToCloud();
-          if (ok) {
-            setSynced(true);
-            setTimeout(() => setSynced(false), 2500);
-          }
-        })();
+    const run = async () => {
+      try {
+        const { syncMirrorToCloud } = await import('../guest/mirror');
+        const ok = await syncMirrorToCloud();
+        setMsg(ok ? 'ok' : 'fail');
+      } catch {
+        setMsg('fail');
       }
+      setTimeout(() => setMsg(null), 4000);
+    };
+    // 仅离线镜像上下文触发（游客/在线账户无需本地→云端回灌）
+    const shouldSync = () => {
+      const g = useGuestStore.getState();
+      return useConnectionStore.getState().online && g.mirrorOf !== null && !g.active;
+    };
+    const alreadyOnline = useConnectionStore.getState().online;
+    const unsub = useConnectionStore.subscribe((s, prev) => {
+      if (s.online && !prev.online && shouldSync()) void run();
     });
+    // 打开 App：离线账户镜像 + 启动即联网 → 立即同步一次（在线账户由服务端主导，不弹横幅）
+    if (alreadyOnline && useGuestStore.getState().mirrorOf?.startsWith('seed:') && !useGuestStore.getState().active) {
+      void run();
+    }
     return () => {
       unsub();
     };
   }, []);
-  if (!synced) return null;
+  if (!msg) return null;
   return (
-    <div className="fixed left-1/2 top-2 z-[70] -translate-x-1/2 rounded-full bg-primary-500 px-3 py-1 text-[11px] font-medium text-white shadow">
-      ☁️ 网络已恢复，本地修改已同步到云端
+    <div
+      className={`fixed left-1/2 top-2 z-[70] -translate-x-1/2 rounded-full px-3 py-1 text-[11px] font-medium text-white shadow ${
+        msg === 'ok' ? 'bg-primary-500' : 'bg-danger-500'
+      }`}
+    >
+      {msg === 'ok' ? '✓ 数据同步成功' : '✗ 数据同步失败，请检查网络后重试'}
     </div>
   );
 }

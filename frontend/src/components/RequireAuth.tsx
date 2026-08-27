@@ -7,14 +7,15 @@ import { useGuestStore } from '../guest/guestStore';
 const isSeedMode = () => (useGuestStore.getState().mirrorOf ?? '').startsWith('seed:');
 
 /**
- * 路由守卫（#1/#17/#19）：
+ * 路由守卫（#1/#17/#21/#22）：
  * - 已登录（在线）→ 放行
  * - 离线账户（seed 镜像，已登录未联网）→ 放行全部本地功能，社交展示缓存内容
- * - 游客 = 本地账户（复用离线账户同一套模块/界面）：本地功能全部开放，
- *   社交页同样展示缓存内容（操作需联网）；仅账户/云端数据页（设置/主页/报告/成就/设备）提示
+ * - 游客 = 本地账户（复用离线账户同一套模块/界面）：本地功能全部开放；社交可浏览缓存、
+ *   可加入官方计划（本地保存），账户操作（关注/点赞/评论/发布/社群计划加入）提示登录；
+ *   账户/云端数据页（主页/报告/成就/设备）锁定
  * - 未登录非游客 → 跳登录页
  */
-/** #21：设置页本地可开放（离线/游客本地保存）；账户/云端数据页仍需登录/联网 */
+/** #21：账户/云端数据页仍需登录/联网 */
 const ACCOUNT_PREFIXES = ['/profile', '/reports', '/achievements', '/devices'];
 
 export function RequireAuth({ children }: { children: ReactNode }) {
@@ -36,7 +37,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   }
   const local = guestActive || seedMode;
   if (local) {
-    // #19：游客与离线账户均展示缓存社交内容（操作按钮离线禁用）
+    // #22：游客/离线账户本地功能开放（账户操作在页内提示登录/联网）
     if (ACCOUNT_PREFIXES.some((p) => location.pathname.startsWith(p))) {
       return <GuestHint variant={seedMode ? 'offline' : 'lock'} />;
     }

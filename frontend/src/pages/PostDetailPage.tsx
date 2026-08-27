@@ -78,10 +78,6 @@ export function PostDetailPage() {
 
   const submitComment = async () => {
     if (!id || !commentText.trim()) return;
-    if (!online) {
-      setError('当前未联网：评论需联网后使用');
-      return;
-    }
     try {
       await socialApi.comment(id, commentText.trim());
       setCommentText('');
@@ -91,13 +87,9 @@ export function PostDetailPage() {
     }
   };
 
-  /** 加入/退出计划：乐观更新 + loading（#1：修复"无法退出/点击无反应"） */
+  /** 加入/退出计划：乐观更新 + loading（#1：修复"无法退出/点击无反应"；#22：游客禁社群计划） */
   const toggleJoin = async () => {
     if (!post || joining) return;
-    if (!online) {
-      setError('当前未联网：一键加入需联网后使用');
-      return;
-    }
     setJoining(true);
     setError(null);
     const nextJoined = !post.myJoined;

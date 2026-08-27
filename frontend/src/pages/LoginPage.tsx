@@ -169,24 +169,24 @@ export function LoginPage() {
           <span className="text-xs text-ink-300">或</span>
           <span className="h-px flex-1 bg-ink-100" />
         </div>
-        <Link
-          to="/guest"
+        <button
           onClick={() => {
+            // #21：游客 = 本地账户——直接进入与离线账户一模一样的 /today 界面
             useGuestStore.getState().activate();
-            // #19：游客 = 本地账户——复制公共社交缓存，界面与离线账户一致
             void import('../guest/seed').then((m) => m.seedGuestSocialCache());
+            navigate('/today', { replace: true });
           }}
-          className="mt-4 flex items-center gap-3 rounded-card border border-primary-100 bg-primary-50/50 px-4 py-3.5 transition-colors hover:bg-primary-50"
+          className="mt-4 flex w-full items-center gap-3 rounded-card border border-primary-100 bg-primary-50/50 px-4 py-3.5 text-left transition-colors hover:bg-primary-50"
         >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-lg shadow-sm">
             🎒
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-medium text-ink-700">先以游客身份体验</span>
-            <span className="block text-[11px] text-ink-500">无需注册 · 数据仅存本机 · 可随时升级同步</span>
+            <span className="block text-[11px] text-ink-500">本地账户 · 所有本地功能可用 · 数据仅存本机</span>
           </span>
           <ChevronRight size={16} className="shrink-0 text-ink-300" />
-        </Link>
+        </button>
       </div>
 
       <p className="mt-6 text-center text-xs text-ink-300">

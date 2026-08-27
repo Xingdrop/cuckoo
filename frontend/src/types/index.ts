@@ -97,6 +97,8 @@ export interface Reminder {
   planName?: string | null;
   /** 计划提醒被用户修改过（2026-08：显示"已修改"徽标） */
   modifiedFromPlan?: boolean;
+  /** #20：是否计入完成率（今日完成率方框逐条勾选；默认 true） */
+  countInRate?: boolean;
   content: ReminderContent;
   method: ReminderMethod;
   delaySettings: DelaySettings;
@@ -165,6 +167,8 @@ export interface CalendarItem {
   untimed?: boolean;
   /** 重复规则（2026-08 间隔提醒聚合展示用） */
   repeatRule?: RepeatRule;
+  /** #20：是否计入完成率 */
+  countInRate?: boolean;
 }
 
 /** 药品（M2） */

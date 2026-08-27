@@ -417,18 +417,45 @@ export class SocialService {
 
   // ============ 官方计划 ============
 
-  async listTemplates() {
-    return this.templateRepo.find({
+  /** #20：官方计划列表（附带当前用户 joined 状态——已保存到我的计划 = 已加入） */
+  async listTemplates(userId: string) {
+    const templates = await this.templateRepo.find({
       where: { status: PlanTemplateStatus.PUBLISHED },
       order: { createdAt: 'DESC' },
     });
+    return this.withJoinedState(userId, templates);
   }
 
-  /** 官方计划详情（供预览页） */
-  async getTemplate(templateId: string) {
+  /** 官方计划详情（供预览页；附 joined 状态） */
+  async getTemplate(userId: string, templateId: string) {
     const template = await this.templateRepo.findOne({ where: { id: templateId, status: PlanTemplateStatus.PUBLISHED } });
     if (!template) throw new NotFoundException({ code: 'NOT_FOUND', message: '官方计划不存在' });
-    return template;
+    return (await this.withJoinedState(userId, [template]))[0];
+  }
+
+  /** 批量附加 joined（计划已保存 = 已加入） */
+  private async withJoinedState(userId: string, templates: PlanTemplate[]) {
+    if (!templates.length) return templates;
+    const ids = templates.map((t) => t.id);
+    const plans = await this.planRepo.find({
+      where: { userId, sourceType: 'official', sourceId: In(ids) },
+      select: { id: true, sourceId: true },
+    });
+    const joinedIds = new Set(plans.map((p) => p.sourceId));
+    return templates.map((t) => ({ ...t, joined: joinedIds.has(t.id) }));
+  }
+
+  /** 退出官方计划：从我的计划移除（连带清除提醒），状态回退未加入 */
+  async leaveTemplate(userId: string, templateId: string) {
+    const plan = await this.planRepo.findOne({
+      where: { userId, sourceType: 'official', sourceId: templateId },
+    });
+    if (!plan) return { left: false };
+    await this.dataSource.transaction(async (manager) => {
+      await manager.getRepository(Reminder).softDelete({ userId, planId: plan.id });
+      await manager.getRepository(Plan).delete({ id: plan.id, userId });
+    });
+    return { left: true };
   }
 
   /** 官方计划一键加入（#18：只保存计划+提醒配置，不创建提醒；由用户在计划页开启） */

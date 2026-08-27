@@ -6,7 +6,6 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { RequireAuth } from '../components/RequireAuth';
 import { ReminderScheduler } from '../features/reminders/ReminderScheduler';
 import { LoginPage } from '../pages/LoginPage';
-import { GuestHomePage } from '../pages/GuestPage';
 import { useAuthStore } from '../stores/authStore';
 import { useConnectionStore } from '../stores/connectionStore';
 import { tokenStore } from '../services/http';
@@ -149,14 +148,6 @@ export function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
-          <Route
-            path="/guest"
-            element={
-              <RequireAuth>
-                <GuestHomePage />
-              </RequireAuth>
-            }
-          />
           <Route
             path="/plans"
             element={

@@ -49,6 +49,14 @@ export function SocialPage() {
   const [joining, setJoining] = useState<string | null>(null);
   const [showTop, setShowTop] = useState(false);
   const [netToast, setNetToast] = useState<number | null>(null);
+  /** #21：计划操作成功提示（美观内联，替代 alert） */
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 3000);
+    return () => clearTimeout(t);
+  }, [notice]);
 
   // #19：刷新时断网提示（3 秒自动消失）
   useEffect(() => {
@@ -171,17 +179,27 @@ export function SocialPage() {
       return;
     }
     try {
-      // #18：只保存到「我的计划」（不直接建提醒），在计划页开启开关
+      // #18/#21：保存到「我的计划」（不直接建提醒），在计划页开启开关
       const r = (await socialApi.joinTemplate(t.id)) as { duplicate?: boolean };
       window.dispatchEvent(new CustomEvent('cuckoo:reminders-changed'));
       setError(null);
-      if (r.duplicate) {
-        alert('已在「我的计划」中，前往计划页开启/管理提醒');
-        navigate('/plans');
-      } else {
-        alert('已保存到「我的计划」，可在计划页开启开关创建全部提醒');
-        navigate('/plans');
-      }
+      setNotice(r.duplicate ? '该官方计划已在「我的计划」中，可前往计划页开启提醒' : `已把「${t.title}」保存到我的计划；在计划页开启开关即创建提醒`);
+      void load();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  };
+
+  /** #21：退出官方计划（从我的计划移除，状态回退未加入） */
+  const leaveTemplate = async (t: PlanTemplate) => {
+    if (!online) {
+      setError('当前未联网：退出官方计划需联网后使用');
+      return;
+    }
+    try {
+      await socialApi.leaveTemplate(t.id);
+      setNotice(`已退出「${t.title}」，从我的计划移除`);
+      void load();
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -326,6 +344,11 @@ export function SocialPage() {
         {netToast !== null && (
           <p className="mb-3 rounded-btn bg-warning-500/20 px-3 py-2 text-[11px] font-medium text-ink-700">
             ⚠ 网络已断开，刷新失败 — 正在显示断网前缓存数据
+          </p>
+        )}
+        {notice && (
+          <p className="mb-3 rounded-btn bg-primary-50 px-3 py-2 text-[11px] font-medium text-primary-700">
+            ✓ {notice}
           </p>
         )}
         {error && (
@@ -569,8 +592,16 @@ export function SocialPage() {
                   className="flex w-full items-center gap-1.5 text-left"
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-medium">{t.title}</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="block truncate text-sm font-medium">{t.title}</span>
+                      {t.joined && (
+                        <span className="shrink-0 rounded-full bg-primary-500/15 px-2 py-0.5 text-[10px] font-medium text-primary-700">
+                          ✓ 已加入
+                        </span>
+                      )}
+                    </span>
                     <span className="mt-0.5 block text-xs leading-relaxed text-ink-500">{t.description}</span>
+                    <span className="mt-1 block text-[10px] text-ink-400">加入后保存到「我的计划」，开启开关创建提醒</span>
                   </span>
                   <span className="shrink-0 text-[10px] text-primary-500">查看详情 ›</span>
                 </button>
@@ -581,12 +612,21 @@ export function SocialPage() {
                   >
                     查看详情
                   </button>
-                  <button
-                    onClick={() => void joinTemplate(t)}
-                    className="flex-1 rounded-btn bg-primary-500 py-2.5 text-sm font-medium text-white"
-                  >
-                    加入我的计划
-                  </button>
+                  {t.joined ? (
+                    <button
+                      onClick={() => void leaveTemplate(t)}
+                      className="flex-1 rounded-btn bg-danger-500/10 py-2.5 text-sm font-medium text-danger-600"
+                    >
+                      退出计划
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => void joinTemplate(t)}
+                      className="flex-1 rounded-btn bg-primary-500 py-2.5 text-sm font-medium text-white"
+                    >
+                      加入我的计划
+                    </button>
+                  )}
                 </div>
               </li>
             ))}

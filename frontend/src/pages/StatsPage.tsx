@@ -3,7 +3,6 @@ import { CalendarDays, ChevronLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { statsApi, DashboardStats, DayStat } from '../services/api/api.stats';
-import { authApi } from '../services/api/api.auth';
 
 /** 热力图 4 档颜色映射（M5 完善：0 / 1-49 / 50-99 / 100%） */
 const HEAT_COLORS = ['bg-ink-100', 'bg-primary-200', 'bg-primary-400', 'bg-primary-600'];
@@ -25,7 +24,6 @@ export function StatsPage() {
   const [heatmap, setHeatmap] = useState<DayStat[]>([]);
   const [trend, setTrend] = useState<DayStat[]>([]);
   const [water, setWater] = useState<{ waterMl: number; waterGoalMl: number; rate: number; reached: boolean } | null>(null);
-  const [waterInRate, setWaterInRate] = useState(true);
   const [month, setMonth] = useState(() => {
     const n = new Date();
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`;
@@ -34,9 +32,7 @@ export function StatsPage() {
   useEffect(() => {
     statsApi.dashboard().then(setStats).catch(() => undefined);
     statsApi.trend(7).then(setTrend).catch(() => undefined);
-    // #14：水统计与"计入完成率"开关状态（开关默认关）
     statsApi.waterInfo().then(setWater).catch(() => undefined);
-    authApi.getSettings().then((s) => setWaterInRate(s.waterInRate === true)).catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -81,7 +77,7 @@ export function StatsPage() {
               <p className="mt-1 text-2xl font-bold">{stats?.rate ?? 0}%</p>
               <p className="text-xs text-white/60">
                 {stats?.done ?? 0}/{stats?.planned ?? 0}
-                <span className="ml-1 opacity-80">{waterInRate ? '（含喝水）' : '（不含喝水）'}</span>
+                <span className="ml-1 opacity-80">（按提醒勾选计入）</span>
               </p>
             </div>
           </div>

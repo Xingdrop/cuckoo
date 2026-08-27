@@ -226,7 +226,7 @@ describe('SocialService（UT-JOIN）', () => {
   it('UT-PLAN-01 计划开关：开启 = 按配置重建提醒，关闭 = 清除全部相关提醒（#18）', async () => {
     const post = await makePlanPost('开关联动帖子', SNAPSHOT.reminders);
     const r = await service.joinPlan(USER_B, post.id);
-    const plans = new PlansService(planRepo as never, reminderRepo as never);
+    const plans = new PlansService(planRepo as never, reminderRepo as never, dataSource);
 
     // 加入后：无提醒，计划未启用
     const plan = await planRepo.findOne({ where: { id: r.planId, userId: USER_B } });

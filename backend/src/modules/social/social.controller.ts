@@ -137,21 +137,27 @@ export class SocialController {
 
   // ---- 官方计划 ----
   @Get('plan-templates')
-  @ApiOperation({ summary: '官方计划列表（FR-606）' })
-  templates() {
-    return this.socialService.listTemplates();
+  @ApiOperation({ summary: '官方计划列表（FR-606；附 joined 已加入状态）' })
+  templates(@CurrentUser('sub') userId: string) {
+    return this.socialService.listTemplates(userId);
   }
 
   @Get('plan-templates/:id')
-  @ApiOperation({ summary: '官方计划详情（预览页）' })
-  template(@Param('id') id: string) {
-    return this.socialService.getTemplate(id);
+  @ApiOperation({ summary: '官方计划详情（预览页；附 joined 状态）' })
+  template(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    return this.socialService.getTemplate(userId, id);
   }
 
   @Post('plan-templates/:id/join')
   @ApiOperation({ summary: '加入官方计划' })
   joinTemplate(@CurrentUser('sub') userId: string, @Param('id') id: string) {
     return this.socialService.joinTemplate(userId, id);
+  }
+
+  @Delete('plan-templates/:id/join')
+  @ApiOperation({ summary: '退出官方计划（从我的计划移除，状态回退未加入）' })
+  leaveTemplate(@CurrentUser('sub') userId: string, @Param('id') id: string) {
+    return this.socialService.leaveTemplate(userId, id);
   }
 
   // ---- 兴趣小组 ----

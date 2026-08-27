@@ -16,7 +16,6 @@ export function WaterSettingsPage() {
   const [waterReminder, setWaterReminder] = useState<Reminder | null>(null);
   const [waterAmount, setWaterAmount] = useState(200);
   const [waterGoal, setWaterGoal] = useState(2000);
-  const [waterInRate, setWaterInRate] = useState(false);
   const [todayMl, setTodayMl] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,8 +31,6 @@ export function WaterSettingsPage() {
       const wa = (water?.content as { waterAmountMl?: number } | undefined)?.waterAmountMl;
       if (wa) setWaterAmount(wa);
       setWaterGoal(settings.waterGoalMl);
-      // #14：默认关闭（与后端默认一致；由开关决定是否计入）
-      setWaterInRate(settings.waterInRate === true);
       setTodayMl(dashboard.water.waterMl);
     } catch (e) {
       setError(errorMessage(e));
@@ -158,33 +155,6 @@ export function WaterSettingsPage() {
             />
           </div>
         </section>
-
-          <section className="rounded-card bg-surface p-4 shadow-sm">
-            <p className="text-sm font-medium">完成率联动</p>
-            <div className="mt-2 flex items-center justify-between">
-              <div>
-                <p className="text-sm text-ink-700">喝水计入完成率</p>
-                <p className="text-[11px] text-ink-500">打开后：当日喝水达成目标 → 完成率 +1</p>
-              </div>
-              <button
-                onClick={async () => {
-                  try {
-                    const next = !waterInRate;
-                    setWaterInRate(next);
-                    await authApi.updateSettings({ waterInRate: next });
-                  } catch {
-                    setWaterInRate(!waterInRate);
-                  }
-                }}
-                aria-label="喝水计入完成率开关"
-                className={`flex h-6 w-10 shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 ${
-                  waterInRate ? 'justify-end bg-primary-500' : 'justify-start bg-ink-100'
-                }`}
-              >
-                <span className="h-5 w-5 rounded-full bg-white shadow-sm" />
-              </button>
-            </div>
-          </section>
 
           {/* 水量与目标 */}
           <section className="rounded-card bg-surface p-4 shadow-sm">

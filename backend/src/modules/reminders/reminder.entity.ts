@@ -155,6 +155,10 @@ export class Reminder {
   @Column({ type: 'boolean', default: false })
   modifiedFromPlan: boolean;
 
+  /** #20：是否计入完成率（今日完成率方框可逐条勾选；默认计入） */
+  @Column({ type: 'boolean', default: true })
+  countInRate: boolean;
+
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 

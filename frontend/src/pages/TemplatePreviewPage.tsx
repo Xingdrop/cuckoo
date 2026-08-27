@@ -15,41 +15,73 @@ const CATEGORY_EMOJI: Record<string, string> = {
   custom: '📌',
 };
 
-/** 官方计划详情（预览）：标题/说明/提醒配置清单 + 一键加入 */
+/** 官方计划详情（预览）：标题/说明/提醒配置清单 + 加入/已加入/退出状态 */
 export function TemplatePreviewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const online = useConnectionStore((s) => s.online);
   const [tpl, setTpl] = useState<PlanTemplate | null>(null);
   const [loading, setLoading] = useState(true);
-  const [joined, setJoined] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
     socialApi
-      .template(id) // #17：离线时读本地缓存
+      .template(id) // #17/#21：离线读本地缓存（含 joined 状态）
       .then(setTpl)
       .catch(() => undefined)
       .finally(() => setLoading(false));
   }, [id]);
 
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 3000);
+    return () => clearTimeout(t);
+  }, [notice]);
+
+  const joined = tpl?.joined === true;
+
   const join = async () => {
     if (!tpl || joining) return;
     if (!online) {
-      alert('当前未联网：加入官方计划需联网后使用');
+      setNotice('当前未联网：加入官方计划需联网后使用');
       return;
     }
     setJoining(true);
     try {
-      // #18：只保存到「我的计划」（不创建提醒）；跳转计划页由用户开启
-      const r = await socialApi.joinTemplate(tpl.id);
-      setJoined(true);
-      setTimeout(() => navigate('/plans'), 1200);
-      void (r as { duplicate?: boolean }).duplicate;
+      // #18：只保存到「我的计划」（不创建提醒）；开启开关在计划页
+      await socialApi.joinTemplate(tpl.id);
+      setNotice(`已把「${tpl.title}」保存到我的计划，可在计划页开启开关创建提醒`);
+      void loadMe();
     } finally {
       setJoining(false);
-      setLoading(false);
+    }
+  };
+
+  /** #21：退出官方计划（从我的计划移除 + 状态回退） */
+  const leave = async () => {
+    if (!tpl || joining) return;
+    if (!online) {
+      setNotice('当前未联网：退出官方计划需联网后使用');
+      return;
+    }
+    setJoining(true);
+    try {
+      await socialApi.leaveTemplate(tpl.id);
+      setNotice(`已退出「${tpl.title}」，从我的计划移除`);
+      void loadMe();
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const loadMe = async () => {
+    if (!id) return;
+    try {
+      setTpl(await socialApi.template(id));
+    } catch {
+      /* 保持现状 */
     }
   };
 
@@ -81,9 +113,21 @@ export function TemplatePreviewPage() {
           </div>
         ) : (
           <div className="space-y-4">
+            {notice && (
+              <p className="rounded-btn bg-primary-50 px-3 py-2 text-[11px] font-medium text-primary-700">
+                ✓ {notice}
+              </p>
+            )}
             <section className="rounded-card bg-surface p-5 text-center shadow-sm">
               <span className="text-3xl">🏛️</span>
-              <h2 className="mt-2 text-lg font-semibold">{tpl.title}</h2>
+              <h2 className="mt-2 flex items-center justify-center gap-1.5 text-lg font-semibold">
+                {tpl.title}
+                {joined && (
+                  <span className="rounded-full bg-primary-500/15 px-2 py-0.5 text-[10px] font-medium text-primary-700">
+                    ✓ 已加入
+                  </span>
+                )}
+              </h2>
               <p className="mt-1 text-xs leading-relaxed text-ink-500">{tpl.description}</p>
               <p className="mt-2 text-[11px] text-ink-400">共 {configs.length} 条提醒</p>
             </section>
@@ -113,22 +157,30 @@ export function TemplatePreviewPage() {
               </ul>
             </section>
 
-            <button
-              onClick={() => void join()}
-              disabled={joining || joined || !online}
-              className="flex w-full items-center justify-center gap-1 rounded-btn bg-primary-500 py-3 text-sm font-medium text-white disabled:opacity-50"
-            >
-              <Plus size={15} />
-              {!online
-                ? '离线状态（需联网加入）'
-                : joined
-                  ? '✓ 已保存到我的计划，即将前往计划页开启…'
+            {joined ? (
+              <button
+                onClick={() => void leave()}
+                disabled={joining || !online}
+                className="flex w-full items-center justify-center gap-1 rounded-btn bg-danger-500/10 py-3 text-sm font-medium text-danger-600 disabled:opacity-50"
+              >
+                {joining ? '处理中…' : '退出计划（从我的计划移除）'}
+              </button>
+            ) : (
+              <button
+                onClick={() => void join()}
+                disabled={joining || !online}
+                className="flex w-full items-center justify-center gap-1 rounded-btn bg-primary-500 py-3 text-sm font-medium text-white disabled:opacity-50"
+              >
+                <Plus size={15} />
+                {!online
+                  ? '离线状态（需联网加入）'
                   : joining
                     ? '保存中…'
                     : '加入我的计划'}
-            </button>
+              </button>
+            )}
             <p className="px-1 text-[11px] text-ink-400">
-              加入后计划保存到「我的计划」（不直接建提醒），在计划页开启开关即创建全部提醒
+              加入后计划保存到「我的计划」（不直接建提醒），在计划页开启开关即创建全部提醒；退出会连同计划提醒一并移除
             </p>
           </div>
         )}

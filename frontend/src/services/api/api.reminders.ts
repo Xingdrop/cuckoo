@@ -29,6 +29,8 @@ export interface CreateReminderInput {
   challenge?: ChallengeSettings;
   medicineId?: string;
   isActive?: boolean;
+  /** #20：是否计入完成率（默认 true） */
+  countInRate?: boolean;
   /** 鍠濇按姣忔棩鐩爣锛坵ater 鍒嗙被锛?*/
   waterGoalMl?: number;
 }

@@ -2,6 +2,7 @@ import { ChevronDown, ChevronLeft, GripVertical, Pencil, Plus, Send, Trash2 } fr
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGuestStore } from '../guest/guestStore';
+import { useConnectionStore } from '../stores/connectionStore';
 import { BottomNav } from '../components/BottomNav';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { ErrorBanner, EmptyState, LoadingState } from '../components/ui/Feedback';
@@ -24,6 +25,7 @@ export function PlansPage() {
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const guestActive = useGuestStore((s) => s.active);
+  const online = useConnectionStore((s) => s.online);
   const [planName, setPlanName] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [sharePlan, setSharePlan] = useState<Plan | null>(null);
@@ -89,6 +91,10 @@ export function PlansPage() {
 
   const share = async () => {
     if (!sharePlan) return;
+    if (!online) {
+      setError('当前未联网：一键发帖需联网后使用');
+      return;
+    }
     try {
       const snapshot = await plansApi.snapshot(sharePlan.id);
       const from = (snapshot as { from?: { name?: string } }).from;
@@ -121,9 +127,7 @@ export function PlansPage() {
         <h1 className="flex-1 text-lg font-semibold">我的计划</h1>
         <button
           onClick={() => setCreating((v) => !v)}
-          disabled={guestActive}
-          title={guestActive ? '登录后可新建计划' : undefined}
-          className="flex h-9 items-center gap-1 rounded-full bg-primary-500 px-3.5 text-xs font-medium text-white disabled:opacity-40"
+          className="flex h-9 items-center gap-1 rounded-full bg-primary-500 px-3.5 text-xs font-medium text-white"
         >
           <Plus size={14} /> 新建计划
         </button>
@@ -132,7 +136,12 @@ export function PlansPage() {
       <main className="px-4 pt-3">
         {guestActive && (
           <p className="mb-3 rounded-btn bg-accent-100/60 px-3 py-2 text-[11px] text-accent-700">
-            🎒 游客模式：我的计划（含一键发帖）需登录后使用；今日 / 提醒 / 统计照常可用
+            🎒 游客模式：计划数据仅存本机，可新建/管理；「一键发帖」需联网登录后使用（2026-08 #17）
+          </p>
+        )}
+        {!guestActive && !online && (
+          <p className="mb-3 rounded-btn bg-warning-500/15 px-3 py-2 text-[11px] text-ink-700">
+            📡 离线模式：计划数据存本机，可新建/管理；「一键发帖」需联网后使用
           </p>
         )}
         <ErrorBanner message={error} />
@@ -283,10 +292,10 @@ export function PlansPage() {
                         setSharePlan(p);
                         setShareText(`📋 我的计划「${p.name}」：${p.reminderCount ?? 0} 条提醒，欢迎一键加入一起坚持！`);
                       }}
-                      disabled={(p.reminderCount ?? 0) === 0 || guestActive}
+                      disabled={(p.reminderCount ?? 0) === 0 || !online}
                       title={
-                        guestActive
-                          ? '登录后可一键发帖（#14：游客禁用社交）'
+                        !online
+                          ? '一键发帖需联网后使用'
                           : (p.reminderCount ?? 0) === 0
                             ? '先添加提醒才能发帖'
                             : undefined

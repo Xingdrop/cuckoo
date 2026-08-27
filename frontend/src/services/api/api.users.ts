@@ -21,12 +21,13 @@ export const usersApi = {
   /** 注销账号（软删除 + 数据清理） */
   deleteAccount: () => http.delete<{ success: boolean }>('/users/me').then((r) => r.data),
 
-  /** #3：游客数据导入合并（云端按 created_at 较新优先） */
+  /** #3/#17：本地数据导入合并（云端按更新时间较新优先；含设置） */
   importData: (bundle: {
     reminders?: unknown[];
     logs?: unknown[];
     medicines?: unknown[];
     plans?: unknown[];
     posts?: unknown[];
+    settings?: unknown;
   }) => http.post('/users/me/import', bundle).then((r) => r.data),
 };

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { useAuthStore } from '../stores/authStore';
+import { useConnectionStore } from '../stores/connectionStore';
 import { errorMessage } from '../services/http';
 import { socialApi, Post, PlanTemplate, Group } from '../services/api/api.social';
 import { filesApi } from '../services/api/api.files';
@@ -31,6 +32,7 @@ function fmtTime(iso: string): string {
 export function SocialPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const online = useConnectionStore((s) => s.online);
   const [tab, setTab] = useState<'feed' | 'following' | 'mine' | 'templates' | 'groups'>('feed');
   const [posts, setPosts] = useState<Post[]>([]);
   const [templates, setTemplates] = useState<PlanTemplate[]>([]);
@@ -67,8 +69,12 @@ export function SocialPage() {
     refreshFollowing();
   }, [refreshFollowing]);
 
-  /** #5：关注/取消关注 */
+  /** #5：关注/取消关注（离线禁用——社交为联网功能） */
   const toggleFollowAuthor = async (authorId: string) => {
+    if (!online) {
+      setError('当前未联网：关注功能需联网后使用');
+      return;
+    }
     try {
       await profileApi.follow(authorId);
       refreshFollowing();
@@ -99,6 +105,10 @@ export function SocialPage() {
   }, [load]);
 
   const toggleLike = async (post: Post) => {
+    if (!online) {
+      setError('当前未联网：点赞需联网后使用');
+      return;
+    }
     await socialApi.like(post.id);
     setPosts((prev) =>
       prev.map((p) =>
@@ -110,11 +120,19 @@ export function SocialPage() {
   };
 
   const toggleFavorite = async (post: Post) => {
+    if (!online) {
+      setError('当前未联网：收藏需联网后使用');
+      return;
+    }
     await socialApi.favorite(post.id);
     setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, myFavorited: !p.myFavorited } : p)));
   };
 
   const joinPost = async (post: Post) => {
+    if (!online) {
+      setError('当前未联网：一键加入计划需联网后使用');
+      return;
+    }
     setJoining(post.id);
     try {
       if (post.myJoined) {
@@ -135,6 +153,10 @@ export function SocialPage() {
   };
 
   const joinTemplate = async (t: PlanTemplate) => {
+    if (!online) {
+      setError('当前未联网：加入官方计划需联网后使用');
+      return;
+    }
     try {
       const r = (await socialApi.joinTemplate(t.id)) as { duplicate?: boolean };
       window.dispatchEvent(new CustomEvent('cuckoo:reminders-changed'));
@@ -151,11 +173,19 @@ export function SocialPage() {
   };
 
   const joinGroup = async (g: Group) => {
+    if (!online) {
+      setError('当前未联网：加入小组需联网后使用');
+      return;
+    }
     await socialApi.joinGroup(g.id);
     void load();
   };
 
   const publish = async () => {
+    if (!online) {
+      setError('当前未联网：发布帖子需联网后使用');
+      return;
+    }
     if (!composerText.trim()) return;
     // #4：引用的计划不能为空（后端同样拦截，这里提前提示）
     const chosen = myPlans.find((p) => p.id === composerPlanId);
@@ -240,7 +270,8 @@ export function SocialPage() {
           </button>
           <button
             onClick={openComposer}
-            className="flex h-10 items-center gap-1 rounded-full bg-primary-500 px-4 text-sm font-medium text-white"
+            disabled={!online}
+            className="flex h-10 items-center gap-1 rounded-full bg-primary-500 px-4 text-sm font-medium text-white disabled:opacity-40"
           >
             <PenSquare size={15} /> 发布
           </button>
@@ -272,6 +303,11 @@ export function SocialPage() {
       </div>
 
       <main className="px-4 pt-4">
+        {!online && (
+          <p className="mb-3 rounded-btn bg-warning-500/15 px-3 py-2 text-[11px] text-ink-700">
+            📡 离线浏览：以下为断网前接收的缓存内容；点赞 / 评论 / 关注 / 发帖等需联网后使用，数据恢复后自动同步
+          </p>
+        )}
         {error && (
           <p className="mb-3 rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
         )}

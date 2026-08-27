@@ -1,14 +1,15 @@
 import { FormEvent, useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, WifiOff } from 'lucide-react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { errorMessage, tokenStore } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
 import { useGuestStore } from '../guest/guestStore';
+import { useConnectionStore } from '../stores/connectionStore';
 import { loginSchema, registerSchema } from '../types/schemas';
 
 /**
  * P-02 登录/注册（FR-101/102）
- * 登录成功 → 跳转 redirect 参数或 /today
+ * 登录成功 → 跳转 /today；#17：未联网时支持「离线账户」本地密码校验（APK 预置）。
  */
 export function LoginPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -18,12 +19,13 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user, login, register } = useAuthStore();
+  const online = useConnectionStore((s) => s.online);
   const navigate = useNavigate();
   const [params] = useSearchParams();
   void params; // redirect 已废弃：登录后统一进入 /today（#2）
 
-  // 仅当会话有效（token 存在）或 seed 离线账户（APK 预置）时才跳过登录页
-  if (user && (tokenStore.get() || (useGuestStore.getState().mirrorOf ?? '').startsWith('seed:'))) {
+  // 仅当会话有效（token 存在）时才跳过登录页；#17：种子账户不再自动登录
+  if (user && tokenStore.get()) {
     return <Navigate to="/today" replace />;
   }
 
@@ -37,6 +39,10 @@ export function LoginPage() {
         : loginSchema.safeParse({ username, password });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? '输入有误');
+      return;
+    }
+    if (mode === 'register' && !online) {
+      setError('注册需要联网；当前可登录预置离线账户（本地校验）');
       return;
     }
     setSubmitting(true);
@@ -65,7 +71,17 @@ export function LoginPage() {
         <p className="mt-2 text-sm text-ink-500">准时提醒，温柔守护</p>
       </div>
 
-      <div className="mt-8 rounded-card bg-surface p-6 shadow-sm">
+      {/* #17：未联网提示（APK 无服务器时默认出现） */}
+      {!online && (
+        <div className="mt-6 flex items-center gap-2 rounded-btn bg-warning-500/15 px-3.5 py-2.5 text-xs text-ink-700">
+          <WifiOff size={14} className="shrink-0 text-warning-500" />
+          <span>
+            当前未联网——可使用预置离线账户（本地密码校验）在完全离线下使用今日 / 提醒 / 统计 / 管理功能；联网后数据自动同步。
+          </span>
+        </div>
+      )}
+
+      <div className="mt-6 rounded-card bg-surface p-6 shadow-sm">
         {/* 模式切换 */}
         <div className="flex rounded-btn bg-bg p-1">
           {(['login', 'register'] as const).map((m) => (

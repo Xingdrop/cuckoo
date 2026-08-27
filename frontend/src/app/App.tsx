@@ -1,12 +1,15 @@
 // @Sdrop 布谷(Cuckoo) v1 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2FwcC9BcHAudHN4fDIwMjYtMDg=
 import { lazy, Suspense, useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
+import { WifiOff } from 'lucide-react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { RequireAuth } from '../components/RequireAuth';
 import { ReminderScheduler } from '../features/reminders/ReminderScheduler';
 import { LoginPage } from '../pages/LoginPage';
 import { GuestHomePage } from '../pages/GuestPage';
 import { useAuthStore } from '../stores/authStore';
+import { useConnectionStore } from '../stores/connectionStore';
+import { tokenStore } from '../services/http';
 
 /**
  * 懒加载页面的辅助包装：页面组件均为 named export。
@@ -48,31 +51,24 @@ function PageFallback() {
   );
 }
 
-/** #15：联网恢复 → 自动把离线镜像变更合并回远端 */
+/** #15/#17：联网恢复 → 本地变更合并回远端 + 重新拉取全量镜像 */
 function SyncOnOnline() {
   const [synced, setSynced] = useState(false);
   useEffect(() => {
-    let last = navigator.onLine;
-    const on = () => {
-      setSynced(false);
-      last = true;
-    };
-    const handleOnline = async () => {
-      if (!last) {
-        const { syncMirrorToCloud } = await import('../guest/mirror');
-        const ok = await syncMirrorToCloud();
-        if (ok) {
-          setSynced(true);
-          setTimeout(() => setSynced(false), 2500);
-        }
+    const unsub = useConnectionStore.subscribe((s, prev) => {
+      if (s.online && !prev.online) {
+        void (async () => {
+          const { syncMirrorToCloud } = await import('../guest/mirror');
+          const ok = await syncMirrorToCloud();
+          if (ok) {
+            setSynced(true);
+            setTimeout(() => setSynced(false), 2500);
+          }
+        })();
       }
-      last = true;
-    };
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', on);
+    });
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', on);
+      unsub();
     };
   }, []);
   if (!synced) return null;
@@ -83,22 +79,14 @@ function SyncOnOnline() {
   );
 }
 
-/** #1：离线状态指示（浏览器断网时提示"当前离线，数据来自本地缓存"） */
-function GlobalOfflineBadge() {  const [online, setOnline] = useState(navigator.onLine);
-  useEffect(() => {
-    const on = () => setOnline(true);
-    const off = () => setOnline(false);
-    window.addEventListener('online', on);
-    window.addEventListener('offline', off);
-    return () => {
-      window.removeEventListener('online', on);
-      window.removeEventListener('offline', off);
-    };
-  }, []);
+/** #17：未联网顶部横幅（网络断开 / APK 无服务器时） */
+function GlobalOfflineBadge() {
+  const online = useConnectionStore((s) => s.online);
   if (online) return null;
   return (
-    <div className="fixed left-1/2 top-2 z-[70] -translate-x-1/2 rounded-full bg-warning-500 px-3 py-1 text-[11px] font-medium text-white shadow">
-      📡 当前离线 — 数据来自本地缓存，联网后自动同步
+    <div className="fixed inset-x-0 top-0 z-[75] flex items-center justify-center gap-1.5 bg-warning-500 px-3 py-1.5 text-[11px] font-medium text-white shadow-sm">
+      <WifiOff size={12} strokeWidth={2.2} />
+      未联网 — 显示本地数据（断网前接收的社交内容可浏览），联网后自动同步
     </div>
   );
 }
@@ -110,18 +98,43 @@ function GlobalOfflineBadge() {  const [online, setOnline] = useState(navigator.
  */
 export function App() {
   const init = useAuthStore((s) => s.init);
+  const online = useConnectionStore((s) => s.online);
 
   useEffect(() => {
     void init();
-    // #16：APK 预置离线账户（asd seed）——首次启动自动本地登录
-    void import('../guest/seed').then((m) => m.bootstrapSeed()).then(() => void init());
+    // #16/#17：APK 预置离线种子只加载+校验（不自动登录）；登录后本地校验密码进入离线模式
+    void import('../guest/seed').then((m) => m.bootstrapSeed());
+    // 联网检测（服务器健康检查）
+    void useConnectionStore.getState().init();
+    // #17：联网状态监听（online/offline 事件 → 重新探测）
+    const onNet = () => setTimeout(() => void useConnectionStore.getState().refresh(), 300);
+    window.addEventListener('online', onNet);
+    window.addEventListener('offline', onNet);
+    const timer = window.setInterval(() => {
+      const s = useConnectionStore.getState();
+      if (!s.online) void s.refresh();
+    }, 45_000);
+    return () => {
+      window.removeEventListener('online', onNet);
+      window.removeEventListener('offline', onNet);
+      window.clearInterval(timer);
+    };
   }, [init]);
+
+  // 应用启动时：已登录（token）且联网 → 预拉全量镜像（断网可用）
+  useEffect(() => {
+    const s = useConnectionStore.getState();
+    if (s.online && tokenStore.get() && useAuthStore.getState().user) {
+      void import('../guest/mirror').then((m) => m.refreshLocalCache());
+    }
+  }, [online]);
 
   return (
     <BrowserRouter>
       <GlobalOfflineBadge />
       <SyncOnOnline />
       <ReminderScheduler />
+      <div className={online ? '' : 'pt-6'}>
       <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
@@ -345,6 +358,7 @@ export function App() {
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
       </Suspense>
+      </div>
     </BrowserRouter>
   );
 }

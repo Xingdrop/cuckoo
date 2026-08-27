@@ -1,5 +1,6 @@
-﻿import { http } from '../http';
-import { useGuestStore } from '../../guest/guestStore';
+import { http } from '../http';
+import { useLocal } from '../../guest/localMode';
+import { guestApi } from '../../guest/guestApi';
 
 export type PlanSourceType = 'self' | 'official' | 'share';
 
@@ -16,22 +17,35 @@ export interface Plan {
   reminderCount?: number;
 }
 
+/** #17：本地模式（游客/离线账户）计划读写走本地适配；快照/分享需联网 */
 export const plansApi = {
-  list: () => {
-    const g = useGuestStore.getState();
-    const local = g.active || (g.mirrorOf !== null && (g.mirrorOf.startsWith('seed:') || !navigator.onLine));
-    return local ? Promise.resolve([] as Plan[]) : http.get<Plan[]>('/plans').then((r) => r.data);
-  },
+  list: () =>
+    useLocal()
+      ? Promise.resolve(guestApi.plans())
+      : http.get<Plan[]>('/plans').then((r) => r.data),
   create: (body: { name: string; description?: string }) =>
-    http.post<Plan>('/plans', body).then((r) => r.data),
-  snapshot: (id: string) => http.get<Record<string, unknown>>(`/plans/${id}/snapshot`).then((r) => r.data),
+    useLocal()
+      ? Promise.resolve(guestApi.createPlan(body))
+      : http.post<Plan>('/plans', body).then((r) => r.data),
+  snapshot: (id: string) =>
+    useLocal()
+      ? Promise.reject(new Error('离线模式暂不支持生成分享快照，请联网后使用'))
+      : http.get<Record<string, unknown>>(`/plans/${id}/snapshot`).then((r) => r.data),
   patch: (id: string, patch: { name?: string; description?: string; isActive?: boolean }) =>
-    http.patch<Plan>(`/plans/${id}`, patch).then((r) => r.data),
-  remove: (id: string) => http.delete(`/plans/${id}`).then((r) => r.data),
-  share: (id: string) => http.post(`/plans/${id}/share`).then((r) => r.data),
+    useLocal()
+      ? Promise.resolve(guestApi.patchPlan(id, patch))
+      : http.patch<Plan>(`/plans/${id}`, patch).then((r) => r.data),
+  remove: (id: string) =>
+    useLocal()
+      ? Promise.resolve(guestApi.removePlan(id))
+      : http.delete(`/plans/${id}`).then((r) => r.data),
+  share: (id: string) =>
+    useLocal()
+      ? Promise.reject(new Error('离线模式暂不支持分享，请联网后使用'))
+      : http.post(`/plans/${id}/share`).then((r) => r.data),
 };
 
-/** 涓汉涓婚〉锛?026-08锛?*/
+/** 个人主页（2026-08） */
 export interface ProfileView {
   user: { id: string; username: string; avatarUrl: string | null; healthGoals: string[] | null; createdAt: string };
   followersCount: number;
@@ -44,17 +58,22 @@ export interface ProfileView {
 
 export const profileApi = {
   get: (userId: string) => http.get<ProfileView>(`/users/${userId}/profile`).then((r) => r.data),
-  follow: (userId: string) => http.post<{ following: boolean }>(`/users/${userId}/follow`).then((r) => r.data),
+  follow: (userId: string) =>
+    useLocal()
+      ? Promise.reject(new Error('当前未联网：关注功能需联网后使用'))
+      : http.post<{ following: boolean }>(`/users/${userId}/follow`).then((r) => r.data),
   followers: (userId: string) =>
     http.get<{ id: string; username: string; avatarUrl: string | null }[]>(`/users/${userId}/followers`).then((r) => r.data),
   following: (userId: string) =>
-    http.get<{ id: string; username: string; avatarUrl: string | null }[]>(`/users/${userId}/following`).then((r) => r.data),
-  /** #6锛氭敹钘忓垪琛紙涓汉涓婚〉"鎴戠殑鏀惰棌"锛?*/
+    useLocal()
+      ? Promise.resolve(guestApi.followingUsers())
+      : http.get<{ id: string; username: string; avatarUrl: string | null }[]>(`/users/${userId}/following`).then((r) => r.data),
+  /** #6：收藏列表（个人主页"我的收藏"） */
   favorites: (userId: string) =>
     http.get<{ items: FavPost[]; total: number }>(`/users/${userId}/favorites`).then((r) => r.data),
 };
 
-/** 鏀惰棌甯栧瓙锛堜笌绀惧尯甯栫粨鏋勪竴鑷达紝鍙偣杩涜鎯咃級 */
+/** 收藏帖子（与社区帖结构一致，可点进详情） */
 export interface FavPost {
   id: string;
   content: string;
@@ -64,4 +83,3 @@ export interface FavPost {
   joinedCount: number;
   author: { id: string; username: string; avatarUrl: string | null };
 }
-

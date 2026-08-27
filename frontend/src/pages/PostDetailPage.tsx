@@ -7,6 +7,7 @@ import { LinkedText } from '../components/LinkedText';
 import { profileApi } from '../services/api/api.plans';
 import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
+import { useConnectionStore } from '../stores/connectionStore';
 import { socialApi, Post } from '../services/api/api.social';
 
 interface Comment {
@@ -23,6 +24,7 @@ export function PostDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const me = useAuthStore((s) => s.user);
+  const online = useConnectionStore((s) => s.online);
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState('');
@@ -56,7 +58,11 @@ export function PostDetailPage() {
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [p, c] = await Promise.all([socialApi.getPost(id), socialApi.comments(id)]);
+      // #17：离线时评论为空（缓存只读；评论列表不落缓存）
+      const [p, c] = await Promise.all([
+        socialApi.getPost(id),
+        socialApi.comments(id).catch(() => ({ items: [], total: 0, page: 1, pageSize: 20 })),
+      ]);
       setPost(p);
       setComments(c.items);
     } catch (e) {
@@ -72,6 +78,10 @@ export function PostDetailPage() {
 
   const submitComment = async () => {
     if (!id || !commentText.trim()) return;
+    if (!online) {
+      setError('当前未联网：评论需联网后使用');
+      return;
+    }
     try {
       await socialApi.comment(id, commentText.trim());
       setCommentText('');
@@ -84,6 +94,10 @@ export function PostDetailPage() {
   /** 加入/退出计划：乐观更新 + loading（#1：修复"无法退出/点击无反应"） */
   const toggleJoin = async () => {
     if (!post || joining) return;
+    if (!online) {
+      setError('当前未联网：一键加入需联网后使用');
+      return;
+    }
     setJoining(true);
     setError(null);
     const nextJoined = !post.myJoined;
@@ -142,6 +156,11 @@ export function PostDetailPage() {
       </header>
 
       <main className="px-4 pt-3">
+        {!online && (
+          <p className="mb-3 rounded-btn bg-warning-500/15 px-3 py-2 text-[11px] text-ink-700">
+            📡 离线浏览（断网前缓存）：评论区不可见，点赞/评论/收藏/加入等需联网后使用
+          </p>
+        )}
         {error && (
           <p className="mb-3 rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
         )}
@@ -326,13 +345,14 @@ export function PostDetailPage() {
             onKeyDown={(e) => {
               if (e.key === 'Enter') void submitComment();
             }}
+            readOnly={!online}
             maxLength={500}
-            placeholder="写下你的评论…"
-            className="flex-1 rounded-full border border-ink-100 px-4 py-2.5 text-sm outline-none focus:border-primary-400"
+            placeholder={online ? '写下你的评论…' : '当前离线，评论需联网'}
+            className="flex-1 rounded-full border border-ink-100 px-4 py-2.5 text-sm outline-none focus:border-primary-400 disabled:bg-ink-100/50"
           />
           <button
             onClick={() => void submitComment()}
-            disabled={!commentText.trim()}
+            disabled={!commentText.trim() || !online}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-500 text-white disabled:opacity-40"
             aria-label="发送评论"
           >

@@ -165,14 +165,14 @@ export function DashboardPage() {
 
   return (
     <div
-      className="mx-auto max-w-md pb-20"
+      className="mx-auto max-w-md overflow-x-clip pb-20"
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
-      {/* 顶部日期头 */}
+      {/* 顶部日期头（#17：弹性布局，窄屏不产生横向滚动） */}
       <header className="px-4 pt-5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center">
+          <div className="flex min-w-0 flex-1 items-center">
             <button
               onClick={() => setSelected((s) => shiftKey(s, -1))}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-700 hover:bg-ink-100"
@@ -180,9 +180,9 @@ export function DashboardPage() {
             >
               <ChevronLeft size={20} />
             </button>
-            {/* 固定宽度：日期文字变化不导致按钮偏移 */}
-            <div className="w-48 shrink-0 text-center">
-              <p className="text-lg font-semibold">
+            {/* 弹性宽度：日期文字变化不导致按钮偏移，窄屏自动收缩 */}
+            <div className="min-w-0 flex-1 text-center">
+              <p className="truncate text-lg font-semibold">
                 {dateHead(selected)}
                 {selected === today && (
                   <span className="ml-1.5 rounded-full bg-primary-500 px-2 py-0.5 align-middle text-[10px] text-white">
@@ -203,7 +203,7 @@ export function DashboardPage() {
               <ChevronRight size={20} />
             </button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <button
               onClick={() => navigate('/stats')}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-surface text-primary-600 shadow-sm"

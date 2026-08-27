@@ -1,4 +1,4 @@
-import { Award, BarChart3, Bell, BellRing, ChevronLeft, Download, LogOut, Shield, Trash2 } from 'lucide-react';
+import { Award, BarChart3, Bell, BellRing, ChevronLeft, Database, Download, LogOut, Shield, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -9,6 +9,7 @@ import { usersApi } from '../services/api/api.users';
 import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
 import { useConnectionStore } from '../stores/connectionStore';
+import { useGuestStore } from '../guest/guestStore';
 import { checkPushSubscribed, isPushSupported, pushFailMessage, subscribePush, unsubscribePush } from '../utils/push';
 import type { Reminder, UserSettings } from '../types';
 
@@ -82,6 +83,9 @@ export function SettingsPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const guestActive = useGuestStore((s) => s.active);
+  const [hasGuestData, setHasGuestData] = useState(() => localStorage.getItem('cuckoo_local:guest') !== null);
 
   useEffect(() => {
     authApi
@@ -184,6 +188,12 @@ export function SettingsPage() {
       </header>
 
       <main className="space-y-4 px-4 pt-4">
+        {notice && (
+          <p className="rounded-btn bg-primary-50 px-3 py-2 text-xs font-medium text-primary-700">✓ {notice}</p>
+        )}
+        {error && (
+          <p className="rounded-btn bg-danger-50 px-3 py-2 text-xs font-medium text-danger-600">{error}</p>
+        )}
         {/* 账号卡（顶部：快捷退出登录；游客 = 本地账户） */}
         <section className="rounded-card bg-surface p-4 shadow-sm">
           <div className="flex items-center gap-3">
@@ -309,6 +319,37 @@ export function SettingsPage() {
             </div>
             {!online && <span className="ml-auto text-[10px] text-ink-400">需联网</span>}
           </button>
+          {/* #22：合并游客数据（默认不同步；开关 = 手动把游客数据并入当前账户，重复按更新时间较新） */}
+          <div className="flex w-full items-center gap-3 px-4 py-3.5">
+            <Database size={18} className="shrink-0 text-primary-600" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">合并游客数据</p>
+              <p className="mt-0.5 text-xs text-ink-500">
+                把游客模式的数据并入当前账户（重复内容按更新时间较新保留）；游客数据默认不会自动同步
+              </p>
+            </div>
+            <button
+              onClick={async () => {
+                try {
+                  const r = useGuestStore.getState().mergeGuestData();
+                  setHasGuestData(localStorage.getItem('cuckoo_local:guest') !== null);
+                  setError(null);
+                  setNotice(
+                    r.merged > 0
+                      ? `已合并 ${r.merged} 条游客数据到当前账户${r.skipped > 0 ? `，${r.skipped} 条重复按更新时间保留了较新版本` : ''}`
+                      : '暂无游客数据可合并（或已合并过）',
+                  );
+                } catch (e) {
+                  setError(errorMessage(e));
+                }
+              }}
+              disabled={guestActive || !hasGuestData}
+              title={guestActive ? '请先退出游客模式并登录账户' : !hasGuestData ? '本机没有游客数据' : '合并游客数据'}
+              className="shrink-0 rounded-full bg-primary-500 px-3.5 py-1.5 text-xs font-medium text-white disabled:opacity-40 disabled:pointer-events-none"
+            >
+              {guestActive ? '需登录账户' : !hasGuestData ? '暂无游客数据' : '合并'}
+            </button>
+          </div>
         </section>
 
         {/* 账号 */}

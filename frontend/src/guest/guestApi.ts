@@ -1,4 +1,4 @@
-import { useGuestStore, type GuestReminder, type GuestMedicine, type GuestPlan, type GuestFeedPost } from './guestStore';
+import { useGuestStore, type GuestReminder, type GuestMedicine, type GuestPlan, type GuestFeedPost, type GuestTemplate } from './guestStore';
 import type {
   Reminder,
   CalendarItem,
@@ -161,7 +161,61 @@ function toPlan(p: GuestPlan): Plan {
   };
 }
 
+/** #22：官方计划配置 → 本地计划 config（与云端 joinTemplate 归一化一致） */
+function normalizeTemplateConfig(list: unknown[]): Array<Record<string, unknown>> {
+  return (Array.isArray(list) ? list : []).map((raw) => {
+    const r = (raw ?? {}) as {
+      category?: string;
+      title?: string;
+      repeatRule?: Record<string, unknown>;
+      times?: string[];
+      startTime?: string;
+      content?: Record<string, unknown>;
+    };
+    return {
+      category: r.category ?? 'custom',
+      title: r.title ?? '官方计划',
+      repeatRule: r.repeatRule ?? { type: 'daily' },
+      times: Array.isArray(r.times) ? r.times : r.startTime ? [r.startTime] : null,
+      content: r.content ?? {},
+    };
+  });
+}
+
+/** 本地加入官方计划（游客/离线账户可用；保存到我的计划，不建提醒） */
+function joinTemplateLocal(t: GuestTemplate): { joined: boolean; duplicate: boolean } {
+  const store = useGuestStore.getState();
+  const exists = store.plans.find((p) => p.sourceType === 'official' && p.sourceId === t.id);
+  if (exists) return { joined: true, duplicate: true };
+  store.savePlan({ name: t.title, description: t.description });
+  const created = useGuestStore.getState().plans[0];
+  if (created) {
+    store.patchPlan(created.id, {
+      sourceType: 'official',
+      sourceId: t.id,
+      sourceTitle: `官方计划：${t.title}`,
+      isActive: false,
+      config: normalizeTemplateConfig(t.reminderConfig),
+    });
+  }
+  return { joined: true, duplicate: false };
+}
+
+/** 本地退出官方计划（从我的计划移除 + 清除相关提醒） */
+function leaveTemplateLocal(templateId: string): { left: boolean } {
+  const store = useGuestStore.getState();
+  const plan = store.plans.find((p) => p.sourceType === 'official' && p.sourceId === templateId);
+  if (!plan) return { left: false };
+  store.removePlan(plan.id);
+  return { left: true };
+}
+
 function toFeedPost(f: GuestFeedPost): Post {
+  const store = useGuestStore.getState();
+  const guestMode = store.active;
+  const planExists = store.plans.some(
+    (p) => (p.sourceType === 'share' || p.sourceType === 'official') && p.sourceId === f.id,
+  );
   return {
     id: f.id,
     userId: f.userId,
@@ -175,9 +229,10 @@ function toFeedPost(f: GuestFeedPost): Post {
     createdAt: f.createdAt,
     updatedAt: f.updatedAt,
     author: f.author,
-    myLiked: !!f.myLiked,
-    myFavorited: !!f.myFavorited,
-    myJoined: !!f.myJoined,
+    // #22：游客不展示账户私有态（关注/点赞/收藏）；已加入按本地我的计划计算
+    myLiked: guestMode ? false : !!f.myLiked,
+    myFavorited: guestMode ? false : !!f.myFavorited,
+    myJoined: planExists || (!guestMode && !!f.myJoined),
   };
 }
 
@@ -463,6 +518,16 @@ export const guestApi = {
     for (const r of [...s.reminders.filter((x) => x.planId === id)]) s.removeReminder(r.id);
     s.removePlan(id);
     return { success: true };
+  },
+
+  /** #22：本地加入/退出官方计划（游客/离线账户：保存到我的计划，开关启停建提醒） */
+  joinOfficialTemplate(id: string): { joined: boolean; duplicate: boolean } {
+    const t = this.getTemplate(id);
+    if (!t) throw new Error('官方计划不在本地缓存中（请联网刷新后重试）');
+    return joinTemplateLocal(t);
+  },
+  leaveOfficialTemplate(id: string): { left: boolean } {
+    return leaveTemplateLocal(id);
   },
 
   // ==================== 设置（本地） ====================

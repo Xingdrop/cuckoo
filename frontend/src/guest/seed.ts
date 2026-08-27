@@ -137,7 +137,8 @@ export async function seedGuestSocialCache(): Promise<void> {
   const g = useGuestStore.getState();
   if (!g.active || g.feed.length) return;
   useGuestStore.getState().seedSocial({
-    feed: seed.feed,
+    // #22：游客不继承账户私有交互态（关注/点赞/收藏/已加入）——已加入按本地我的计划计算
+    feed: (seed.feed ?? []).map((f) => ({ ...f, myLiked: false, myFavorited: false, myJoined: false })),
     templates: seed.templates,
     groups: seed.groups,
     exercises: seed.exercises,

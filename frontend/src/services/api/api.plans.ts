@@ -1,5 +1,5 @@
 import { http } from '../http';
-import { useLocal } from '../../guest/localMode';
+import { useLocal, useGuestMode } from '../../guest/localMode';
 import { guestApi } from '../../guest/guestApi';
 
 export type PlanSourceType = 'self' | 'official' | 'share';
@@ -62,7 +62,7 @@ export const profileApi = {
   get: (userId: string) => http.get<ProfileView>(`/users/${userId}/profile`).then((r) => r.data),
   follow: (userId: string) =>
     useLocal()
-      ? Promise.reject(new Error('当前未联网：关注功能需联网后使用'))
+      ? Promise.reject(new Error(useGuestMode() ? '请登录后使用（关注需要正常账户）' : '当前未联网：关注功能需联网后使用'))
       : http.post<{ following: boolean }>(`/users/${userId}/follow`).then((r) => r.data),
   followers: (userId: string) =>
     http.get<{ id: string; username: string; avatarUrl: string | null }[]>(`/users/${userId}/followers`).then((r) => r.data),

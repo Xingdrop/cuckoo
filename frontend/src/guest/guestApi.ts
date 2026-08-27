@@ -96,19 +96,27 @@ function toReminder(r: GuestReminder): Reminder {
     delaySettings: { enabled: false, maxDelayCount: 0 } as Reminder['delaySettings'],
     challenge: { enabled: false, allowGallery: false } as Reminder['challenge'],
     isActive: r.isActive,
+    countInRate: r.countInRate !== false,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt ?? r.createdAt,
   };
 }
 
-function logStatus(reminderId: string, date: string): string | null {
-  const logs = useGuestStore.getState().logs.filter(
-    (l) => l.reminderId === reminderId && l.scheduledTime.slice(0, 10) === date,
-  );
-  if (logs.some((l) => l.status === 'completed' || l.status === 'challenge_completed')) return 'completed';
-  if (logs.some((l) => l.status === 'skipped')) return 'skipped';
-  return null;
+/** #20：按「具体时点(HH:mm)」匹配日志状态（与云端 60s 窗口一致，间隔提醒逐点打卡） */
+function slotStatuses(reminderId: string, date: string): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const l of useGuestStore.getState().logs) {
+    if (l.reminderId !== reminderId || l.scheduledTime.slice(0, 10) !== date) continue;
+    const d = new Date(l.scheduledTime);
+    const key = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    if (l.status === 'completed' || l.status === 'challenge_completed') map.set(key, 'completed');
+    else if (l.status === 'skipped' && map.get(key) === undefined) map.set(key, 'skipped');
+  }
+  return map;
 }
+
+/** 该提醒是否计入完成率 */
+const countsInRate = (r: GuestReminder) => r.countInRate !== false;
 
 function dailyOnDate(reminder: GuestReminder, date: string): boolean {
   // 本地提醒均视为每日；startDate 之后的日期均显示（含种子账户快照）
@@ -189,7 +197,7 @@ export const guestApi = {
     return store.reminders
       .filter((r) => dailyOnDate(r, date))
       .map((r) => {
-        const status = logStatus(r.id, date);
+        const slotMap = slotStatuses(r.id, date); // #20：按具体时点匹配
         // #19：间隔提醒（按小时）当日时点与服务端一致：从 startHour 起每 N 小时
         let times = normTimes(r.times);
         const rr = r.repeatRule as GuestReminder['repeatRule'];
@@ -213,16 +221,17 @@ export const guestApi = {
           categoryIcon: r.categoryIcon ?? CATEGORY_DEFAULT[r.category] ?? null,
           content: (r.content as Reminder['content']) ?? { text: '' },
           times: times.length
-            ? times.map((t) => ({ time: t, status }))
-            : [{ time: '00:00', status }], // 不定时占位时间
+            ? times.map((t) => ({ time: t, status: slotMap.get(t) ?? null }))
+            : [{ time: '00:00', status: null }], // 不定时占位时间
           todayTotal: Math.max(1, times.length),
           untimed,
           repeatRule: r.repeatRule as RepeatRule,
+          countInRate: countsInRate(r),
         } as CalendarItem;
       });
   },
 
-  create(body: { title: string; category: string; times?: string[]; repeatRule?: { type: string }; startDate: string; content?: unknown }): Reminder {
+  create(body: { title: string; category: string; times?: string[]; repeatRule?: { type: string }; startDate: string; content?: unknown; countInRate?: boolean }): Reminder {
     const store = useGuestStore.getState();
     const times = normTimes(body.times);
     store.saveReminder({
@@ -234,17 +243,19 @@ export const guestApi = {
       repeatRule: (body.repeatRule as GuestReminder['repeatRule']) ?? { type: times.length ? 'daily' : 'daily' },
       content: (body.content as Record<string, unknown>) ?? {},
       planId: (body as { planId?: string | null }).planId ?? null,
+      countInRate: body.countInRate !== false,
     });
     return this.list()[0];
   },
 
-  update(id: string, body: { title?: string; times?: string[]; content?: unknown; isActive?: boolean; category?: string }): Reminder {
+  update(id: string, body: { title?: string; times?: string[]; content?: unknown; isActive?: boolean; category?: string; countInRate?: boolean }): Reminder {
     const patch: Partial<GuestReminder> = {};
     if (body.title !== undefined) patch.title = body.title;
     if (body.times !== undefined) patch.times = normTimes(body.times);
     if (body.content !== undefined) patch.content = body.content as Record<string, unknown>;
     if (body.isActive !== undefined) patch.isActive = body.isActive;
     if (body.category !== undefined) patch.category = body.category;
+    if (body.countInRate !== undefined) patch.countInRate = body.countInRate;
     useGuestStore.getState().updateReminder(id, patch);
     const found = useGuestStore.getState().reminders.find((r) => r.id === id);
     return found ? toReminder(found) : ({} as Reminder);
@@ -297,7 +308,7 @@ export const guestApi = {
 
   dashboard() {
     const date = todayKey();
-    const reminders = this.calendar(date);
+    const reminders = this.calendar(date).filter((item) => item.countInRate !== false); // #20
     let planned = 0;
     let done = 0;
     let missed = 0;
@@ -309,14 +320,12 @@ export const guestApi = {
       }
     }
     const water = this.waterInfo(date);
-    // #13：喝水达标计入完成率（与云端统计语义一致）
-    if (useGuestStore.getState().settings.waterInRate && water.reached) done += 1;
     return {
       date,
       planned,
       done,
       missed,
-      rate: planned > 0 ? Math.round((done / planned) * 100) : water.reached ? 100 : 0,
+      rate: planned > 0 ? Math.round((done / planned) * 100) : done > 0 ? 100 : 0,
       streakDays: 0,
       categoryStats: {},
       water,
@@ -325,10 +334,13 @@ export const guestApi = {
 
   trend(days = 7) {
     const logs = useGuestStore.getState().logs;
+    const flag = useGuestStore
+      .getState()
+      .reminders.reduce<Record<string, boolean>>((m, r) => ({ ...m, [r.id]: countsInRate(r) }), {});
     const out: { date: string; planned: number; done: number; rate: number }[] = [];
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
-      const dayLogs = logs.filter((l) => l.scheduledTime.slice(0, 10) === d);
+      const dayLogs = logs.filter((l) => l.scheduledTime.slice(0, 10) === d && (flag[l.reminderId ?? ''] ?? true));
       const done = dayLogs.filter((l) => l.status === 'completed' || l.status === 'challenge_completed').length;
       out.push({
         date: d,
@@ -345,9 +357,12 @@ export const guestApi = {
     const daysInMonth = new Date(y, m, 0).getDate();
     const out: { date: string; planned: number; done: number; rate: number }[] = [];
     const logs = useGuestStore.getState().logs;
+    const flag = useGuestStore
+      .getState()
+      .reminders.reduce<Record<string, boolean>>((mm, r) => ({ ...mm, [r.id]: countsInRate(r) }), {});
     for (let d = 1; d <= daysInMonth; d++) {
       const key = `${month}-${String(d).padStart(2, '0')}`;
-      const dayLogs = logs.filter((l) => l.scheduledTime.slice(0, 10) === key);
+      const dayLogs = logs.filter((l) => l.scheduledTime.slice(0, 10) === key && (flag[l.reminderId ?? ''] ?? true));
       const done = dayLogs.filter((l) => l.status === 'completed' || l.status === 'challenge_completed').length;
       out.push({
         date: key,
@@ -455,22 +470,27 @@ export const guestApi = {
     const s = useGuestStore.getState().settings;
     return {
       userId: 'local',
-      notificationEnabled: true,
-      soundEnabled: true,
-      vibrationEnabled: true,
-      theme: 'default',
-      missedThresholdMinutes: 30,
-      showSkipButton: false,
-      maxDelayCount: 3,
+      notificationEnabled: s.notificationEnabled !== false,
+      soundEnabled: s.soundEnabled !== false,
+      vibrationEnabled: s.vibrationEnabled !== false,
+      theme: s.theme ?? 'default',
+      missedThresholdMinutes: s.missedThresholdMinutes ?? 30,
+      showSkipButton: s.showSkipButton === true,
+      maxDelayCount: s.maxDelayCount ?? 3,
       waterGoalMl: s.waterGoalMl,
-      waterInRate: s.waterInRate,
+      waterInRate: s.waterInRate === true,
     };
   },
   saveSettings(patch: Partial<UserSettings>): UserSettings {
     const merged: Partial<UserSettings> = {};
-    if (patch.waterGoalMl !== undefined) merged.waterGoalMl = patch.waterGoalMl;
-    if (patch.waterInRate !== undefined) merged.waterInRate = patch.waterInRate;
-    useGuestStore.getState().saveSettings(merged);
+    for (const k of [
+      'notificationEnabled', 'soundEnabled', 'vibrationEnabled', 'theme',
+      'missedThresholdMinutes', 'showSkipButton', 'maxDelayCount',
+      'waterGoalMl', 'waterInRate',
+    ] as const) {
+      if (patch[k] !== undefined) (merged as Record<string, unknown>)[k] = patch[k];
+    }
+    useGuestStore.getState().saveSettings(merged as never);
     return this.settings();
   },
 
@@ -495,10 +515,20 @@ export const guestApi = {
     return f ? toFeedPost(f) : undefined;
   },
   templates(): PlanTemplate[] {
-    return useGuestStore.getState().templates;
+    const plans = useGuestStore.getState().plans;
+    return useGuestStore
+      .getState()
+      .templates.map((t) => ({
+        ...t,
+        // #20：官方计划 joined = 已保存到我的计划
+        joined: plans.some((p) => p.sourceType === 'official' && p.sourceId === t.id),
+      }));
   },
   getTemplate(id: string): PlanTemplate | undefined {
-    return useGuestStore.getState().templates.find((t) => t.id === id);
+    const t = useGuestStore.getState().templates.find((x) => x.id === id);
+    if (!t) return undefined;
+    const plans = useGuestStore.getState().plans;
+    return { ...t, joined: plans.some((p) => p.sourceType === 'official' && p.sourceId === t.id) };
   },
   groups(): Group[] {
     return useGuestStore.getState().groups.map((g) => ({ ...g, ownerId: g.ownerId ?? '' }));

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { remindersApi } from '../services/api/api.reminders';
 import { statsApi, DashboardStats, WaterInfo } from '../services/api/api.stats';
+import { useGuestStore } from '../guest/guestStore';
 import { dateHead, festivalIcon, lunarInfo, shiftKey, todayKey } from '../utils/calendar';
 import type { CalendarItem } from '../types';
 
@@ -70,6 +71,9 @@ export function DashboardPage() {
   const [missedOpen, setMissedOpen] = useState(false);
   /** #4：各日期独立喝水统计（key=YYYY-MM-DD） */
   const [waterStats, setWaterStats] = useState<Record<string, WaterInfo>>({});
+  /** #20：完成率选择器 */
+  const [ratePickerOpen, setRatePickerOpen] = useState(false);
+  const guestActive = useGuestStore((s) => s.active);
   const touchX = useRef<number | null>(null);
   /** 当前列水数据（今天用 dashboard 的 water，其他列用 waterInfo） */
   const water = selected === today && stats ? stats.water : waterStats[selected];
@@ -149,9 +153,34 @@ export function DashboardPage() {
     .filter((s) => s.isMissed)
     .sort((a, b) => a.time.localeCompare(b.time));
 
-  const totalDone = doneSlots.length;
-  const totalPlanned = slots.length;
+  /** #20：完成率仅统计「计入完成率」的提醒 */
+  const rateSlots = slots.filter((s) => s.item.countInRate !== false);
+  const totalDone = rateSlots.filter((s) => s.isDone).length;
+  const totalPlanned = rateSlots.length;
   const rate = totalPlanned > 0 ? Math.round((totalDone / totalPlanned) * 100) : 0;
+
+  /** #21：间隔提醒逐时点打卡（完成/放弃 仅影响该时点） */
+  const intervalAck = async (item: CalendarItem, time: string, status: 'completed' | 'skipped') => {
+    const [y, m, d] = selected.split('-').map(Number);
+    const [hh, mm] = time.split(':').map(Number);
+    const slot = new Date(y, m - 1, d, hh, mm);
+    try {
+      await remindersApi.ack(item.reminderId, { status, scheduledTime: slot.toISOString() });
+    } catch {
+      /* 重复/失败静默，刷新后以服务端为准 */
+    }
+    void load(selected);
+  };
+
+  /** #20：切换提醒是否计入完成率 */
+  const toggleRate = async (item: CalendarItem) => {
+    try {
+      await remindersApi.update(item.reminderId, { countInRate: item.countInRate !== false ? false : true });
+    } catch {
+      /* 忽略 */
+    }
+    void load(selected);
+  };
 
   const lunar = lunarInfo(selected);
   // #14：今日前后天数差（不定时 ±3 天可确认）
@@ -188,16 +217,16 @@ export function DashboardPage() {
             >
               <ChevronLeft size={20} />
             </button>
-            {/* 弹性宽度：日期文字变化不导致按钮偏移，窄屏自动收缩 */}
+            {/* 弹性宽度：日期文字变化不导致按钮偏移，窄屏自动收缩；"今天"徽标不随文字截断（#21） */}
             <div className="min-w-0 flex-1 text-center">
-              <p className="truncate text-lg font-semibold">
-                {dateHead(selected)}
+              <div className="flex items-center justify-center gap-1.5">
+                <p className="min-w-0 truncate text-lg font-semibold">{dateHead(selected)}</p>
                 {selected === today && (
-                  <span className="ml-1.5 rounded-full bg-primary-500 px-2 py-0.5 align-middle text-[10px] text-white">
+                  <span className="shrink-0 rounded-full bg-primary-500 px-2 py-0.5 text-[10px] text-white">
                     今天
                   </span>
                 )}
-              </p>
+              </div>
               <p className="mt-0.5 truncate text-xs text-ink-500">
                 {lunar.festival ? `${festivalIcon(lunar.festival)} ${lunar.festival} · ` : ''}
                 {lunar.lunar}
@@ -212,6 +241,11 @@ export function DashboardPage() {
             </button>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {guestActive && (
+              <span className="shrink-0 rounded-full bg-accent-100 px-2 py-0.5 text-[10px] font-medium text-accent-700">
+                游客
+              </span>
+            )}
             <button
               onClick={() => navigate('/stats')}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-surface text-primary-600 shadow-sm"
@@ -234,8 +268,16 @@ export function DashboardPage() {
       <main className="px-4">
         {/* 完成率 + 喝水并排（2026-08 改版：缩小为两列） */}
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <section className="rounded-card bg-surface p-4 shadow-sm">
-            <p className="text-xs text-ink-500">完成率</p>
+        {/* #20：完成率卡 —— 点击进入「选择计入提醒」 */}
+          <button
+            onClick={() => setRatePickerOpen(true)}
+            className="rounded-card bg-surface p-4 text-left shadow-sm"
+            aria-label="选择计入完成率的提醒"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-ink-500">完成率</p>
+              <span className="text-[10px] text-primary-500">选择 ›</span>
+            </div>
             <p className="mt-1 text-2xl font-bold text-primary-600">
               {selected === today && stats ? stats.rate : rate}%
             </p>
@@ -250,7 +292,7 @@ export function DashboardPage() {
                 🔥 连续 {stats.streakDays} 天
               </p>
             )}
-          </section>
+          </button>
 
           <section
             className={`rounded-card p-4 shadow-sm transition-colors ${
@@ -360,6 +402,7 @@ export function DashboardPage() {
                   selected={selected}
                   today={today}
                   nowTime={nowTime}
+                  onSlotAck={intervalAck}
                 />
               ))}
             </div>
@@ -564,6 +607,43 @@ export function DashboardPage() {
         </section>
       </main>
 
+      {/* #20：完成率——选择计入的提醒（逐条勾选；不计入的仍正常提醒与打卡） */}
+      {ratePickerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-8">
+          <div className="w-full max-w-sm rounded-card bg-surface p-5 shadow-xl">
+            <h3 className="text-base font-semibold">计入完成率的提醒</h3>
+            <p className="mt-1 text-[11px] text-ink-500">
+              勾选的提醒才统计完成率；未勾选仍会正常提醒与打卡（默认全部计入）
+            </p>
+            <ul className="mt-3 max-h-72 space-y-1 overflow-y-auto rounded-btn bg-bg p-2">
+              {items.length === 0 && <li className="py-3 text-center text-xs text-ink-300">当日暂无提醒</li>}
+              {items.map((item) => (
+                <li
+                  key={item.reminderId}
+                  className="flex items-center gap-2 rounded-btn bg-surface px-3 py-2"
+                >
+                  <span className="text-base">{item.categoryIcon ?? CATEGORY_EMOJI[item.category] ?? '📌'}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm">{item.title}</span>
+                  <input
+                    type="checkbox"
+                    checked={item.countInRate !== false}
+                    onChange={() => void toggleRate(item)}
+                    aria-label={`${item.title} 计入完成率`}
+                    className="h-5 w-5 shrink-0 accent-primary-500"
+                  />
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={() => setRatePickerOpen(false)}
+              className="mt-4 w-full rounded-btn bg-primary-500 py-3 text-sm font-medium text-white"
+            >
+              完成
+            </button>
+          </div>
+        </div>
+      )}
+
       <BottomNav />
     </div>
   );
@@ -578,11 +658,13 @@ function IntervalCard({
   selected,
   today,
   nowTime,
+  onSlotAck,
 }: {
   item: CalendarItem;
   selected: string;
   today: string;
   nowTime: string;
+  onSlotAck: (item: CalendarItem, time: string, status: 'completed' | 'skipped') => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const total = item.times.length;
@@ -598,20 +680,6 @@ function IntervalCard({
     n > 0 ? (
       <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${cls}`}>{text}</span>
     ) : null;
-  const stateIcon = (status: string | null) =>
-    status === 'completed' || status === 'challenge_completed'
-      ? '✅'
-      : status === 'skipped' || status === 'missed'
-        ? '⭕'
-        : '🕒';
-  const stateLabel = (status: string | null) =>
-    status === 'completed' || status === 'challenge_completed'
-      ? '已完成'
-      : status === 'skipped'
-        ? '已放弃'
-        : status === 'missed'
-          ? '已错过'
-          : '未提醒';
   return (
     <div className="rounded-card border-l-4 border-primary-500/50 bg-surface px-4 py-3 shadow-sm">
       <button onClick={() => setExpanded((v) => !v)} className="flex w-full items-center gap-3 text-left" aria-expanded={expanded}>
@@ -637,13 +705,58 @@ function IntervalCard({
       </button>
       {expanded && (
         <ul className="mt-2 space-y-1 border-t border-ink-100 pt-2">
-          {item.times.map((t, i) => (
-            <li key={i} className="flex items-center gap-2 px-1 text-xs">
-              <span>{stateIcon(t.status)}</span>
-              <span className="font-medium">{t.time}</span>
-              <span className="ml-auto text-ink-400">{stateLabel(t.status)}</span>
-            </li>
-          ))}
+          {item.times.map((t, i) => {
+            const doneRow = t.status === 'completed' || t.status === 'challenge_completed';
+            const skippedRow = t.status === 'skipped';
+            const missedRow =
+              t.status === 'missed' ||
+              (t.status === null && (selected < today || (selected === today && t.time < nowTime)));
+            return (
+              <li key={i} className="flex items-center gap-2 px-1 py-0.5 text-xs">
+                <span>{doneRow ? '✅' : skippedRow || missedRow ? '⭕' : '🕒'}</span>
+                <span className="font-medium">{t.time}</span>
+                {doneRow ? (
+                  <span className="text-ink-400">已完成</span>
+                ) : skippedRow ? (
+                  <span className="text-ink-400">已放弃</span>
+                ) : missedRow ? (
+                  <span className="text-danger-700">已错过</span>
+                ) : (
+                  <span className="text-ink-400">未提醒</span>
+                )}
+                <span className="ml-auto flex shrink-0 gap-1.5">
+                  {!doneRow && (
+                    <>
+                      {(missedRow || skippedRow) && (
+                        <button
+                          onClick={() => onSlotAck(item, t.time, 'completed')}
+                          className="rounded-full bg-primary-500 px-2 py-0.5 text-[10px] font-medium text-white"
+                        >
+                          补记完成
+                        </button>
+                      )}
+                      {!missedRow && !skippedRow && (
+                        <>
+                          <button
+                            onClick={() => onSlotAck(item, t.time, 'completed')}
+                            className="rounded-full bg-primary-500 px-2 py-0.5 text-[10px] font-medium text-white"
+                          >
+                            完成
+                          </button>
+                          <button
+                            onClick={() => onSlotAck(item, t.time, 'skipped')}
+                            className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-medium text-ink-600"
+                          >
+                            放弃
+                          </button>
+                        </>
+                      )}
+                    </>
+                  )}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

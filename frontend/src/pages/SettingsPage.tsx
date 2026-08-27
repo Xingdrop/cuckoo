@@ -8,6 +8,7 @@ import { authApi } from '../services/api/api.auth';
 import { usersApi } from '../services/api/api.users';
 import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
+import { useConnectionStore } from '../stores/connectionStore';
 import { checkPushSubscribed, isPushSupported, pushFailMessage, subscribePush, unsubscribePush } from '../utils/push';
 import type { Reminder, UserSettings } from '../types';
 
@@ -73,6 +74,7 @@ export function SettingsPage() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
+  const online = useConnectionStore((s) => s.online);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [pushEnabled, setPushEnabled] = useState<boolean | null>(null);
   const [pushSupport, setPushSupport] = useState<boolean>(isPushSupported());
@@ -173,35 +175,45 @@ export function SettingsPage() {
         </button>
         <div>
           <h1 className="text-lg font-semibold">设置</h1>
-          {user && <p className="text-xs text-ink-500">@{user.username}</p>}
+          {user ? (
+            <p className="text-xs text-ink-500">@{user.username}</p>
+          ) : (
+            <p className="text-xs text-ink-500">游客（本地账户）· 本地保存</p>
+          )}
         </div>
       </header>
 
       <main className="space-y-4 px-4 pt-4">
-        {/* 账号卡（顶部：快捷退出登录） */}
-        {user && (
-          <section className="rounded-card bg-surface p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-primary-50 text-lg font-semibold text-primary-600">
-                {user.avatarUrl ? (
+        {/* 账号卡（顶部：快捷退出登录；游客 = 本地账户） */}
+        <section className="rounded-card bg-surface p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-primary-50 text-lg font-semibold text-primary-600">
+              {user ? (
+                user.avatarUrl ? (
                   <img src={user.avatarUrl} alt="头像" className="h-full w-full object-cover" />
                 ) : (
                   user.username.slice(0, 1).toUpperCase()
-                )}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">@{user.username}</p>
-                <p className="text-[11px] text-ink-500">健康提醒 · 坚持每天</p>
-              </div>
-              <button
-                onClick={logout}
-                className="flex h-9 items-center gap-1 rounded-full bg-danger-500/10 px-3.5 text-xs font-medium text-danger-600"
-              >
-                <LogOut size={14} /> 退出登录
-              </button>
+                )
+              ) : (
+                '🎒'
+              )}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">
+                {user ? `@${user.username}` : '游客（本地账户）'}
+              </p>
+              <p className="text-[11px] text-ink-500">
+                {user ? '健康提醒 · 坚持每天' : '数据仅存本机 · 所有本地功能可用'}
+              </p>
             </div>
-          </section>
-        )}
+            <button
+              onClick={handleLogout}
+              className="flex h-9 items-center gap-1 rounded-full bg-danger-500/10 px-3.5 text-xs font-medium text-danger-600"
+            >
+              <LogOut size={14} /> {user ? '退出登录' : '退出游客模式'}
+            </button>
+          </div>
+        </section>
 
         {error && (
           <p className="rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
@@ -222,19 +234,21 @@ export function SettingsPage() {
           ))}
         </section>
 
-        {/* 浏览器推送 */}
+        {/* 浏览器推送（离线置灰：需服务器签约） */}
         <section className="rounded-card bg-surface shadow-sm">
           <SettingRow
             label="浏览器推送"
             desc={
-              pushEnabled === null
-                ? '检测中…'
-                : pushSupport
-                  ? '页面关闭时也能收到提醒（通道 B）'
-                  : '当前浏览器/环境不支持推送（需 HTTPS 或 localhost）'
+              !online
+                ? '离线状态不可用（联网后可在浏览器端使用）'
+                : pushEnabled === null
+                  ? '检测中…'
+                  : pushSupport
+                    ? '页面关闭时也能收到提醒（通道 B）'
+                    : '当前浏览器/环境不支持推送（需 HTTPS 或 localhost）'
             }
             checked={pushEnabled ?? false}
-            disabled={pushEnabled === null || !pushSupport || busy}
+            disabled={!online || pushEnabled === null || !pushSupport || busy}
             onChange={togglePush}
           />
         </section>
@@ -253,39 +267,47 @@ export function SettingsPage() {
           </button>
         </section>
 
-        {/* 我的数据（M5：报告/成就/导出） */}
+        {/* 我的数据（M5：报告/成就/导出）——离线置灰（需联网） */}
         <section className="divide-y divide-ink-100 rounded-card bg-surface shadow-sm">
           <h2 className="px-4 py-3 text-sm font-medium">我的数据</h2>
           <button
             onClick={() => navigate('/reports')}
-            className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
+            disabled={!online}
+            title={!online ? '该功能需联网' : undefined}
+            className="flex w-full items-center gap-3 px-4 py-3.5 text-left disabled:opacity-40"
           >
             <BarChart3 size={18} className="shrink-0 text-primary-600" />
             <div>
               <p className="text-sm font-medium">周报 / 月报</p>
               <p className="mt-0.5 text-xs text-ink-500">完成率、分类统计与建议（周一/1 日自动生成）</p>
             </div>
+            {!online && <span className="ml-auto text-[10px] text-ink-400">需联网</span>}
           </button>
           <button
             onClick={() => navigate('/achievements')}
-            className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
+            disabled={!online}
+            title={!online ? '该功能需联网' : undefined}
+            className="flex w-full items-center gap-3 px-4 py-3.5 text-left disabled:opacity-40"
           >
             <Award size={18} className="shrink-0 text-primary-600" />
             <div>
               <p className="text-sm font-medium">成就墙</p>
               <p className="mt-0.5 text-xs text-ink-500">连续坚持、用药/锻炼/喝水成就</p>
             </div>
+            {!online && <span className="ml-auto text-[10px] text-ink-400">需联网</span>}
           </button>
           <button
             onClick={handleExport}
-            disabled={busy}
-            className="flex w-full items-center gap-3 px-4 py-3.5 text-left disabled:opacity-50"
+            disabled={busy || !online}
+            title={!online ? '导出需联网' : undefined}
+            className="flex w-full items-center gap-3 px-4 py-3.5 text-left disabled:opacity-40"
           >
             <Download size={18} className="shrink-0 text-primary-600" />
             <div>
               <p className="text-sm font-medium">导出我的数据</p>
               <p className="mt-0.5 text-xs text-ink-500">下载 JSON（提醒/日志/药品/帖子/设置等全量）</p>
             </div>
+            {!online && <span className="ml-auto text-[10px] text-ink-400">需联网</span>}
           </button>
         </section>
 
@@ -305,7 +327,9 @@ export function SettingsPage() {
           </button>
           <button
             onClick={() => setConfirmDelete(true)}
-            className="flex w-full items-center gap-2 px-4 py-3.5 text-sm text-danger-500"
+            disabled={!online}
+            title={!online ? '注销账号需联网' : undefined}
+            className="flex w-full items-center gap-2 px-4 py-3.5 text-sm text-danger-500 disabled:opacity-40"
           >
             <Trash2 size={16} /> 注销账号
           </button>

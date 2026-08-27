@@ -14,7 +14,8 @@ const isSeedMode = () => (useGuestStore.getState().mirrorOf ?? '').startsWith('s
  *   社交页同样展示缓存内容（操作需联网）；仅账户/云端数据页（设置/主页/报告/成就/设备）提示
  * - 未登录非游客 → 跳登录页
  */
-const ACCOUNT_PREFIXES = ['/profile', '/settings', '/reports', '/achievements', '/devices'];
+/** #21：设置页本地可开放（离线/游客本地保存）；账户/云端数据页仍需登录/联网 */
+const ACCOUNT_PREFIXES = ['/profile', '/reports', '/achievements', '/devices'];
 
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { user, initialized } = useAuthStore();
@@ -49,7 +50,7 @@ export function GuestHint({ variant }: { variant: 'social' | 'lock' | 'offline' 
   const navigate = useNavigate();
   const guest = useGuestStore((s) => s.active);
   const goLogin = () => navigate('/login');
-  const goGuest = () => navigate('/guest');
+  const goHome = () => navigate('/today');
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center px-8 text-center">
       <span className="text-4xl">{variant === 'social' ? '👥' : variant === 'offline' ? '📡' : '🔒'}</span>
@@ -62,10 +63,10 @@ export function GuestHint({ variant }: { variant: 'social' | 'lock' | 'offline' 
       </h2>
       <p className="mt-2 text-sm text-ink-500">
         {variant === 'social'
-          ? '游客模式仅开放本地功能（今日/提醒/统计/服务与管理和我的计划）；注册登录后即可发布、互动、加入计划。'
+          ? '游客模式已开放全部本地功能（今日/提醒/统计/服务与管理和我的计划/设置）；注册登录后即可发布、互动、加入计划。'
           : variant === 'offline'
             ? '当前为离线账户（数据存本机，断网前接收的社交内容可浏览）。连接服务器并登录后即可使用账户与云端功能。'
-            : '游客模式已开放本地功能（今日/提醒/统计/服务与管理和我的计划）；账户、社交与云端数据请登录。'}
+            : '本地功能已全部开放（今日/提醒/统计/服务与管理和我的计划/设置/社交浏览）；账户与云端数据需登录。'}
       </p>
       <div className="mt-5 flex w-full max-w-xs flex-col gap-2">
         <button
@@ -76,7 +77,7 @@ export function GuestHint({ variant }: { variant: 'social' | 'lock' | 'offline' 
         </button>
         {guest && (
           <button
-            onClick={goGuest}
+            onClick={goHome}
             className="rounded-btn bg-ink-100 px-6 py-3 text-sm font-medium text-ink-700"
           >
             返回游客模式

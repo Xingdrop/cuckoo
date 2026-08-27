@@ -1,10 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
-import { In, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { Plan, PlanSourceType } from './plan.entity';
 import { Reminder } from '../reminders/reminder.entity';
 import { computeNextTrigger } from '../../common/reminder-schedule';
+import { PlanJoinRecord } from '../social/plan-join-record.entity';
+import { Interaction, InteractionType } from '../social/interaction.entity';
+import { Post } from '../social/post.entity';
 
 type PlanReminderConfig = Record<string, unknown> & {
   category?: string;
@@ -30,6 +33,7 @@ export class PlansService {
     private readonly planRepo: Repository<Plan>,
     @InjectRepository(Reminder)
     private readonly reminderRepo: Repository<Reminder>,
+    private readonly dataSource: DataSource,
   ) {}
 
   /** 创建自建计划 */
@@ -169,9 +173,25 @@ export class PlansService {
   }
 
   async remove(userId: string, id: string) {
-    await this.findOne(userId, id);
+    const plan = await this.findOne(userId, id);
     // #18：删除计划 = 一并清除其全部相关提醒（含配置快照）
     await this.reminderRepo.softDelete({ userId, planId: id });
+    // #20：分享计划删除 → 帖子"已加入"状态回退（myJoined=未加入，joinedCount -1）
+    if (plan.sourceType === 'share' && plan.sourceId) {
+      const joinRepo = this.dataSource.getRepository(PlanJoinRecord);
+      const join = await joinRepo.findOne({ where: { postId: plan.sourceId, userId } });
+      if (join?.isActive) {
+        await this.dataSource.transaction(async (manager) => {
+          await manager.getRepository(PlanJoinRecord).update({ id: join.id }, { isActive: false });
+          await manager.getRepository(Interaction).delete({
+            postId: plan.sourceId!,
+            userId,
+            type: InteractionType.JOIN,
+          });
+          await manager.getRepository(Post).decrement({ id: plan.sourceId! }, 'joinedCount', 1);
+        });
+      }
+    }
     await this.planRepo.delete({ id, userId });
     return { success: true };
   }

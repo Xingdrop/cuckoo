@@ -41,6 +41,7 @@ export async function refreshLocalCache(): Promise<boolean> {
         createdAt: r.createdAt ?? new Date().toISOString(),
         updatedAt: r.updatedAt ?? r.createdAt ?? new Date().toISOString(),
         isActive: r.isActive,
+        countInRate: r.countInRate !== false,
         repeatRule: r.repeatRule as GuestReminder['repeatRule'],
         content: r.content as Record<string, unknown>,
         planId: r.planId ?? null,

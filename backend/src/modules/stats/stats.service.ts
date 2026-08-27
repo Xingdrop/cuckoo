@@ -19,32 +19,18 @@ export class StatsService {
     private readonly settingRepo: Repository<UserSetting>,
   ) {}
 
-  /** 某天的完成率（planned=应执行数，done=完成数）——#13 水达标按开关计入 */
+  /** 某天的完成率（planned=应执行数，done=完成数）——#20 仅统计「计入完成率」的提醒 */
   private async dayRate(userId: string, dateStr: string) {
     const plan = await this.remindersService.dayPlan(userId, dateStr);
     let planned = 0;
     let done = 0;
     for (const item of plan) {
+      if (item.countInRate === false) continue; // 用户未勾选该提醒计入完成率
       for (const t of item.times) {
         if (t.status !== 'skipped') planned += 1;
         if (t.status === 'completed' || t.status === 'challenge_completed') done += 1;
       }
     }
-    // #14：水当日达标是否计入完成率 —— 完全由「喝水管理 → 喝水计入完成率」开关决定（默认关）
-    const setting = await this.settingRepo.findOne({ where: { userId } });
-    if (setting?.waterInRate === true) {
-      const tz = await this.getTz(userId);
-      const [y, m, d] = dateStr.split('-').map(Number);
-      const dayStart = localToUtc(tz, y, m, d, 0, 0);
-      const nextDay = localToUtc(tz, y, m, d + 1, 0, 0);
-      const waterLogs = await this.logRepo.find({
-        where: { userId, category: 'water', scheduledTime: Between(dayStart, nextDay) },
-      });
-      const waterMl = waterLogs.reduce((sum, l) => sum + l.amount, 0);
-      const waterGoalMl = setting?.waterGoalMl ?? 2000;
-      if (waterGoalMl > 0 && waterMl >= waterGoalMl) done += 1;
-    }
-    // #15：当日无计划但水达标（开关开启）→ 完成率显示 100%（水计入完成率可见）
     return { planned, done, rate: planned > 0 ? Math.round((done / planned) * 100) : done > 0 ? 100 : 0 };
   }
 

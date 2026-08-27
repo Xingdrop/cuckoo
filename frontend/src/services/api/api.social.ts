@@ -36,6 +36,8 @@ export interface PlanTemplate {
   reminderConfig: Record<string, unknown>[];
   mediaUrls: string[];
   version: number;
+  /** #21：已保存到我的计划 = 已加入（删除计划后回退未加入） */
+  joined?: boolean;
 }
 
 export interface Group {
@@ -160,6 +162,11 @@ export const socialApi = {
     useLocal()
       ? Promise.reject(new Error('当前未联网：加入计划需联网后使用'))
       : http.post(`/plan-templates/${id}/join`).then((r) => r.data),
+  /** #21：退出官方计划（从我的计划移除，状态回退未加入） */
+  leaveTemplate: (id: string) =>
+    useLocal()
+      ? Promise.reject(new Error('当前未联网：退出计划需联网后使用'))
+      : http.delete(`/plan-templates/${id}/join`).then((r) => r.data),
 
   // 小组
   groups: () => {

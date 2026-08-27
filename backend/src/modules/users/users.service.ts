@@ -148,6 +148,7 @@ export class UsersService {
         medicineId: (raw.medicineId as string) ?? null,
         planId: (raw.planId as string) ?? null,
         isActive: raw.isActive !== false,
+        countInRate: raw.countInRate !== false,
         nextTriggerAt: computeNextTrigger(
           (raw.repeatRule as Reminder['repeatRule']) ?? { type: 'daily' },
           new Date(),

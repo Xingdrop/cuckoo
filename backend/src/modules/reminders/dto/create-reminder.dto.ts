@@ -205,4 +205,9 @@ export class CreateReminderDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  /** #20：是否计入完成率（默认 true；今日完成率方框可逐条勾选） */
+  @IsOptional()
+  @IsBoolean()
+  countInRate?: boolean;
 }

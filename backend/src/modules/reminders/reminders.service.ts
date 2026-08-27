@@ -103,6 +103,7 @@ export class RemindersService {
       medicineId: dto.medicineId ?? null,
       planId: dto.planId ?? null,
       isActive: dto.isActive ?? true,
+      countInRate: dto.countInRate !== false,
       times: dto.times ?? null,
       nextTriggerAt: computeNextTrigger(
         dto.repeatRule,
@@ -167,6 +168,8 @@ export class RemindersService {
       times: { time: string; status: string | null }[];
       todayTotal: number;
       untimed: boolean;
+      /** #20：是否计入完成率（今日完成率方框可逐条勾选） */
+      countInRate: boolean;
     }[] = [];
 
     for (const r of reminders) {
@@ -254,6 +257,7 @@ export class RemindersService {
         }),
         todayTotal: times.length,
         untimed,
+        countInRate: r.countInRate !== false,
       });
     }
 

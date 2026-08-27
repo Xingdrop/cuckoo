@@ -27,6 +27,8 @@ export interface GuestReminder {
   categoryLabel?: string | null;
   categoryIcon?: string | null;
   medicineId?: string | null;
+  /** #20：是否计入完成率（默认 true） */
+  countInRate?: boolean;
 }
 
 export interface GuestLog {
@@ -69,8 +71,17 @@ export interface GuestPlan {
 }
 
 export interface GuestSettings {
+  notificationEnabled: boolean;
+  soundEnabled: boolean;
+  vibrationEnabled: boolean;
+  theme: string;
+  missedThresholdMinutes: number;
+  showSkipButton: boolean;
+  maxDelayCount: number;
+  /** 每日喝水目标（ml） */
   waterGoalMl: number;
-  waterInRate: boolean;
+  /** 兼容字段（#20 起不再使用——完成率改按提醒勾选） */
+  waterInRate?: boolean;
 }
 
 export interface GuestFeedPost {
@@ -163,7 +174,17 @@ const nowIso = () => new Date().toISOString();
 const todayKey = () => nowIso().slice(0, 10);
 const uid = (prefix: string) => `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 
-const DEFAULT_SETTINGS: GuestSettings = { waterGoalMl: 2000, waterInRate: false };
+const DEFAULT_SETTINGS: GuestSettings = {
+  notificationEnabled: true,
+  soundEnabled: true,
+  vibrationEnabled: true,
+  theme: 'default',
+  missedThresholdMinutes: 30,
+  showSkipButton: false,
+  maxDelayCount: 3,
+  waterGoalMl: 2000,
+  waterInRate: false,
+};
 
 type Owner = { mode: 'guest' | 'seed' | 'online'; userId: string } | null;
 
@@ -526,6 +547,7 @@ export const useGuestStore = create<GuestState>()(
             createdAt: r.createdAt,
             updatedAt: r.updatedAt ?? r.createdAt,
             isActive: r.isActive,
+            countInRate: r.countInRate !== false,
           })),
           logs: get().logs.map((l) => ({
             id: l.id,

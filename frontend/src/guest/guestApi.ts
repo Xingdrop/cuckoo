@@ -51,7 +51,30 @@ function normTimes(t: unknown): string[] {
   return [];
 }
 
+const nowIso = () => new Date().toISOString();
+
+/** 由计划配置构建本地提醒（#18：开关开启时重建） */
+function buildLocalReminderFromConfig(
+  planId: string,
+  c: Record<string, unknown>,
+): Omit<GuestReminder, 'id' | 'createdAt'> {
+  const times = normTimes(c.times ?? (c.startTime ? [c.startTime] : []));
+  return {
+    title: String(c.title ?? '加入的计划'),
+    category: String(c.category ?? 'custom'),
+    times,
+    startDate: nowIso().slice(0, 10),
+    isActive: true,
+    repeatRule: (c.repeatRule as GuestReminder['repeatRule']) ?? { type: times.length ? 'daily' : 'daily' },
+    content: (c.content as Record<string, unknown>) ?? {},
+    planId,
+  };
+}
+
 function toReminder(r: GuestReminder): Reminder {
+  const planName =
+    r.planName ??
+    (r.planId ? useGuestStore.getState().plans.find((p) => p.id === r.planId)?.name ?? null : null);
   return {
     id: r.id,
     userId: 'local',
@@ -65,7 +88,7 @@ function toReminder(r: GuestReminder): Reminder {
     endDate: r.endDate ?? null,
     nextTriggerAt: null,
     planId: r.planId ?? null,
-    planName: r.planName ?? null,
+    planName,
     modifiedFromPlan: false,
     medicineId: r.medicineId ?? null,
     content: (r.content as Reminder['content']) ?? { text: '' },
@@ -126,6 +149,7 @@ function toPlan(p: GuestPlan): Plan {
     isActive: p.isActive,
     createdAt: p.createdAt,
     reminderCount: count,
+    configCount: (p.config ?? []).length,
   };
 }
 
@@ -166,7 +190,19 @@ export const guestApi = {
       .filter((r) => dailyOnDate(r, date))
       .map((r) => {
         const status = logStatus(r.id, date);
-        const times = normTimes(r.times);
+        // #19：间隔提醒（按小时）当日时点与服务端一致：从 startHour 起每 N 小时
+        let times = normTimes(r.times);
+        const rr = r.repeatRule as GuestReminder['repeatRule'];
+        if (rr?.type === 'interval' && times.length === 0 && (rr.intervalUnit === 'hour' || rr.intervalUnit === undefined)) {
+          const stepMs = (Number(rr.intervalValue ?? 1) || 1) * 3_600_000;
+          const [sh, sm] = (r.startHour ?? '09:00').split(':').map(Number);
+          const base = new Date(`${date}T${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')}:00`);
+          while (base < new Date(`${date}T23:59:59`)) {
+            times.push(`${String(base.getHours()).padStart(2, '0')}:${String(base.getMinutes()).padStart(2, '0')}`);
+            base.setTime(base.getTime() + stepMs);
+          }
+          if (!times.length) times = [r.startHour ?? '09:00'];
+        }
         const untimed = times.length === 0;
         return {
           reminderId: r.id,
@@ -215,7 +251,13 @@ export const guestApi = {
   },
 
   remove(id: string) {
-    useGuestStore.getState().removeReminder(id);
+    const store = useGuestStore.getState();
+    const target = store.reminders.find((r) => r.id === id);
+    store.removeReminder(id);
+    // #18：删除计划内（部分/全部）提醒 → 计划开关自动关闭（其余提醒保留）
+    if (target?.planId) {
+      store.patchPlanFlag(target.planId, false);
+    }
     return { success: true };
   },
 
@@ -364,7 +406,7 @@ export const guestApi = {
     return { items: [], total: 0, page: 1, pageSize: 20 } as Page<ReminderLog>;
   },
 
-  // ==================== 我的计划 ====================
+  // ==================== 我的计划（#18：开关联动提醒） ====================
   plans(): Plan[] {
     return useGuestStore.getState().plans.map(toPlan);
   },
@@ -373,12 +415,38 @@ export const guestApi = {
     return this.plans()[0];
   },
   patchPlan(id: string, patch: { name?: string; description?: string; isActive?: boolean }): Plan {
+    const s = useGuestStore.getState();
+    const plan = s.plans.find((p) => p.id === id);
+    if (plan && patch.isActive !== undefined && patch.isActive !== plan.isActive) {
+      if (patch.isActive) {
+        // 开启：按配置重建缺失的提醒（已有的保留）
+        const configs = (plan.config ?? []) as Array<Record<string, unknown>>;
+        let changed = false;
+        const nextConfig = configs.map((c) => {
+          const rid = c.reminderId as string | undefined;
+          const existing = rid ? useGuestStore.getState().reminders.find((r) => r.id === rid) : null;
+          if (existing) return c;
+          const base = buildLocalReminderFromConfig(id, c);
+          const newId = `g-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+          useGuestStore.getState().insertReminder({ ...base, id: newId, createdAt: nowIso(), updatedAt: nowIso() });
+          changed = true;
+          return { ...c, reminderId: newId };
+        });
+        if (changed) useGuestStore.getState().patchPlan(id, { config: nextConfig });
+      } else {
+        // 关闭：清除全部相关提醒（配置保留——再次开启可重建）
+        const s2 = useGuestStore.getState();
+        for (const r of [...s2.reminders.filter((x) => x.planId === id)]) s2.removeReminder(r.id);
+      }
+    }
     useGuestStore.getState().patchPlan(id, patch as never);
     const found = useGuestStore.getState().plans.find((p) => p.id === id);
     return found ? toPlan(found) : ({} as Plan);
   },
   removePlan(id: string) {
-    useGuestStore.getState().removePlan(id);
+    const s = useGuestStore.getState();
+    for (const r of [...s.reminders.filter((x) => x.planId === id)]) s.removeReminder(r.id);
+    s.removePlan(id);
     return { success: true };
   },
 

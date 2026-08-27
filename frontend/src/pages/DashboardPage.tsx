@@ -68,8 +68,6 @@ export function DashboardPage() {
   /** #6：已完成/已错过分组折叠 */
   const [doneOpen, setDoneOpen] = useState(false);
   const [missedOpen, setMissedOpen] = useState(false);
-  /** #4：间隔提醒聚合卡展开（item -> expanded） */
-  const [expandedInterval, setExpandedInterval] = useState<Record<string, boolean>>({});
   /** #4：各日期独立喝水统计（key=YYYY-MM-DD） */
   const [waterStats, setWaterStats] = useState<Record<string, WaterInfo>>({});
   const touchX = useRef<number | null>(null);
@@ -131,13 +129,23 @@ export function DashboardPage() {
           (t.status === null &&
             (selected < today || (selected === today && t.time < nowTime)))),
     })),
-  );  const pendingSlots = slots
+  );  // #18：间隔提醒（当日多次）聚合为**单卡**——不再在三个分组中重复出现
+  const intervalIds = new Set(slots.filter((s) => isIntervalMulti(s.item)).map((s) => s.item.reminderId));
+  const regularSlots = slots.filter((s) => !intervalIds.has(s.item.reminderId));
+  const intervalItems = [
+    ...new Map(
+      slots
+        .filter((s) => intervalIds.has(s.item.reminderId))
+        .map((s) => [s.item.reminderId, s.item]),
+    ).values(),
+  ];
+  const pendingSlots = regularSlots
     .filter((s) => !s.isDone && !s.isMissed)
     .sort((a, b) => a.time.localeCompare(b.time));
-  const doneSlots = slots
+  const doneSlots = regularSlots
     .filter((s) => s.isDone)
     .sort((a, b) => a.time.localeCompare(b.time));
-  const missedSlots = slots
+  const missedSlots = regularSlots
     .filter((s) => s.isMissed)
     .sort((a, b) => a.time.localeCompare(b.time));
 
@@ -341,24 +349,24 @@ export function DashboardPage() {
               )}
             </div>
           ) : (
+            <>
+          {/* #18：间隔提醒单卡（已完成/未提醒/已错过 汇总 ×/N，点击展开明细） */}
+          {intervalItems.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {intervalItems.map((item) => (
+                <IntervalCard
+                  key={`iv-${item.reminderId}`}
+                  item={item}
+                  selected={selected}
+                  today={today}
+                  nowTime={nowTime}
+                />
+              ))}
+            </div>
+          )}
             <ul className="mt-3 space-y-2">
-              {/* 未到时间点（#4 间隔提醒聚合为单卡） */}
-              {pendingSlots.map((s, i) => {
-                const prev = pendingSlots[i - 1];
-                if (prev && prev.item.reminderId === s.item.reminderId) return null; // 已聚合
-                if (isIntervalMulti(s.item)) {
-                  return (
-                    <IntervalAggCard
-                      key={`p-agg-${s.item.reminderId}`}
-                      item={s.item}
-                      list={pendingSlots.filter((x) => x.item.reminderId === s.item.reminderId)}
-                      group="pending"
-                      expanded={!!expandedInterval[s.item.reminderId]}
-                      onToggle={() => setExpandedInterval((m) => ({ ...m, [s.item.reminderId]: !m[s.item.reminderId] }))}
-                    />
-                  );
-                }
-                return (
+              {/* 未到时间点 */}
+              {pendingSlots.map((s, i) => (
                 <li
                   key={`p-${s.item.reminderId}-${s.time}-${i}`}
                   className="flex items-center gap-3 rounded-card bg-surface px-4 py-3 shadow-sm"
@@ -413,9 +421,9 @@ export function DashboardPage() {
                     ) : null;
                   })()}
                 </li>
-                );
-              })}
+              ))}
             </ul>
+            </>
           )}
 
           {/* 已完成分组 */}
@@ -440,21 +448,6 @@ export function DashboardPage() {
               {doneOpen && (
               <ul className="mt-2 space-y-2">
                 {doneSlots.map((s, i) => {
-                  // #4：间隔提醒当日多次 → 已完成聚合单卡
-                  if (isIntervalMulti(s.item)) {
-                    const prev = doneSlots[i - 1];
-                    if (prev && prev.item.reminderId === s.item.reminderId) return null;
-                    return (
-                      <IntervalAggCard
-                        key={`d-agg-${s.item.reminderId}`}
-                        item={s.item}
-                        list={doneSlots.filter((x) => x.item.reminderId === s.item.reminderId)}
-                        group="done"
-                        expanded={!!expandedInterval[s.item.reminderId]}
-                        onToggle={() => setExpandedInterval((m) => ({ ...m, [s.item.reminderId]: !m[s.item.reminderId] }))}
-                      />
-                    );
-                  }
                   const k = doneCount(s.item);
                   // 分母 = 有效计划数（总次数 - 错过次数），错过不计入
                   const effective = Math.max(1, s.item.todayTotal - missedCount(s.item, selected, today, nowTime));
@@ -517,21 +510,6 @@ export function DashboardPage() {
               {missedOpen && (
               <ul className="mt-2 space-y-2">
                 {missedSlots.map((s, i) => {
-                  // #4：间隔提醒当日多次 → 已错过聚合单卡
-                  if (isIntervalMulti(s.item)) {
-                    const prev = missedSlots[i - 1];
-                    if (prev && prev.item.reminderId === s.item.reminderId) return null;
-                    return (
-                      <IntervalAggCard
-                        key={`m-agg-${s.item.reminderId}`}
-                        item={s.item}
-                        list={missedSlots.filter((x) => x.item.reminderId === s.item.reminderId)}
-                        group="missed"
-                        expanded={!!expandedInterval[s.item.reminderId]}
-                        onToggle={() => setExpandedInterval((m) => ({ ...m, [s.item.reminderId]: !m[s.item.reminderId] }))}
-                      />
-                    );
-                  }
                   return (
                   <li
                     key={`m-${s.item.reminderId}-${s.time}-${i}`}
@@ -591,57 +569,81 @@ export function DashboardPage() {
   );
 }
 
-/** #4：间隔提醒（当日多次）聚合卡——每个分组仅一张卡，点击展开明细 */
-function IntervalAggCard({
+/**
+ * #18：间隔提醒（当日多次）**单卡聚合**——不再按状态分成多张卡：
+ * 顶部标注「已完成 z/N · 未提醒 p/N · 已错过 m/N」，点击展开明细（逐条列出状态）。
+ */
+function IntervalCard({
   item,
-  list,
-  group,
-  expanded,
-  onToggle,
+  selected,
+  today,
+  nowTime,
 }: {
   item: CalendarItem;
-  list: { time: string; status: string | null }[];
-  group: 'pending' | 'done' | 'missed';
-  expanded: boolean;
-  onToggle: () => void;
+  selected: string;
+  today: string;
+  nowTime: string;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const total = item.times.length;
-  const n = list.length;
-  const label =
-    group === 'pending'
-      ? `每 ${item.repeatRule?.intervalValue ?? 1} 小时 · 今日 ${total} 次 · 待完成 ${n}`
-      : group === 'done'
-        ? `已完成 ${n}/${total}`
-        : `错过 ${n}/${total}`;
-  const tone =
-    group === 'missed' ? 'border-danger-500/70 bg-danger-500/5' : group === 'done' ? 'border-primary-500/60 bg-ink-100/60' : 'border-transparent';
+  const done = item.times.filter((t) => t.status === 'completed' || t.status === 'challenge_completed').length;
+  const missed = item.times.filter(
+    (t) =>
+      t.status === 'missed' ||
+      t.status === 'skipped' ||
+      (t.status === null && (selected < today || (selected === today && t.time < nowTime))),
+  ).length;
+  const pending = total - done - missed;
+  const chip = (n: number, text: string, cls: string) =>
+    n > 0 ? (
+      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${cls}`}>{text}</span>
+    ) : null;
+  const stateIcon = (status: string | null) =>
+    status === 'completed' || status === 'challenge_completed'
+      ? '✅'
+      : status === 'skipped' || status === 'missed'
+        ? '⭕'
+        : '🕒';
+  const stateLabel = (status: string | null) =>
+    status === 'completed' || status === 'challenge_completed'
+      ? '已完成'
+      : status === 'skipped'
+        ? '已放弃'
+        : status === 'missed'
+          ? '已错过'
+          : '未提醒';
   return (
-    <div className={`rounded-card border-l-4 px-4 py-3 shadow-sm ${tone}`}>
-      <button onClick={onToggle} className="flex w-full items-center gap-3 text-left">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">
+    <div className="rounded-card border-l-4 border-primary-500/50 bg-surface px-4 py-3 shadow-sm">
+      <button onClick={() => setExpanded((v) => !v)} className="flex w-full items-center gap-3 text-left" aria-expanded={expanded}>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">
           {item.categoryIcon ?? CATEGORY_EMOJI[item.category] ?? '📌'}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">{item.title}</span>
-          <span className={`block text-[11px] ${group === 'missed' ? 'text-danger-700' : 'text-ink-500'}`}>{label}</span>
+          <span className="mt-0.5 block truncate text-[11px] text-ink-500">
+            每 {item.repeatRule?.intervalValue ?? 1} {(item.repeatRule?.intervalUnit as string) === 'minute' ? '分钟' : item.repeatRule?.intervalUnit === 'week' ? '周' : '小时'}
+            <span className="text-ink-300"> · 共 {total} 次</span>
+          </span>
+          <span className="mt-1 flex flex-wrap items-center gap-1">
+            {chip(done, `已完成 ${done}/${total}`, 'bg-primary-500/15 text-primary-700')}
+            {chip(pending, `未提醒 ${pending}/${total}`, 'bg-ink-100 text-ink-600')}
+            {chip(missed, `已错过 ${missed}/${total}`, 'bg-danger-500/10 text-danger-700')}
+          </span>
         </span>
-        <span className="shrink-0 text-xs text-ink-400">{expanded ? '收起' : '查看'}</span>
+        <span className="flex shrink-0 items-center gap-0.5 text-xs text-ink-400">
+          {expanded ? '收起' : '查看详情'}
+          <ChevronDown size={13} className={`transition-transform ${expanded ? '' : '-rotate-90'}`} />
+        </span>
       </button>
       {expanded && (
         <ul className="mt-2 space-y-1 border-t border-ink-100 pt-2">
-          {item.times.map((t, i) => {
-            const state =
-              t.status === 'completed' ? '✅' : t.status === 'skipped' || t.status === 'missed' || (group === 'missed' && i < total) ? '⭕' : '🕒';
-            return (
-              <li key={i} className="flex items-center gap-2 px-1 text-xs">
-                <span>{state}</span>
-                <span className="font-medium">{t.time}</span>
-                <span className="ml-auto text-ink-400">
-                  {t.status === 'completed' ? '已完成' : t.status === 'skipped' ? '已放弃' : t.status === 'missed' ? '已错过' : '未完成'}
-                </span>
-              </li>
-            );
-          })}
+          {item.times.map((t, i) => (
+            <li key={i} className="flex items-center gap-2 px-1 text-xs">
+              <span>{stateIcon(t.status)}</span>
+              <span className="font-medium">{t.time}</span>
+              <span className="ml-auto text-ink-400">{stateLabel(t.status)}</span>
+            </li>
+          ))}
         </ul>
       )}
     </div>

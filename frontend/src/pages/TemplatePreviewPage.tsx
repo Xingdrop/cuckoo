@@ -42,11 +42,11 @@ export function TemplatePreviewPage() {
     }
     setJoining(true);
     try {
+      // #18：只保存到「我的计划」（不创建提醒）；跳转计划页由用户开启
       const r = await socialApi.joinTemplate(tpl.id);
       setJoined(true);
-      if ((r as { duplicate?: boolean }).duplicate) {
-        navigate('/plans');
-      }
+      setTimeout(() => navigate('/plans'), 1200);
+      void (r as { duplicate?: boolean }).duplicate;
     } finally {
       setJoining(false);
       setLoading(false);
@@ -122,13 +122,13 @@ export function TemplatePreviewPage() {
               {!online
                 ? '离线状态（需联网加入）'
                 : joined
-                  ? '✓ 已加入我的计划（可在我的计划中管理）'
+                  ? '✓ 已保存到我的计划，即将前往计划页开启…'
                   : joining
-                    ? '加入中…'
-                    : '一键加入我的计划'}
+                    ? '保存中…'
+                    : '加入我的计划'}
             </button>
             <p className="px-1 text-[11px] text-ink-400">
-              加入后计划进入「我的计划」，提醒跟随计划启停，可修改时间或删除
+              加入后计划保存到「我的计划」（不直接建提醒），在计划页开启开关即创建全部提醒
             </p>
           </div>
         )}

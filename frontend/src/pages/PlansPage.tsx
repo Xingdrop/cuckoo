@@ -231,7 +231,13 @@ export function PlansPage() {
                         </span>
                       </p>
                       <p className="mt-0.5 text-[11px] text-ink-500">
-                        {p.reminderCount ?? 0} 条提醒
+                        {!p.isActive && (p.reminderCount ?? 0) > 0
+                          ? '已停用（提醒暂停）'
+                          : (p.reminderCount ?? 0) > 0
+                            ? `${p.reminderCount} 条提醒`
+                            : (p.configCount ?? 0) > 0
+                              ? `已保存（共 ${p.configCount} 条，开启开关后创建提醒）`
+                              : '还没有提醒'}
                         {p.sourceTitle ? ` · ${p.sourceTitle}` : ''}
                       </p>
                     </button>
@@ -405,7 +411,7 @@ export function PlansPage() {
       <ConfirmModal
         open={deletePlan !== null}
         title="删除计划"
-        message={`确定删除计划「${deletePlan?.name ?? ''}」吗？关联提醒会保留但解除归属。`}
+        message={`确定删除计划「${deletePlan?.name ?? ''}」吗？计划下的全部提醒将一并删除（可通过再次加入/重新创建恢复）。`}
         onConfirm={async () => {
           if (!deletePlan) return;
           try {

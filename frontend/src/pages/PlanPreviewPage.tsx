@@ -98,7 +98,9 @@ export function PlanPreviewPage() {
                 ))}
               </ul>
             </section>
-            <p className="px-1 text-[11px] text-ink-400">点击帖子详情页的「一键加入」即可把该计划加入你的「我的计划」</p>
+            <p className="px-1 text-[11px] text-ink-400">
+              点击帖子详情页的「一键加入」即可把该计划保存到「我的计划」（不直接创建提醒，可在计划页开启开关一键启用）
+            </p>
           </div>
         )}
       </main>

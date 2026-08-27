@@ -48,6 +48,14 @@ export function SocialPage() {
   const [followingUsers, setFollowingUsers] = useState<{ id: string; username: string }[]>([]);
   const [joining, setJoining] = useState<string | null>(null);
   const [showTop, setShowTop] = useState(false);
+  const [netToast, setNetToast] = useState<number | null>(null);
+
+  // #19：刷新时断网提示（3 秒自动消失）
+  useEffect(() => {
+    if (netToast === null) return;
+    const t = setTimeout(() => setNetToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [netToast]);
 
   // #2：回到顶部按钮（滚动超过 400px 显示）
   useEffect(() => {
@@ -84,6 +92,10 @@ export function SocialPage() {
   };
 
   const load = useCallback(async () => {
+    if (!useConnectionStore.getState().online) {
+      // #19：离线刷新 → 提示网络已断开（显示缓存）
+      setNetToast(Date.now());
+    }
     try {
       const [p, t, g, n] = await Promise.all([
         socialApi.listPosts(),
@@ -96,6 +108,7 @@ export function SocialPage() {
       setGroups(g);
       setUnread(n.unread);
     } catch (e) {
+      if (!useConnectionStore.getState().online) setNetToast(Date.now());
       setError(errorMessage(e));
     }
   }, []);
@@ -158,14 +171,16 @@ export function SocialPage() {
       return;
     }
     try {
+      // #18：只保存到「我的计划」（不直接建提醒），在计划页开启开关
       const r = (await socialApi.joinTemplate(t.id)) as { duplicate?: boolean };
       window.dispatchEvent(new CustomEvent('cuckoo:reminders-changed'));
       setError(null);
       if (r.duplicate) {
-        // 已在"我的计划" → 直达计划页管理
+        alert('已在「我的计划」中，前往计划页开启/管理提醒');
         navigate('/plans');
       } else {
-        alert(`已加入「${t.title}」到我的计划，可在「我的计划」中查看和管理`);
+        alert('已保存到「我的计划」，可在计划页开启开关创建全部提醒');
+        navigate('/plans');
       }
     } catch (e) {
       setError(errorMessage(e));
@@ -305,7 +320,12 @@ export function SocialPage() {
       <main className="px-4 pt-4">
         {!online && (
           <p className="mb-3 rounded-btn bg-warning-500/15 px-3 py-2 text-[11px] text-ink-700">
-            📡 离线浏览：以下为断网前接收的缓存内容；点赞 / 评论 / 关注 / 发帖等需联网后使用，数据恢复后自动同步
+            📡 网络已断开 — 以下为断网前接收的缓存内容，如需最新数据请联网后刷新（点赞 / 评论 / 关注 / 发帖等需联网使用）
+          </p>
+        )}
+        {netToast !== null && (
+          <p className="mb-3 rounded-btn bg-warning-500/20 px-3 py-2 text-[11px] font-medium text-ink-700">
+            ⚠ 网络已断开，刷新失败 — 正在显示断网前缓存数据
           </p>
         )}
         {error && (

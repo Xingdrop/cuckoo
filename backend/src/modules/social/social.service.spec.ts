@@ -25,6 +25,7 @@ import { AuditLog } from '../audit/audit-log.entity';
 import { Report } from '../reports/report.entity';
 import { Achievement, AchievementRule } from '../achievements/achievement.entity';
 import { Plan } from '../plans/plan.entity';
+import { PlansService } from '../plans/plans.service';
 
 /**
  * 一键加入计划单测（UT-JOIN-01~06，in-memory SQLite 真实事务）。
@@ -120,27 +121,27 @@ describe('SocialService（UT-JOIN）', () => {
     await dataSource.destroy();
   });
 
-  it('UT-JOIN-01 正常加入 → 建提醒 + 加入记录 + count+1 + Plan 落库', async () => {
+  it('UT-JOIN-01 正常加入 → 保存计划+配置（不建提醒）+ 加入记录 + count+1', async () => {
     const post = await makePlanPost('分享喝水计划', SNAPSHOT.reminders);
     const r = await service.joinPlan(USER_B, post.id);
     expect(r).toMatchObject({ joined: true, duplicate: false });
 
-    // Plan（sourceType share）落库
+    // Plan（sourceType share）落库，isActive=false（等用户在计划页开启）
     const plans = await planRepo.find({
       where: { userId: USER_B, sourceType: 'share', sourceId: post.id },
     });
     expect(plans).toHaveLength(1);
+    expect(plans[0].isActive).toBe(false);
+    // #18：提醒配置保存到 plan.config，不直接创建提醒
+    expect(plans[0].config).toHaveLength(1);
+    expect((plans[0].config as Record<string, unknown>[])[0].category).toBe('water');
+    expect((plans[0].config as Record<string, unknown>[])[0].title).toBe('喝水');
+    expect(await reminderRepo.count({ where: { planId: plans[0].id, userId: USER_B } })).toBe(0);
 
-    // 提醒关联唯一 reminderId
-    const reminders = await reminderRepo.find({ where: { planId: plans[0].id, userId: USER_B } });
-    expect(reminders).toHaveLength(1);
-    expect(reminders[0].category).toBe('water');
-    expect(reminders[0].title).toBe('喝水');
-
-    // PlanJoinRecord 关联
+    // PlanJoinRecord 关联（reminderId 字段存计划 id）
     const join = await joinRepo.findOne({ where: { postId: post.id, userId: USER_B } });
     expect(join?.isActive).toBe(true);
-    expect(join?.reminderId).toBe(reminders[0].id);
+    expect(join?.reminderId).toBe(plans[0].id);
 
     // count +1
     const updated = await postRepo.findOne({ where: { id: post.id } });
@@ -152,12 +153,12 @@ describe('SocialService（UT-JOIN）', () => {
     const first = await service.joinPlan(USER_B, post.id);
     const second = await service.joinPlan(USER_B, post.id);
     expect(second.duplicate).toBe(true);
-    expect(second.reminderId).toBe(first.reminderId);
+    expect(second.planId).toBe(first.planId);
     const p = await postRepo.findOne({ where: { id: post.id } });
     expect(p?.joinedCount).toBe(1);
   });
 
-  it('UT-JOIN-03 加入后退出（leavePlan）→ join.isActive=false + 提醒软删 + count-1', async () => {
+  it('UT-JOIN-03 加入后退出（leavePlan）→ join.isActive=false + 计划删除 + count-1', async () => {
     const post = await makePlanPost('加入后退出帖子', SNAPSHOT.reminders);
     await service.joinPlan(USER_B, post.id);
     expect((await postRepo.findOne({ where: { id: post.id } }))?.joinedCount).toBe(1);
@@ -167,12 +168,9 @@ describe('SocialService（UT-JOIN）', () => {
 
     const join = await joinRepo.findOne({ where: { postId: post.id, userId: USER_B } });
     expect(join?.isActive).toBe(false);
-    // 提醒软删（withDeleted 才能读到）
-    const reminder = await reminderRepo.findOne({
-      where: { id: join!.reminderId },
-      withDeleted: true,
-    });
-    expect(reminder?.deletedAt).not.toBeNull();
+    // #18：退出 = 从「我的计划」移除（计划已删除，未创建过提醒）
+    const plan = await planRepo.findOne({ where: { id: join!.reminderId, userId: USER_B } });
+    expect(plan).toBeNull();
     expect((await postRepo.findOne({ where: { id: post.id } }))?.joinedCount).toBe(0);
   });
 
@@ -203,15 +201,17 @@ describe('SocialService（UT-JOIN）', () => {
     expect(await joinRepo.count({ where: { postId: empty.id } })).toBe(0);
   });
 
-  it('UT-JOIN-05 快照 reminders 缺 category/title → 使用默认值创建成功', async () => {
+  it('UT-JOIN-05 快照 reminders 缺 category/title → 使用默认值保存配置', async () => {
     const post = await makePlanPost('默认值帖子', [
       { repeatRule: { type: 'daily' }, times: ['09:00'], startTime: '09:00', content: {} },
     ]);
     const r = await service.joinPlan(USER_B, post.id);
     expect(r.joined).toBe(true);
-    const reminder = await reminderRepo.findOne({ where: { id: r.reminderId } });
-    expect(reminder?.category).toBe('custom');
-    expect(reminder?.title).toBe('加入的计划');
+    const plan = await planRepo.findOne({ where: { id: r.planId, userId: USER_B } });
+    const first = (plan?.config as Record<string, unknown>[])[0];
+    expect(first.category).toBe('custom');
+    expect(first.title).toBe('加入的计划');
+    expect(first.times).toEqual(['09:00']);
   });
 
   it('UT-JOIN-06 越权：另一用户 join 他人公开帖子 → 成功（设计如此：join 不检查作者归属）', async () => {
@@ -221,5 +221,36 @@ describe('SocialService（UT-JOIN）', () => {
     expect(r).toMatchObject({ joined: true, duplicate: false });
     const p = await postRepo.findOne({ where: { id: post.id } });
     expect(p?.joinedCount).toBe(1);
+  });
+
+  it('UT-PLAN-01 计划开关：开启 = 按配置重建提醒，关闭 = 清除全部相关提醒（#18）', async () => {
+    const post = await makePlanPost('开关联动帖子', SNAPSHOT.reminders);
+    const r = await service.joinPlan(USER_B, post.id);
+    const plans = new PlansService(planRepo as never, reminderRepo as never);
+
+    // 加入后：无提醒，计划未启用
+    const plan = await planRepo.findOne({ where: { id: r.planId, userId: USER_B } });
+    expect(plan?.isActive).toBe(false);
+    expect(await reminderRepo.count({ where: { planId: plan!.id } })).toBe(0);
+
+    // 开启 → 创建 1 条提醒（isActive=true，planId 关联）
+    await plans.setActive(USER_B, plan!.id, true);
+    const afterOn = await reminderRepo.find({ where: { planId: plan!.id } });
+    expect(afterOn).toHaveLength(1);
+    expect(afterOn[0].isActive).toBe(true);
+    expect(afterOn[0].title).toBe('喝水');
+
+    // 关闭 → 全部相关提醒被清除（配置保留）
+    await plans.setActive(USER_B, plan!.id, false);
+    expect(await reminderRepo.count({ where: { planId: plan!.id } })).toBe(0);
+    const planAfter = await planRepo.findOne({ where: { id: plan!.id } });
+    expect((planAfter?.config as Record<string, unknown>[]).length).toBe(1);
+
+    // 再次开启 → 重新创建（reminderId 记录到 config）
+    await plans.setActive(USER_B, plan!.id, true);
+    const afterRe = await reminderRepo.find({ where: { planId: plan!.id } });
+    expect(afterRe).toHaveLength(1);
+    const cfg = (await planRepo.findOne({ where: { id: plan!.id } }))?.config as Record<string, unknown>[];
+    expect(cfg[0].reminderId).toBe(afterRe[0].id);
   });
 });

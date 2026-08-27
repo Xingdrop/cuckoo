@@ -79,14 +79,24 @@ function SyncOnOnline() {
   );
 }
 
-/** #17：未联网顶部横幅（网络断开 / APK 无服务器时） */
+/** #17/#19：未联网顶部横幅（网络断开 / APK 无服务器时；可点击 × 关闭；检测完成前不闪现） */
 function GlobalOfflineBadge() {
   const online = useConnectionStore((s) => s.online);
-  if (online) return null;
+  const checked = useConnectionStore((s) => s.lastCheck > 0);
+  const [hidden, setHidden] = useState(false);
+  if (online || !checked || hidden) return null;
+  if (!checked) return null;
   return (
     <div className="fixed inset-x-0 top-0 z-[75] flex items-center justify-center gap-1.5 bg-warning-500 px-3 py-1.5 text-[11px] font-medium text-white shadow-sm">
       <WifiOff size={12} strokeWidth={2.2} />
       未联网 — 显示本地数据（断网前接收的社交内容可浏览），联网后自动同步
+      <button
+        onClick={() => setHidden(true)}
+        aria-label="关闭未联网提示"
+        className="ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/20 text-[10px] leading-none hover:bg-white/35"
+      >
+        ✕
+      </button>
     </div>
   );
 }

@@ -15,6 +15,8 @@ export interface Plan {
   isActive: boolean;
   createdAt: string;
   reminderCount?: number;
+  /** #18：计划保存的提醒配置条数（开启开关后创建/重建） */
+  configCount?: number;
 }
 
 /** #17：本地模式（游客/离线账户）计划读写走本地适配；快照/分享需联网 */

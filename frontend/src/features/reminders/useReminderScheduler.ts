@@ -92,16 +92,18 @@ export function useReminderScheduler() {
   useEffect(() => {
     if (!user) return;
     void load();
-    const interval = setInterval(() => void load(true), 15_000);
+    const interval = setInterval(() => void load(true), 10_000);
     const onChanged = () => void load(true);
     const onVisible = () => {
       if (document.visibilityState === 'visible') void load(true);
     };
     window.addEventListener('cuckoo:reminders-changed', onChanged);
+    window.addEventListener('focus', onChanged);
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       clearInterval(interval);
       window.removeEventListener('cuckoo:reminders-changed', onChanged);
+      window.removeEventListener('focus', onChanged);
       document.removeEventListener('visibilitychange', onVisible);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -14,7 +14,7 @@ import { useLocal } from '../guest/localMode';
 import { checkPushSubscribed, isPushSupported, pushFailMessage, subscribePush, unsubscribePush } from '../utils/push';
 import type { Reminder, UserSettings } from '../types';
 
-/** 设置开关行：#24 自绘 pill 开关（原生 checkbox 在手机端勾选后颜色突变，统一主题色+过渡动画） */
+/** 设置开关行：#25 自绘打勾框——保留 ✓ 语义，开关两态颜色恒定、平滑过渡（原生 checkbox 手机端变色突兀） */
 function SettingRow({
   checked,
   onChange,
@@ -36,16 +36,22 @@ function SettingRow({
       </div>
       <button
         type="button"
-        role="switch"
+        role="checkbox"
         aria-checked={checked}
         aria-label={label}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={`flex h-6 w-10 shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 disabled:opacity-40 ${
-          checked ? 'justify-end bg-primary-500' : 'justify-start bg-ink-200'
-        }`}
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors duration-200 disabled:opacity-40"
+        style={{
+          borderColor: checked ? 'var(--color-primary-500)' : 'var(--color-ink-300)',
+          backgroundColor: checked ? 'var(--color-primary-500)' : 'transparent',
+        }}
       >
-        <span className="h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200" />
+        {checked && (
+          <svg viewBox="0 0 12 12" className="h-3.5 w-3.5" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 6.5 4.5 9 10 3" />
+          </svg>
+        )}
       </button>
     </div>
   );
@@ -138,25 +144,37 @@ export function SettingsPage() {
     navigate('/login');
   };
 
-  /** #24：导出全量数据——离线/游客直接用本地数据打包（json 下载），任何状态可用 */
+  /** #25：导出全量数据——离线/游客本地打包；APK 用原生文件系统写盘（WebView 下载受限） */
   const handleExport = async () => {
     setBusy(true);
     setError(null);
     try {
-      if (useLocal()) {
-        const g = useGuestStore.getState();
-        const bundle = g.exportBundle();
-        const blob = new Blob([JSON.stringify({ ...bundle, exportedAt: new Date().toISOString() }, null, 2)], {
-          type: 'application/json',
+      const json = useLocal()
+        ? (() => {
+            const bundle = useGuestStore.getState().exportBundle();
+            return JSON.stringify({ ...bundle, exportedAt: new Date().toISOString() }, null, 2);
+          })()
+        : await usersApi.exportData();
+      const fileName = `cuckoo-data-${new Date().toISOString().slice(0, 10)}.json`;
+      const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+      if (cap?.isNativePlatform?.()) {
+        // APK：写入「文档」目录（可通过系统文件/分享访问）
+        const { Filesystem, Directory } = await import('@capacitor/filesystem');
+        await Filesystem.writeFile({
+          path: fileName,
+          data: json,
+          directory: Directory.Documents,
         });
+        setNotice(`已导出到本机「文档」目录：${fileName}`);
+      } else {
+        const blob = new Blob([json], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `cuckoo-local-data-${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = fileName;
         a.click();
         URL.revokeObjectURL(url);
-      } else {
-        await usersApi.exportData();
+        setNotice('已开始下载数据文件');
       }
     } catch (e) {
       setError(errorMessage(e));
@@ -401,6 +419,7 @@ export function SettingsPage() {
               className="flex w-full items-center gap-2 px-4 py-3.5 text-sm text-danger-500 disabled:opacity-40"
             >
               <Trash2 size={16} /> 注销账号
+              {!online && <span className="ml-auto text-[10px] text-ink-400">离线账户：联网后即可注销（账号数据在云端）</span>}
             </button>
           )}
         </section>

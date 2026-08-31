@@ -1,15 +1,16 @@
 import { ReactNode, useRef, useState } from 'react';
 
 /**
- * #25：下拉刷新（社交等长列表）——在滚动容器顶部下拉出现转圈，松手触发 onRefresh。
- * 组件需要包裹「可滚动容器」本身（其内部 scrollTop 为 0 时下拉才生效）。
+ * #25：下拉刷新（社交等长列表）——平滑位移 + 转圈；断网/失败显示「刷新失败」。
+ * - 与正常上下滚动兼容（touch-action: pan-y，只有顶部下拉时才接管）
+ * - onRefresh 返回 boolean：false → 显示「刷新失败（断网）」提示 2 秒
  */
 export function PullToRefresh({
   onRefresh,
   children,
   className = '',
 }: {
-  onRefresh: () => Promise<void>;
+  onRefresh: () => Promise<boolean>;
   children: ReactNode;
   className?: string;
 }) {
@@ -17,6 +18,9 @@ export function PullToRefresh({
   const startY = useRef<number | null>(null);
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const failTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   /** 是否处于滚动容器顶部（容器自身滚动 或 window 滚动） */
   const atTop = () => {
     const el = scroller.current;
@@ -28,13 +32,10 @@ export function PullToRefresh({
     <div
       ref={scroller}
       className={className}
-      style={{ touchAction: 'pan-x pan-down' }}
+      style={{ touchAction: 'pan-y' }}
       onTouchStart={(e) => {
         if (refreshing) return;
-        if (atTop()) {
-          startY.current = e.touches[0].clientY;
-          setPull(0);
-        }
+        if (atTop()) startY.current = e.touches[0].clientY;
       }}
       onTouchMove={(e) => {
         if (startY.current === null || refreshing) return;
@@ -43,34 +44,59 @@ export function PullToRefresh({
           return;
         }
         const dy = e.touches[0].clientY - startY.current;
-        if (dy > 0) setPull(Math.min(90, dy * 0.45));
+        // 仅向下拉有效；无弹簧位移，直接用位移比率（平滑跟随手指）
+        if (dy > 0) setPull(Math.min(80, dy * 0.4));
       }}
       onTouchEnd={() => {
         if (startY.current === null) return;
         startY.current = null;
-        if (pull > 55 && !refreshing) {
+        if (pull >= 52 && !refreshing) {
           setRefreshing(true);
-          setPull(48);
-          void onRefresh().finally(() => {
-            setRefreshing(false);
-            setPull(0);
-          });
+          setPull(44);
+          void onRefresh()
+            .then((ok) => {
+              if (!ok) {
+                setFailed(true);
+                if (failTimer.current) clearTimeout(failTimer.current);
+                failTimer.current = setTimeout(() => setFailed(false), 2200);
+              }
+            })
+            .catch(() => {
+              setFailed(true);
+              if (failTimer.current) clearTimeout(failTimer.current);
+              failTimer.current = setTimeout(() => setFailed(false), 2200);
+            })
+            .finally(() => {
+              setRefreshing(false);
+              setPull(0);
+            });
         } else {
           setPull(0);
         }
       }}
     >
+      {/* 指示区：位移式（跟随手指，释放后平滑回落） */}
       <div
-        className="flex items-center justify-center overflow-hidden transition-[height] duration-200"
-        style={{ height: refreshing ? 48 : pull }}
+        className="flex items-center justify-center overflow-hidden"
+        style={{
+          height: Math.round(pull),
+          transition: refreshing || pull === 0 ? 'height 220ms ease' : 'none',
+        }}
       >
         {refreshing ? (
-          <span className="flex items-center gap-2 text-xs text-ink-500">
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+          <span className="flex items-center gap-1.5 text-xs text-ink-500">
+            <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
             刷新中…
           </span>
+        ) : failed ? (
+          <span className="flex items-center gap-1.5 text-xs text-danger-600">
+            <span className="h-4 w-4 shrink-0 rounded-full border-2 border-danger-400 border-t-transparent" />
+            刷新失败（请检查网络）
+          </span>
         ) : pull > 0 ? (
-          <span className="text-xs text-ink-400">{pull > 55 ? '松开刷新' : '下拉刷新'}</span>
+          <span className={`text-xs ${pull >= 52 ? 'text-primary-600' : 'text-ink-400'}`}>
+            {pull >= 52 ? '松开刷新' : '下拉刷新'}
+          </span>
         ) : null}
       </div>
       {children}

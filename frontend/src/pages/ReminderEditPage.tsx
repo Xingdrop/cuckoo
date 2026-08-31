@@ -1,4 +1,4 @@
-import { ChevronLeft, Clock, ImagePlus, Plus, X } from 'lucide-react';
+import { ChevronLeft, Clock, ImagePlus, Play, Plus, X } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { errorMessage } from '../services/http';
@@ -528,10 +528,10 @@ export function ReminderEditPage() {
             placeholder="提醒时展示的说明文字，如：喝 200ml 温水"
             className="mt-2 w-full resize-none rounded-btn border border-ink-100 bg-surface px-3 py-2.5 text-sm outline-none focus:border-primary-400"
           />
-          {/* 媒体（#3：图片/视频） */}
+          {/* 媒体（#3/#25：图片/视频——直接显示缩略图，视频带封面+播放角标） */}
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <label className="flex h-8 cursor-pointer items-center gap-1 rounded-full bg-primary-50 px-3 text-xs text-primary-600">
-              <ImagePlus size={13} /> {reminderMedia.length ? `已添加 ${reminderMedia.length} 媒体` : '添加图片/视频'}
+              <ImagePlus size={13} /> {reminderMedia.length ? '添加更多' : '添加图片/视频'}
               <input
                 type="file"
                 accept="image/*,video/*"
@@ -545,6 +545,37 @@ export function ReminderEditPage() {
               </button>
             )}
           </div>
+          {reminderMedia.length > 0 && (
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {reminderMedia.map((u, i) =>
+                isVideoUrl(u) ? (
+                  <div key={`${u}-${i}`} className="relative aspect-square w-full overflow-hidden rounded-btn bg-black">
+                    <video src={u} className="h-full w-full object-cover" preload="metadata" muted playsInline />
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white">
+                        <Play size={14} fill="currentColor" />
+                      </span>
+                    </span>
+                    <span className="pointer-events-none absolute left-1.5 top-1.5 rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] text-white">
+                      视频
+                    </span>
+                  </div>
+                ) : (
+                  <span key={`${u}-${i}`} className="relative aspect-square w-full overflow-hidden rounded-btn bg-ink-100">
+                    <img src={u} alt={`媒体 ${i + 1}`} className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setReminderMedia((prev) => prev.filter((x) => x !== u))}
+                      aria-label="移除媒体"
+                      className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white"
+                    >
+                      <X size={11} />
+                    </button>
+                  </span>
+                ),
+              )}
+            </div>
+          )}
           {/* 外部链接导入（#2：视频/文档/网页等，点击跳转外部应用） */}
           <input
             value={linkUrl}

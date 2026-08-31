@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { MediaGrid } from '../components/MediaGrid';
 import { LinkedText } from '../components/LinkedText';
+import { PullToRefresh } from '../components/PullToRefresh';
 import { profileApi } from '../services/api/api.plans';
 import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
@@ -147,6 +148,7 @@ export function PostDetailPage() {
         <h1 className="flex-1 text-lg font-semibold">帖子详情</h1>
       </header>
 
+      <PullToRefresh onRefresh={async () => { await load(); }}>
       <main className="px-4 pt-3">
         {!online && (
           <p className="mb-3 rounded-btn bg-warning-500/15 px-3 py-2 text-[11px] text-ink-700">
@@ -316,6 +318,7 @@ export function PostDetailPage() {
           ))}
         </ul>
       </main>
+      </PullToRefresh>
 
       {/* 删除确认（#7） */}
       <ConfirmModal

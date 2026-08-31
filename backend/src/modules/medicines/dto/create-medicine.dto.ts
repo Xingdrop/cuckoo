@@ -1,4 +1,4 @@
-import { IsDateString, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsArray, IsDateString, IsInt, IsOptional, IsString, Max, MaxLength, Min, ArrayMaxSize } from 'class-validator';
 
 export class CreateMedicineDto {
   @IsString()
@@ -37,6 +37,13 @@ export class CreateMedicineDto {
   @IsOptional()
   @IsString()
   photoUrl?: string;
+
+  /** #25：多张药品照片（上限 9 张） */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(9)
+  @IsString({ each: true })
+  photoUrls?: string[];
 
   @IsOptional()
   @IsInt()

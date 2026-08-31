@@ -1,4 +1,5 @@
 import { useGuestStore, type GuestReminder, type GuestMedicine, type GuestPlan, type GuestFeedPost, type GuestTemplate } from './guestStore';
+import { shiftKey } from '../utils/calendar';
 import type {
   Reminder,
   CalendarItem,
@@ -71,6 +72,37 @@ function buildLocalReminderFromConfig(
   };
 }
 
+/** #25：本地计算下次触发时刻（种子/离线提醒无 nextTriggerAt → 调度引擎与列表时间都依赖它） */
+function localNextTrigger(r: GuestReminder, now = new Date()): string | null {
+  const base = new Date().toISOString().slice(0, 10);
+  const rr = r.repeatRule as GuestReminder['repeatRule'];
+  for (let i = 0; i < 400; i++) {
+    const d = shiftKey(base, i);
+    if (!dailyOnDate(r, d)) continue;
+    let times = normTimes(r.times);
+    if (
+      rr?.type === 'interval' &&
+      times.length === 0 &&
+      (rr.intervalUnit === 'hour' || rr.intervalUnit === undefined)
+    ) {
+      const stepMs = (Number(rr.intervalValue ?? 1) || 1) * 3_600_000;
+      const [sh, sm] = (r.startHour ?? '09:00').split(':').map(Number);
+      const b = new Date(`${d}T${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')}:00`);
+      while (b <= new Date(`${d}T23:59:59`)) {
+        times.push(
+          `${String(b.getHours()).padStart(2, '0')}:${String(b.getMinutes()).padStart(2, '0')}`,
+        );
+        b.setTime(b.getTime() + stepMs);
+      }
+    }
+    for (const t of times) {
+      const dt = new Date(`${d}T${t}:00`);
+      if (dt > now) return dt.toISOString();
+    }
+  }
+  return null;
+}
+
 function toReminder(r: GuestReminder): Reminder {
   const planName =
     r.planName ??
@@ -86,7 +118,7 @@ function toReminder(r: GuestReminder): Reminder {
     startDate: `${r.startDate}T00:00:00.000Z`,
     times: r.times.length ? r.times : null,
     endDate: r.endDate ?? null,
-    nextTriggerAt: null,
+    nextTriggerAt: r.isActive ? localNextTrigger(r) : null,
     planId: r.planId ?? null,
     planName,
     modifiedFromPlan: false,
@@ -134,7 +166,8 @@ function toMedicine(m: GuestMedicine): Medicine {
     threshold: m.threshold,
     expiryDate: m.expiryDate ?? null,
     instructions: m.instructions ?? null,
-    photoUrl: m.photoUrl ?? null,
+    photoUrl: m.photoUrls?.length ? m.photoUrls[0] : (m.photoUrl ?? null),
+    photoUrls: m.photoUrls?.length ? m.photoUrls : m.photoUrl ? [m.photoUrl] : null,
     deductionPerUse: m.deductionPerUse ?? 1,
     notifyOnLowStock: m.notifyOnLowStock !== false,
     createdAt: m.createdAt,
@@ -269,7 +302,7 @@ export const guestApi = {
         const untimed = times.length === 0;
         return {
           reminderId: r.id,
-          nextTriggerAt: null,
+          nextTriggerAt: r.isActive ? localNextTrigger(r) : null,
           title: r.title,
           category: r.category as CalendarItem['category'],
           categoryLabel: r.categoryLabel ?? null,
@@ -443,7 +476,8 @@ export const guestApi = {
       threshold: Number(body.threshold ?? 0),
       expiryDate: body.expiryDate ?? null,
       instructions: body.instructions ?? null,
-      photoUrl: body.photoUrl ?? null,
+      photoUrl: body.photoUrls?.length ? body.photoUrls[0] : (body.photoUrl ?? null),
+      photoUrls: body.photoUrls?.length ? body.photoUrls : body.photoUrl ? [body.photoUrl] : null,
       deductionPerUse: Number(body.deductionPerUse ?? 1),
       notifyOnLowStock: body.notifyOnLowStock !== false,
     });

@@ -45,7 +45,17 @@ function formatTime(iso: string | null): string {
 function formatReminderTime(r: Reminder): string {
   // 不定时每日提醒：不显示具体时间
   if (r.repeatRule?.type === 'daily' && (!r.times || r.times.length === 0)) return '不定时';
-  return formatTime(r.nextTriggerAt);
+  const t = formatTime(r.nextTriggerAt);
+  if (t !== '—') return t;
+  // #25：本地/种子数据无 nextTriggerAt → 从规则推导显示（否则列表时间栏空白）
+  const times = r.times?.length ? r.times : null;
+  if (times) return times.length === 1 ? times[0] : `${times[0]} 起 ${times.length} 次`;
+  const rr = r.repeatRule;
+  if (rr?.type === 'interval') {
+    const unit = (rr.intervalUnit as string) === 'minute' ? '分钟' : rr.intervalUnit === 'week' ? '周' : '小时';
+    return `每 ${rr.intervalValue ?? 1} ${unit}`;
+  }
+  return '—';
 }
 
 function formatFullTime(iso: string | null): string {

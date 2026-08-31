@@ -1,10 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#3E8E7E"/>
-  <circle cx="256" cy="240" r="120" fill="#F7FAF9"/>
-  <path d="M196 240q0-8 6-14t14-6h80q8 0 14 6t6 14v44q0 44-30 74t-74 30h-16q-8 0-14-6t-6-14V240z" fill="#3E8E7E"/>
-  <circle cx="220" cy="216" r="12" fill="#22302C"/>
-  <path d="M320 196q14 8 20 24" stroke="#22302C" stroke-width="10" stroke-linecap="round" fill="none"/>
-  <path d="M248 398q6 26 30 30" stroke="#3E8E7E" stroke-width="14" stroke-linecap="round" fill="none"/>
-  <rect x="176" y="158" width="28" height="56" rx="14" fill="#F2A65A"/>
-  <rect x="308" y="158" width="28" height="56" rx="14" fill="#F2A65A"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2E7D6B"/>
+      <stop offset="1" stop-color="#59B9A0"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <!-- 时钟表盘 -->
+  <circle cx="256" cy="272" r="148" fill="#FFFFFF"/>
+  <circle cx="256" cy="272" r="148" fill="none" stroke="#DCEAE4" stroke-width="6"/>
+  <!-- 刻度 -->
+  <circle cx="256" cy="150" r="9" fill="#CFE3DC"/>
+  <circle cx="378" cy="272" r="9" fill="#CFE3DC"/>
+  <circle cx="256" cy="394" r="9" fill="#CFE3DC"/>
+  <circle cx="134" cy="272" r="9" fill="#CFE3DC"/>
+  <!-- 指针（10:10） -->
+  <path d="M256 272 L174 206" stroke="#2E7D6B" stroke-width="20" stroke-linecap="round" fill="none"/>
+  <path d="M256 272 L340 210" stroke="#2E7D6B" stroke-width="20" stroke-linecap="round" fill="none"/>
+  <circle cx="256" cy="272" r="15" fill="#F2A65A"/>
+  <!-- 布谷鸟（栖在表盘上沿） -->
+  <ellipse cx="250" cy="118" rx="64" ry="45" fill="#1F5A4F"/>
+  <circle cx="320" cy="76" r="31" fill="#1F5A4F"/>
+  <path d="M346 71 L382 86 L346 102 Z" fill="#F2A65A"/>
+  <circle cx="328" cy="68" r="9" fill="#FFFFFF"/>
+  <circle cx="331" cy="69" r="4" fill="#22302C"/>
+  <path d="M208 94 Q152 92 140 140 Q180 156 220 138 Q210 112 208 94 Z" fill="#164A3E"/>
+  <path d="M190 130 Q172 166 188 186 Q214 174 218 148 Q204 140 190 130 Z" fill="#164A3E"/>
 </svg>

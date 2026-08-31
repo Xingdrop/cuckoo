@@ -55,6 +55,10 @@ export class Medicine {
   @Column({ type: 'varchar',  nullable: true })
   photoUrl: string | null;
 
+  /** #25：多张药品照片（photoUrl 兼容保留单张） */
+  @Column({ type: 'simple-json', nullable: true })
+  photoUrls: string[] | null;
+
   /** 每次服用扣减数量，默认 1 */
   @Column({ type: 'int', default: 1 })
   deductionPerUse: number;

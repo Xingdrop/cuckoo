@@ -64,9 +64,11 @@ export function LoginPage() {
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6">
       <div className="text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-500 text-3xl">
-          🐦
-        </div>
+        <img
+          src="/icons/icon-192.png"
+          alt="布谷"
+          className="mx-auto h-16 w-16 rounded-2xl shadow-md"
+        />
         <h1 className="mt-4 text-2xl font-bold">布谷</h1>
         <p className="mt-2 text-sm text-ink-500">准时提醒，温柔守护</p>
       </div>

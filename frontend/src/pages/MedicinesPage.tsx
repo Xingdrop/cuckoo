@@ -132,6 +132,18 @@ export function MedicinesPage() {
                     )}
                     <ChevronRight size={16} className="shrink-0 text-ink-300" />
                   </button>
+                  {(m.photoUrls?.length ?? 0) > 0 && (
+                    <div className="mt-2.5 flex gap-1.5 overflow-x-auto">
+                      {m.photoUrls!.slice(0, 6).map((u, i) => (
+                        <img
+                          key={u}
+                          src={u}
+                          alt={`${m.name} 照片 ${i + 1}`}
+                          className="h-14 w-14 shrink-0 rounded-md object-cover"
+                        />
+                      ))}
+                    </div>
+                  )}
                   <div className="mt-3 flex items-center gap-2 border-t border-ink-100 pt-2.5">
                     <button
                       onClick={() => quickTake(m)}

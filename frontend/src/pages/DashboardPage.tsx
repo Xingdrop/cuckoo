@@ -220,6 +220,7 @@ export function DashboardPage() {
   return (
     <div
       className="mx-auto max-w-md overflow-x-clip pb-20"
+      style={{ touchAction: 'pan-y' }}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >

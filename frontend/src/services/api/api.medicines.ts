@@ -12,6 +12,8 @@ export interface MedicineInput {
   expiryDate?: string;
   instructions?: string;
   photoUrl?: string;
+  /** #25：多张药品照片（优先于 photoUrl） */
+  photoUrls?: string[];
   deductionPerUse?: number;
   notifyOnLowStock?: boolean;
 }

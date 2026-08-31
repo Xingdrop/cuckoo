@@ -6,6 +6,8 @@ import { remindersApi } from '../services/api/api.reminders';
 import { statsApi, DashboardStats, WaterInfo } from '../services/api/api.stats';
 import { useGuestStore } from '../guest/guestStore';
 import { dateHead, festivalIcon, lunarInfo, shiftKey, todayKey } from '../utils/calendar';
+
+const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 import type { CalendarItem } from '../types';
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -75,6 +77,21 @@ export function DashboardPage() {
   const [ratePickerOpen, setRatePickerOpen] = useState(false);
   const guestActive = useGuestStore((s) => s.active);
   const touchX = useRef<number | null>(null);
+  /** #24：点击日期 → 原生日期选择器（自选日期） */
+  const datePickerRef = useRef<HTMLInputElement>(null);
+  const openDatePicker = () => {
+    const el = datePickerRef.current;
+    if (!el) return;
+    if (typeof el.showPicker === 'function') {
+      try {
+        el.showPicker();
+        return;
+      } catch {
+        /* 某些 WebView 抛错 → 回退 focus */
+      }
+    }
+    el.focus();
+  };
   /** 当前列水数据（今天用 dashboard 的 water，其他列用 waterInfo） */
   const water = selected === today && stats ? stats.water : waterStats[selected];
 
@@ -206,40 +223,53 @@ export function DashboardPage() {
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
-      {/* 顶部日期头（#17：弹性布局，窄屏不产生横向滚动） */}
+      {/* #24：顶部日期头——两行布局（日期居中不挤压）+ 点击自选日期 */}
       <header className="px-4 pt-5">
         <div className="flex items-center justify-between">
-          <div className="flex min-w-0 flex-1 items-center">
-            <button
-              onClick={() => setSelected((s) => shiftKey(s, -1))}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-700 hover:bg-ink-100"
-              aria-label="前一天"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            {/* 弹性宽度：日期文字变化不导致按钮偏移，窄屏自动收缩；"今天"徽标不随文字截断（#21） */}
-            <div className="min-w-0 flex-1 text-center">
-              <div className="flex items-center justify-center gap-1.5">
-                <p className="min-w-0 truncate text-lg font-semibold">{dateHead(selected)}</p>
-                {selected === today && (
-                  <span className="shrink-0 rounded-full bg-primary-500 px-2 py-0.5 text-[10px] text-white">
-                    今天
-                  </span>
-                )}
-              </div>
-              <p className="mt-0.5 truncate text-xs text-ink-500">
-                {lunar.festival ? `${festivalIcon(lunar.festival)} ${lunar.festival} · ` : ''}
-                {lunar.lunar}
-              </p>
-            </div>
-            <button
-              onClick={() => setSelected((s) => shiftKey(s, 1))}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-700 hover:bg-ink-100"
-              aria-label="后一天"
-            >
-              <ChevronRight size={20} />
-            </button>
-          </div>
+          <button
+            onClick={() => setSelected((s) => shiftKey(s, -1))}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-700 hover:bg-ink-100"
+            aria-label="前一天"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <button
+            onClick={openDatePicker}
+            aria-label="选择日期"
+            className="min-w-0 flex-1 px-2 text-center"
+          >
+            <span className="flex items-center justify-center gap-1.5">
+              <span className="whitespace-nowrap text-lg font-semibold leading-tight">{dateHead(selected)}</span>
+              {selected === today && (
+                <span className="shrink-0 rounded-full bg-primary-500 px-2 py-0.5 text-[10px] text-white">
+                  今天
+                </span>
+              )}
+            </span>
+            <span className="mt-0.5 block whitespace-nowrap text-[11px] leading-tight text-ink-500">
+              {WEEKDAYS[new Date(`${selected}T00:00:00`).getDay()]} · 农历{lunar.lunar}
+              {lunar.festival ? ` · ${festivalIcon(lunar.festival)}${lunar.festival}` : ''}
+            </span>
+            <input
+              ref={datePickerRef}
+              type="date"
+              aria-hidden="true"
+              tabIndex={-1}
+              value={selected}
+              onChange={(e) => e.target.value && setSelected(e.target.value)}
+              className="pointer-events-none absolute h-0 w-0 opacity-0"
+            />
+          </button>
+          <button
+            onClick={() => setSelected((s) => shiftKey(s, 1))}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-700 hover:bg-ink-100"
+            aria-label="后一天"
+          >
+            <ChevronRight size={20} />
+          </button>
+        </div>
+        <div className="mt-2 flex items-center justify-between">
+          <span className="text-[10px] text-ink-400">点击日期可自选</span>
           <div className="flex shrink-0 items-center gap-2">
             {guestActive && (
               <span className="shrink-0 rounded-full bg-accent-100 px-2 py-0.5 text-[10px] font-medium text-accent-700">
@@ -248,21 +278,20 @@ export function DashboardPage() {
             )}
             <button
               onClick={() => navigate('/stats')}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-surface text-primary-600 shadow-sm"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-primary-600 shadow-sm"
               aria-label="统计"
             >
-              <BarChart3 size={18} />
+              <BarChart3 size={17} />
             </button>
             <button
               onClick={() => navigate('/settings')}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-surface text-ink-700 shadow-sm"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-ink-700 shadow-sm"
               aria-label="设置"
             >
-              <Settings size={18} />
+              <Settings size={17} />
             </button>
           </div>
         </div>
-
       </header>
 
       <main className="px-4">
@@ -302,13 +331,8 @@ export function DashboardPage() {
             }`}
           >
             <div className="flex items-center justify-between">
-              <p className="text-xs text-ink-500">💧 喝水{selected !== today ? `（${selected.slice(5)}）` : ''}</p>
-              {water && water.rate >= 100 && (
-                <span className="animate-pop-in rounded-full bg-primary-500 px-2 py-0.5 text-[10px] font-medium text-white">
-                  ✓ 目标达成
-                </span>
-              )}
-              <div className="relative">
+              <p className="truncate text-xs text-ink-500">💧 喝水{selected !== today ? `（${selected.slice(5)}）` : ''}</p>
+              <div className="relative shrink-0">
                 {selected === today ? (
                   <button
                     onClick={async () => {
@@ -344,7 +368,15 @@ export function DashboardPage() {
             </div>
             {water ? (
               <>
-                <p className="mt-1 text-2xl font-bold text-primary-600">{water.waterMl}</p>
+                {/* #24：「目标达成」改为独立行内徽标（原放在头部行会挤出/遮挡其他字样） */}
+                <p className="mt-1 flex items-center gap-2 text-2xl font-bold text-primary-600">
+                  <span className="whitespace-nowrap">{water.waterMl}</span>
+                  {water.rate >= 100 && (
+                    <span className="shrink-0 rounded-full bg-primary-500 px-1.5 py-0.5 text-[9px] font-medium text-white">
+                      ✓ 目标达成
+                    </span>
+                  )}
+                </p>
                 <p className="text-[11px] text-ink-500">目标 {water.waterGoalMl}ml</p>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-100">
                   <div
@@ -624,13 +656,18 @@ export function DashboardPage() {
                 >
                   <span className="text-base">{item.categoryIcon ?? CATEGORY_EMOJI[item.category] ?? '📌'}</span>
                   <span className="min-w-0 flex-1 truncate text-sm">{item.title}</span>
-                  <input
-                    type="checkbox"
-                    checked={item.countInRate !== false}
-                    onChange={() => void toggleRate(item)}
+                  <button
+                    type="button"
+                    role="switch"
                     aria-label={`${item.title} 计入完成率`}
-                    className="h-5 w-5 shrink-0 accent-primary-500"
-                  />
+                    aria-checked={item.countInRate !== false}
+                    onClick={() => void toggleRate(item)}
+                    className={`flex h-6 w-10 shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 ${
+                      item.countInRate !== false ? 'justify-end bg-primary-500' : 'justify-start bg-ink-200'
+                    }`}
+                  >
+                    <span className="h-5 w-5 rounded-full bg-white shadow-sm" />
+                  </button>
                 </li>
               ))}
             </ul>

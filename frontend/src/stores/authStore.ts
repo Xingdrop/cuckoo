@@ -33,9 +33,13 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => {
       /** 离线登录：种子账户本地校验（bcrypt），成功后导入本地数据集 */
       const offlineLogin = async (username: string, password: string): Promise<void> => {
-        const { verifyOfflineLogin } = await import('../guest/seed');
+        const { verifyOfflineLogin, seedIssue } = await import('../guest/seed');
         const r = await verifyOfflineLogin(username, password);
-        if (!r) throw new Error('用户名或密码错误，或当前无可用离线账户');
+        if (!r) {
+          // #24：区分「密码错误」与「离线种子缺失/损坏」——手机无法登录时给出明确指引
+          const issue = await seedIssue();
+          throw new Error(issue ?? '用户名或密码错误');
+        }
         tokenStore.clear();
         set({ user: r.user });
         const g = useGuestStore.getState();

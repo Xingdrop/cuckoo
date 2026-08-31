@@ -244,6 +244,8 @@ interface GuestState {
   ) => void;
   /** #22：把游客数据集合并进当前账户（按 id + updatedAt 较新）；返回 {merged, skipped} */
   mergeGuestData: () => { merged: number; skipped: number };
+  /** #24：清空游客数据（注销本地账户）——清状态 + 归档 + 本地存储 */
+  clearGuestData: () => void;
 
   exportBundle: () => {
     reminders: unknown[];
@@ -595,6 +597,33 @@ export const useGuestStore = create<GuestState>()(
             /* 忽略 */
           }
           return { merged: reminders.merged + medicines.merged + plans.merged + logsMerge.merged, skipped: reminders.skipped + medicines.skipped + plans.skipped };
+        },
+
+        clearGuestData: () => {
+          const base = emptyDataset();
+          set({
+            active: false,
+            owner: null,
+            mirrorOf: null,
+            reminders: base.reminders,
+            logs: base.logs,
+            medicines: base.medicines,
+            plans: base.plans,
+            settings: { ...DEFAULT_SETTINGS },
+            feed: base.feed,
+            templates: base.templates,
+            groups: base.groups,
+            followings: base.followings,
+            favorites: base.favorites,
+            notifications: base.notifications,
+            exercises: base.exercises,
+          });
+          persistNow();
+          try {
+            localStorage.removeItem('cuckoo_local:guest');
+          } catch {
+            /* 忽略 */
+          }
         },
 
         exportBundle: () => ({

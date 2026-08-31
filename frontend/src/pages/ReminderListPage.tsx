@@ -195,47 +195,43 @@ export function ReminderListPage() {
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => navigate('/medicines')}
-              className="flex items-center gap-2.5 rounded-card bg-surface p-3.5 text-left shadow-sm"
+              className="flex items-center gap-2 rounded-card bg-surface p-3 text-left shadow-sm"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">💊</span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-base">💊</span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">药物管理</span>
-                <span className="block truncate text-[11px] text-ink-500">药品库存历史</span>
+                <span className="block text-[13px] font-medium leading-snug">药物管理</span>
+                <span className="mt-0.5 block text-[10px] leading-snug text-ink-500">药品库存历史</span>
               </span>
-              <ChevronRight size={16} className="shrink-0 text-ink-300" />
             </button>
             <button
               onClick={() => navigate('/water-settings')}
-              className="flex items-center gap-2.5 rounded-card bg-surface p-3.5 text-left shadow-sm"
+              className="flex items-center gap-2 rounded-card bg-surface p-3 text-left shadow-sm"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">💧</span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-base">💧</span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">喝水管理</span>
-                <span className="block truncate text-[11px] text-ink-500">水量目标设置</span>
+                <span className="block text-[13px] font-medium leading-snug">喝水管理</span>
+                <span className="mt-0.5 block text-[10px] leading-snug text-ink-500">水量目标设置</span>
               </span>
-              <ChevronRight size={16} className="shrink-0 text-ink-300" />
             </button>
             <button
               onClick={() => navigate('/exercises')}
-              className="flex items-center gap-2.5 rounded-card bg-surface p-3.5 text-left shadow-sm"
+              className="flex items-center gap-2 rounded-card bg-surface p-3 text-left shadow-sm"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">🏃</span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-base">🏃</span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">锻炼库</span>
-                <span className="block text-[11px] text-ink-500">50+ 微运动</span>
+                <span className="block text-[13px] font-medium leading-snug">锻炼库</span>
+                <span className="mt-0.5 block text-[10px] leading-snug text-ink-500">50+ 微运动</span>
               </span>
-              <ChevronRight size={16} className="shrink-0 text-ink-300" />
             </button>
             <button
               onClick={() => navigate('/pomodoro')}
-              className="flex items-center gap-2.5 rounded-card bg-surface p-3.5 text-left shadow-sm"
+              className="flex items-center gap-2 rounded-card bg-surface p-3 text-left shadow-sm"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">🍅</span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-base">🍅</span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">番茄钟</span>
-                <span className="block truncate text-[11px] text-ink-500">25+5 循环</span>
+                <span className="block text-[13px] font-medium leading-snug">番茄钟</span>
+                <span className="mt-0.5 block text-[10px] leading-snug text-ink-500">25+5 循环</span>
               </span>
-              <ChevronRight size={16} className="shrink-0 text-ink-300" />
             </button>
           </div>
           {/* 我的计划（#5：并入服务与管理） */}

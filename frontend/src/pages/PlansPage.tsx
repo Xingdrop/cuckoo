@@ -295,18 +295,29 @@ export function PlansPage() {
                     </button>
                     <button
                       onClick={() => {
+                        // #25：游客/离线灰色可点——点击给出明确提示
+                        if (useGuestStore.getState().active) {
+                          setError('请登录后使用（一键发帖需要正常账户）');
+                          return;
+                        }
+                        if (!useConnectionStore.getState().online) {
+                          setError('当前未联网：一键发帖需联网后使用');
+                          return;
+                        }
                         setSharePlan(p);
                         setShareText(`📋 我的计划「${p.name}」：${p.reminderCount ?? 0} 条提醒，欢迎一键加入一起坚持！`);
                       }}
-                      disabled={(p.reminderCount ?? 0) === 0 || !online}
+                      disabled={(p.reminderCount ?? 0) === 0}
                       title={
-                        !online
-                          ? '一键发帖需联网后使用'
-                          : (p.reminderCount ?? 0) === 0
-                            ? '先添加提醒才能发帖'
-                            : undefined
+                        (p.reminderCount ?? 0) === 0 ? '先添加提醒才能发帖' : undefined
                       }
-                      className="flex h-8 flex-1 items-center justify-center gap-0.5 rounded-btn bg-ink-100/60 text-[11px] font-medium text-ink-700 disabled:cursor-not-allowed disabled:opacity-40"
+                      className={`flex h-8 flex-1 items-center justify-center gap-0.5 rounded-btn text-[11px] font-medium ${
+                        (p.reminderCount ?? 0) === 0
+                          ? 'bg-ink-100/60 text-ink-400 disabled:cursor-not-allowed disabled:opacity-40'
+                          : online && !useGuestStore.getState().active
+                            ? 'bg-ink-100/60 text-ink-700'
+                            : 'bg-ink-100 text-ink-400'
+                      }`}
                     >
                       <Send size={12} /> 一键发帖
                     </button>

@@ -193,6 +193,16 @@ export class UsersService {
         administration: (raw.administration as string) ?? null,
         instructions: (raw.instructions as string) ?? null,
         expiryDate: raw.expiryDate ? new Date(raw.expiryDate as string) : null,
+        // #25：多张照片
+        photoUrl:
+          (Array.isArray(raw.photoUrls) && (raw.photoUrls as string[]).length
+            ? (raw.photoUrls as string[])[0]
+            : (raw.photoUrl as string)) ?? null,
+        photoUrls: Array.isArray(raw.photoUrls)
+          ? (raw.photoUrls as string[])
+          : raw.photoUrl
+            ? [raw.photoUrl as string]
+            : null,
       }));
     }
     // 计划（#22：合并 config —— 加入时保存的提醒配置，可重建提醒）

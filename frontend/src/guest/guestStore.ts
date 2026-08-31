@@ -50,6 +50,8 @@ export interface GuestMedicine {
   expiryDate?: string | null;
   instructions?: string | null;
   photoUrl?: string | null;
+  /** #25：多张药品照片 */
+  photoUrls?: string[] | null;
   deductionPerUse: number;
   notifyOnLowStock: boolean;
   createdAt: string;
@@ -665,6 +667,8 @@ export const useGuestStore = create<GuestState>()(
             administration: m.administration ?? null,
             instructions: m.instructions ?? null,
             expiryDate: m.expiryDate ?? null,
+            photoUrl: m.photoUrls?.length ? m.photoUrls[0] : (m.photoUrl ?? null),
+            photoUrls: m.photoUrls?.length ? m.photoUrls : m.photoUrl ? [m.photoUrl] : null,
             createdAt: m.createdAt,
             updatedAt: m.updatedAt,
           })),

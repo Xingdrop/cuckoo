@@ -12,7 +12,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       // 开发环境也注册 Service Worker（否则 Web Push 订阅在 dev 下不可用）
       devOptions: { enabled: true },
-      includeAssets: ['icons/*.svg'],
+      includeAssets: ['icons/*.svg', 'icons/*.png'],
       // 自定义 SW（src/sw.ts）：处理 push / notificationclick 事件（页面关闭时提醒兜底，FR-210）
       strategies: 'injectManifest',
       srcDir: 'src',
@@ -24,12 +24,14 @@ export default defineConfig({
         name: '布谷 Cuckoo',
         short_name: '布谷',
         description: '准时提醒，温柔守护——你的健康生活管家',
-        theme_color: '#3E8E7E',
+        theme_color: '#2E7D6B',
         background_color: '#F7FAF9',
         display: 'standalone',
         start_url: '/',
         icons: [
-          { src: '/icons/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' },
+          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
           { src: '/icons/icon-512.svg', sizes: '512x512', type: 'image/svg+xml' },
         ],
       },

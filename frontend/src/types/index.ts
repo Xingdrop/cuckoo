@@ -183,6 +183,8 @@ export interface Medicine {
   expiryDate: string | null;
   instructions: string | null;
   photoUrl: string | null;
+  /** #25：多张药品照片 */
+  photoUrls?: string[] | null;
   deductionPerUse: number;
   notifyOnLowStock: boolean;
   createdAt: string;

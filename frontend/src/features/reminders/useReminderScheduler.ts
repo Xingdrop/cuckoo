@@ -35,7 +35,24 @@ export function useReminderScheduler() {
     if (!user) return;
     if (!silent) setLoading(true);
     try {
-      setReminders(await remindersApi.list());
+      const list = await remindersApi.list();
+      setReminders(list);
+      // #25：补弹——回到前台时若提醒刚错过（≤3 分钟且本会话未弹过）立即全屏展示，避免"直接变已错过"
+      if (!activeRef.current) {
+        const now = Date.now();
+        const due = list.find(
+          (r) =>
+            r.isActive &&
+            r.nextTriggerAt &&
+            !shownRef.current.has(r.id) &&
+            now - new Date(r.nextTriggerAt).getTime() >= 0 &&
+            now - new Date(r.nextTriggerAt).getTime() <= 3 * 60_000,
+        );
+        if (due) {
+          shownRef.current.add(due.id);
+          setActive(due);
+        }
+      }
     } catch {
       // 静默失败，下一轮重试
     } finally {
@@ -68,6 +85,8 @@ export function useReminderScheduler() {
   }, []);
 
   const replayingRef = useRef(false);
+  /** #25：已补弹过的提醒（会话内去重，防止反复弹） */
+  const shownRef = useRef(new Set<string>());
 
   // 轮询 + 首次加载 + 事件刷新（创建/编辑/删除后即时感知）
   useEffect(() => {
@@ -75,10 +94,15 @@ export function useReminderScheduler() {
     void load();
     const interval = setInterval(() => void load(true), 15_000);
     const onChanged = () => void load(true);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void load(true);
+    };
     window.addEventListener('cuckoo:reminders-changed', onChanged);
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       clearInterval(interval);
       window.removeEventListener('cuckoo:reminders-changed', onChanged);
+      document.removeEventListener('visibilitychange', onVisible);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);

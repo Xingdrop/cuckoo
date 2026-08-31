@@ -2,6 +2,7 @@ import { ArrowUp, Bell, Heart, ImagePlus, MessageCircle, PenSquare, Star, Users 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
+import { PullToRefresh } from '../components/PullToRefresh';
 import { useAuthStore } from '../stores/authStore';
 import { useConnectionStore } from '../stores/connectionStore';
 import { useGuestStore } from '../guest/guestStore';
@@ -345,6 +346,8 @@ export function SocialPage() {
         ))}
       </div>
 
+      {/* #25：下拉刷新（广场/官方计划/小组共用） */}
+      <PullToRefresh onRefresh={async () => { await load(); }}>
       <main className="px-4 pt-4">
         {!online && (
           <p className="mb-3 rounded-btn bg-warning-500/15 px-3 py-2 text-[11px] text-ink-700">
@@ -668,6 +671,7 @@ export function SocialPage() {
           </ul>
         )}
       </main>
+      </PullToRefresh>
 
       {/* 发布弹窗（可引用我的计划：#4/#9） */}
       {showComposer && (

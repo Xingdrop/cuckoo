@@ -45,6 +45,12 @@ export class MedicinesService {
       expiryDate: dto.expiryDate ?? null,
       instructions: dto.instructions ?? null,
       photoUrl: dto.photoUrl ?? null,
+      // #25：多张照片（photoUrls 优先，兼容 photoUrl 单张）
+      photoUrls: dto.photoUrls?.length
+        ? dto.photoUrls
+        : dto.photoUrl
+          ? [dto.photoUrl]
+          : null,
       deductionPerUse: dto.deductionPerUse ?? 1,
       notifyOnLowStock: dto.notifyOnLowStock ?? true,
     });

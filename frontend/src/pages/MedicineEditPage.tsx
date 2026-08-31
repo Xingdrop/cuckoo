@@ -1,8 +1,10 @@
-import { ChevronLeft, Trash2 } from 'lucide-react';
+import { ChevronLeft, ImagePlus, Trash2, X } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { errorMessage } from '../services/http';
 import { medicinesApi, MedicineInput } from '../services/api/api.medicines';
+import { filesApi } from '../services/api/api.files';
+import { useLocal } from '../guest/localMode';
 
 /**
  * P-07b 添加/编辑药品（FR-301）
@@ -26,6 +28,9 @@ export function MedicineEditPage() {
   const [loading, setLoading] = useState(isEdit);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** #25：多张药品照片 */
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -45,11 +50,35 @@ export function MedicineEditPage() {
             deductionPerUse: m.deductionPerUse,
             notifyOnLowStock: m.notifyOnLowStock,
           });
+          setPhotoUrls(m.photoUrls?.length ? m.photoUrls : m.photoUrl ? [m.photoUrl] : []);
         }
       })
       .catch((e) => setError(errorMessage(e)))
       .finally(() => setLoading(false));
   }, [id]);
+
+  /** #25：上传多张照片（离线不可用——上传需要联网） */
+  const uploadPhotos = async (files: FileList | null) => {
+    if (!files?.length) return;
+    if (useLocal()) {
+      setError('当前未联网：照片上传需联网后使用（可先保存药品，联网后编辑补充）');
+      return;
+    }
+    setUploading(true);
+    setError(null);
+    try {
+      const urls: string[] = [];
+      for (const f of Array.from(files).slice(0, 9 - photoUrls.length)) {
+        const r = await filesApi.upload(f);
+        urls.push(r.url);
+      }
+      setPhotoUrls((prev) => [...prev, ...urls].slice(0, 9));
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const set = (k: keyof MedicineInput, v: string | number | boolean) =>
     setForm((prev) => ({ ...prev, [k]: v }));
@@ -70,6 +99,8 @@ export function MedicineEditPage() {
         dosage: form.dosage || undefined,
         administration: form.administration || undefined,
         instructions: form.instructions || undefined,
+        photoUrls: photoUrls.length ? photoUrls : undefined,
+        photoUrl: photoUrls[0],
       };
       if (isEdit && id) {
         await medicinesApi.update(id, payload);
@@ -211,6 +242,46 @@ export function MedicineEditPage() {
             placeholder="如：饭前服用、每日一次"
             className={`${inputCls} resize-none`}
           />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-ink-700">药品照片（最多 9 张，帮助识别/核对）</label>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {photoUrls.map((u, i) => (
+              <span key={u} className="relative h-20 w-20 overflow-hidden rounded-card bg-ink-100">
+                <img src={u} alt={`药品照片 ${i + 1}`} className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setPhotoUrls((prev) => prev.filter((x) => x !== u))}
+                  aria-label={`移除照片 ${i + 1}`}
+                  className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            ))}
+            {photoUrls.length < 9 && (
+              <label
+                className={`flex h-20 w-20 cursor-pointer flex-col items-center justify-center gap-1 rounded-card border border-dashed border-ink-200 text-ink-400 ${
+                  uploading ? 'opacity-50' : ''
+                }`}
+              >
+                <ImagePlus size={20} />
+                <span className="text-[10px]">{uploading ? '上传中…' : '添加照片'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    void uploadPhotos(e.target.files);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            )}
+          </div>
+          <p className="mt-1 text-[10px] text-ink-400">照片上传需联网；离线时请先保存，联网后再补充</p>
         </div>
 
         <label className="flex items-center gap-2 rounded-card bg-surface px-4 py-3 text-sm shadow-sm">

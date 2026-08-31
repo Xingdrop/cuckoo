@@ -268,8 +268,14 @@ export function PlansPage() {
                       ) : (
                         planReminders.map((r) => (
                           <li key={r.id} className="flex items-center gap-2 text-xs">
-                            <span className="text-primary-600">{r.categoryIcon ?? ['💊', '🏃', '💧', '😴', '💼', '📌'][['medication', 'exercise', 'water', 'rest', 'work', 'custom'].indexOf(r.category)] ?? '📌'}</span>
-                            <span className="min-w-0 flex-1 truncate">{r.title}</span>
+                            <button
+                              onClick={() => navigate(`/reminders/${r.id}/edit`)}
+                              className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                              aria-label={`编辑提醒 ${r.title}`}
+                            >
+                              <span className="text-primary-600">{r.categoryIcon ?? ['💊', '🏃', '💧', '😴', '💼', '📌'][['medication', 'exercise', 'water', 'rest', 'work', 'custom'].indexOf(r.category)] ?? '📌'}</span>
+                              <span className="min-w-0 flex-1 truncate">{r.title}</span>
+                            </button>
                             {r.modifiedFromPlan && (
                               <span className="shrink-0 rounded-full bg-accent-100 px-1.5 py-0.5 text-[9px] text-accent-700">已修改</span>
                             )}
@@ -326,7 +332,7 @@ export function PlansPage() {
                         setRenamePlan(p);
                         setRenameText(p.name);
                       }}
-                      className="flex h-8 w-9 items-center justify-center rounded-btn bg-ink-100/60 text-ink-700"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ink-100/60 text-ink-700"
                       aria-label="重命名计划"
                       title="重命名"
                     >
@@ -334,7 +340,7 @@ export function PlansPage() {
                     </button>
                     <button
                       onClick={() => setDeletePlan(p)}
-                      className="flex h-8 w-9 items-center justify-center rounded-btn bg-danger-500/10 text-danger-500"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-danger-500/10 text-danger-500"
                       aria-label="删除计划"
                     >
                       <Trash2 size={13} />

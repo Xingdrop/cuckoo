@@ -134,11 +134,17 @@ function toReminder(r: GuestReminder): Reminder {
   };
 }
 
+/** #25：日志本地日期 key（scheduledTime 为 UTC ISO，直接 slice 会拿到 UTC 日期——晚间跨日错位） */
+const localDayOf = (iso: string): string => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 /** #20：按「具体时点(HH:mm)」匹配日志状态（与云端 60s 窗口一致，间隔提醒逐点打卡） */
 function slotStatuses(reminderId: string, date: string): Map<string, string> {
   const map = new Map<string, string>();
   for (const l of useGuestStore.getState().logs) {
-    if (l.reminderId !== reminderId || l.scheduledTime.slice(0, 10) !== date) continue;
+    if (l.reminderId !== reminderId || localDayOf(l.scheduledTime) !== date) continue;
     const d = new Date(l.scheduledTime);
     const key = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     if (l.status === 'completed' || l.status === 'challenge_completed') map.set(key, 'completed');
@@ -377,7 +383,7 @@ export const guestApi = {
     const settings = useGuestStore.getState().settings;
     const waterMl = useGuestStore
       .getState()
-      .logs.filter((l) => l.amount > 0 && l.scheduledTime.slice(0, 10) === key)
+      .logs.filter((l) => l.amount > 0 && localDayOf(l.scheduledTime) === key)
       .reduce((sum, l) => sum + l.amount, 0);
     const waterGoalMl = settings.waterGoalMl || 2000;
     return {
@@ -428,7 +434,7 @@ export const guestApi = {
     const out: { date: string; planned: number; done: number; rate: number }[] = [];
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
-      const dayLogs = logs.filter((l) => l.scheduledTime.slice(0, 10) === d && (flag[l.reminderId ?? ''] ?? true));
+      const dayLogs = logs.filter((l) => localDayOf(l.scheduledTime) === d && (flag[l.reminderId ?? ''] ?? true));
       const done = dayLogs.filter((l) => l.status === 'completed' || l.status === 'challenge_completed').length;
       out.push({
         date: d,
@@ -450,7 +456,7 @@ export const guestApi = {
       .reminders.reduce<Record<string, boolean>>((mm, r) => ({ ...mm, [r.id]: countsInRate(r) }), {});
     for (let d = 1; d <= daysInMonth; d++) {
       const key = `${month}-${String(d).padStart(2, '0')}`;
-      const dayLogs = logs.filter((l) => l.scheduledTime.slice(0, 10) === key && (flag[l.reminderId ?? ''] ?? true));
+      const dayLogs = logs.filter((l) => localDayOf(l.scheduledTime) === key && (flag[l.reminderId ?? ''] ?? true));
       const done = dayLogs.filter((l) => l.status === 'completed' || l.status === 'challenge_completed').length;
       out.push({
         date: key,

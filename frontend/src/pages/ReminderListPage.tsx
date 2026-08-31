@@ -288,7 +288,11 @@ export function ReminderListPage() {
                 const label = r.category === 'custom' && r.categoryLabel ? r.categoryLabel : meta.label;
                 void label; // 分类名暂用于 title 侧备注（M2 列表筛选增强）
                 return (
-                  <li key={r.id} className="rounded-card bg-surface p-4 shadow-sm">
+                  <li
+                    key={r.id}
+                    className="cursor-pointer rounded-card bg-surface p-4 shadow-sm"
+                    onClick={() => navigate(`/reminders/${r.id}/edit`)}
+                  >
                     <div className="flex items-center gap-3">
                       <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-50 text-lg">
                         {icon}
@@ -339,19 +343,28 @@ export function ReminderListPage() {
                     </div>
                     <div className="mt-3 grid grid-cols-3 gap-2 border-t border-ink-100 pt-3">
                       <button
-                        onClick={() => navigate(`/reminders/${r.id}/edit`)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/reminders/${r.id}/edit`);
+                        }}
                         className="flex h-10 items-center justify-center gap-1 rounded-btn bg-primary-50 text-xs font-medium text-primary-600 transition-colors hover:bg-primary-100"
                       >
                         <Pencil size={13} /> 编辑
                       </button>
                       <button
-                        onClick={() => setDeleteTarget(r)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget(r);
+                        }}
                         className="flex h-10 items-center justify-center gap-1 rounded-btn bg-danger-500/10 text-xs font-medium text-danger-500 transition-colors hover:bg-danger-500/20"
                       >
                         <Trash2 size={13} /> 删除
                       </button>
                       <button
-                        onClick={() => void toggleActive(r)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void toggleActive(r);
+                        }}
                         className={`flex h-10 items-center justify-center gap-1 rounded-btn text-xs font-medium transition-colors ${
                           r.isActive
                             ? 'bg-ink-100/70 text-ink-700 hover:bg-ink-100'

@@ -115,3 +115,12 @@ a.btn {
 .water-add-float {
   animation: float-up 0.9s ease-out forwards;
 }
+
+/* #25：Recharts 无障碍层焦点黄框去除（统计近7天趋势点击后的黄色方框） */
+.recharts-accessibility-layer,
+.recharts-accessibility-layer:focus,
+.recharts-accessibility-layer:focus-visible,
+.recharts-wrapper:focus,
+.recharts-surface:focus {
+  outline: none !important;
+}

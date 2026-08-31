@@ -154,7 +154,11 @@ export function StatsPage() {
           <h2 className="text-sm font-medium">近 7 天趋势</h2>
           <div className="mt-3 h-36">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={trend} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+              <BarChart
+                data={trend}
+                margin={{ top: 5, right: 5, left: -25, bottom: 0 }}
+                accessibilityLayer={false}
+              >
                 <XAxis
                   dataKey="date"
                   tickFormatter={(d: string) => `${Number(d.slice(8))}日`}

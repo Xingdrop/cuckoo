@@ -57,18 +57,38 @@ export function MedicineEditPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  /** #25：上传多张照片（离线不可用——上传需要联网） */
+  /** #25：照片——离线保存到本地（dataURL），联网编辑保存时自动上传换取 URL；在线直接上传 */
   const uploadPhotos = async (files: FileList | null) => {
     if (!files?.length) return;
+    const list = Array.from(files).slice(0, Math.max(0, 9 - photoUrls.length));
+    if (!list.length) return;
     if (useLocal()) {
-      setError('当前未联网：照片上传需联网后使用（可先保存药品，联网后编辑补充）');
+      // 离线：转 base64 存入本地（保存到本机数据，联网后编辑保存自动上传）
+      setUploading(true);
+      setError(null);
+      const thumbs: string[] = [];
+      for (const f of list) {
+        if (f.size > 1_500_000) {
+          setError('离线每张照片需 ≤1.5MB（可联网后上传大图）');
+          continue;
+        }
+        const dataUrl = await new Promise<string>((resolve) => {
+          const fr = new FileReader();
+          fr.onload = () => resolve(String(fr.result ?? ''));
+          fr.onerror = () => resolve('');
+          fr.readAsDataURL(f);
+        });
+        if (dataUrl) thumbs.push(dataUrl);
+      }
+      setPhotoUrls((prev) => [...prev, ...thumbs].slice(0, 9));
+      setUploading(false);
       return;
     }
     setUploading(true);
     setError(null);
     try {
       const urls: string[] = [];
-      for (const f of Array.from(files).slice(0, 9 - photoUrls.length)) {
+      for (const f of list) {
         const r = await filesApi.upload(f);
         urls.push(r.url);
       }
@@ -102,6 +122,22 @@ export function MedicineEditPage() {
         photoUrls: photoUrls.length ? photoUrls : undefined,
         photoUrl: photoUrls[0],
       };
+      // #25：在线保存时自动上传离线暂存的 base64 照片（换成可访问 URL）
+      const hasLocalData = photoUrls.some((u) => u.startsWith('data:'));
+      if (hasLocalData && !useLocal()) {
+        const uploaded: string[] = [];
+        for (const u of photoUrls) {
+          if (!u.startsWith('data:')) {
+            uploaded.push(u);
+            continue;
+          }
+          const blob = await fetch(u).then((r) => r.blob());
+          const r = await filesApi.upload(new File([blob], 'photo.jpg', { type: blob.type || 'image/jpeg' }));
+          uploaded.push(r.url);
+        }
+        payload.photoUrls = uploaded;
+        payload.photoUrl = uploaded[0];
+      }
       if (isEdit && id) {
         await medicinesApi.update(id, payload);
       } else {

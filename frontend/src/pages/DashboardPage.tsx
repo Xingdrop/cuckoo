@@ -2,6 +2,7 @@ import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Plus, Setting
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
+import { ReminderDetailSheet } from '../components/ReminderDetailSheet';
 import { remindersApi } from '../services/api/api.reminders';
 import { statsApi, DashboardStats, WaterInfo } from '../services/api/api.stats';
 import { useGuestStore } from '../guest/guestStore';
@@ -76,7 +77,8 @@ export function DashboardPage() {
   /** #20：完成率选择器 */
   const [ratePickerOpen, setRatePickerOpen] = useState(false);
   const guestActive = useGuestStore((s) => s.active);
-  const touchX = useRef<number | null>(null);
+  /** #25：今日提醒点击查看详情 */
+  const [detailItem, setDetailItem] = useState<CalendarItem | null>(null);
   /** #24：点击日期 → 原生日期选择器（自选日期） */
   const datePickerRef = useRef<HTMLInputElement>(null);
   const openDatePicker = () => {
@@ -119,17 +121,36 @@ export function DashboardPage() {
     void load(selected);
   }, [selected, load]);
 
-  // 左右滑动切换日期（横向位移 > 50px）
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchX.current = e.touches[0].clientX;
-  };
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (touchX.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchX.current;
-    touchX.current = null;
-    if (dx > 50) setSelected((s) => shiftKey(s, -1)); // 右滑 → 前一天
-    else if (dx < -50) setSelected((s) => shiftKey(s, 1)); // 左滑 → 后一天
-  };
+  // #25：左右滑动切换日期——document 级捕获，任何区域（含已错过列表/空白处）均可横滑
+  useEffect(() => {
+    let sx: number | null = null;
+    let sy: number | null = null;
+    const isInteract = (t: EventTarget | null) => {
+      const el = t as HTMLElement | null;
+      return !!el?.closest?.('input, select, textarea, .fixed');
+    };
+    const ts = (e: TouchEvent) => {
+      if (isInteract(e.target)) return;
+      sx = e.touches[0].clientX;
+      sy = e.touches[0].clientY;
+    };
+    const te = (e: TouchEvent) => {
+      if (sx === null || sy === null) return;
+      const dx = e.changedTouches[0].clientX - sx;
+      const dy = e.changedTouches[0].clientY - sy;
+      sx = null;
+      sy = null;
+      if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+        setSelected((s) => shiftKey(s, dx > 0 ? -1 : 1));
+      }
+    };
+    document.addEventListener('touchstart', ts, { passive: true });
+    document.addEventListener('touchend', te, { passive: true });
+    return () => {
+      document.removeEventListener('touchstart', ts);
+      document.removeEventListener('touchend', te);
+    };
+  }, []);
 
   // 展开时间线：未完成（按时间）+ 已完成（按时间）
   const now = new Date();
@@ -221,8 +242,6 @@ export function DashboardPage() {
     <div
       className="mx-auto max-w-md overflow-x-clip pb-20"
       style={{ touchAction: 'pan-y' }}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
     >
       {/* #24：顶部日期头——两行布局（日期居中不挤压）+ 点击自选日期 */}
       <header className="px-4 pt-5">
@@ -269,8 +288,7 @@ export function DashboardPage() {
             <ChevronRight size={20} />
           </button>
         </div>
-        <div className="mt-2 flex items-center justify-between">
-          <span className="text-[10px] text-ink-400">点击日期可自选</span>
+        <div className="mt-2 flex items-center justify-end">
           <div className="flex shrink-0 items-center gap-2">
             {guestActive && (
               <span className="shrink-0 rounded-full bg-accent-100 px-2 py-0.5 text-[10px] font-medium text-accent-700">
@@ -279,14 +297,14 @@ export function DashboardPage() {
             )}
             <button
               onClick={() => navigate('/stats')}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-primary-600 shadow-sm"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface p-0 text-primary-600 shadow-sm"
               aria-label="统计"
             >
               <BarChart3 size={17} />
             </button>
             <button
               onClick={() => navigate('/settings')}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-ink-700 shadow-sm"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface p-0 text-ink-700 shadow-sm"
               aria-label="设置"
             >
               <Settings size={17} />
@@ -331,6 +349,7 @@ export function DashboardPage() {
                 : 'bg-surface'
             }`}
           >
+            {/* #25：喝水卡重排——头部只放 标签+按钮，达标徽标独立成行不遮挡 */}
             <div className="flex items-center justify-between">
               <p className="truncate text-xs text-ink-500">💧 喝水{selected !== today ? `（${selected.slice(5)}）` : ''}</p>
               <div className="relative shrink-0">
@@ -369,22 +388,23 @@ export function DashboardPage() {
             </div>
             {water ? (
               <>
-                {/* #24：「目标达成」改为独立行内徽标（原放在头部行会挤出/遮挡其他字样） */}
-                <p className="mt-1 flex items-center gap-2 text-2xl font-bold text-primary-600">
-                  <span className="whitespace-nowrap">{water.waterMl}</span>
-                  {water.rate >= 100 && (
-                    <span className="shrink-0 rounded-full bg-primary-500 px-1.5 py-0.5 text-[9px] font-medium text-white">
-                      ✓ 目标达成
-                    </span>
-                  )}
+                <p className="mt-2 text-3xl font-bold leading-none text-primary-600">
+                  {water.waterMl}
+                  <span className="ml-1 text-xs font-normal text-ink-400">ml</span>
+                  <span className="ml-2 text-xs font-normal text-ink-500">/ {water.waterGoalMl}ml</span>
                 </p>
-                <p className="text-[11px] text-ink-500">目标 {water.waterGoalMl}ml</p>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-100">
+                <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-ink-100">
                   <div
                     className="h-full rounded-full bg-primary-500 transition-all"
-                    style={{ width: `${water.rate}%` }}
+                    style={{ width: `${Math.min(100, water.rate)}%` }}
                   />
                 </div>
+                {water.rate >= 100 && (
+                  <p className="mt-1.5 flex items-center gap-1 text-[10px] font-medium text-primary-600">
+                    <span className="rounded-full bg-primary-500 px-1.5 py-0.5 text-[9px] text-white">✓</span>
+                    今日目标已达成，继续保持
+                  </p>
+                )}
               </>
             ) : (
               <p className="mt-2 text-[11px] text-ink-300">记录喝水进度</p>
@@ -436,6 +456,7 @@ export function DashboardPage() {
                   today={today}
                   nowTime={nowTime}
                   onSlotAck={intervalAck}
+                  onDetails={setDetailItem}
                 />
               ))}
             </div>
@@ -447,21 +468,26 @@ export function DashboardPage() {
                   key={`p-${s.item.reminderId}-${s.time}-${i}`}
                   className="flex items-center gap-3 rounded-card bg-surface px-4 py-3 shadow-sm"
                 >
-                  <span className="w-14 text-right text-sm font-semibold text-primary-600">{s.item.untimed ? '不定时' : s.time}</span>
-                  <span className="text-lg">
-                    {s.item.categoryIcon ?? CATEGORY_EMOJI[s.item.category] ?? '📌'}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
-                      {s.item.category === 'custom' && s.item.categoryLabel
-                        ? `${s.item.categoryLabel} · `
-                        : ''}
-                      {s.item.title}
-                    </p>
-                    {s.item.content.text && (
-                      <p className="mt-0.5 truncate text-xs text-ink-500">{s.item.content.text}</p>
-                    )}
-                  </div>
+                  <button
+                    onClick={() => setDetailItem(s.item)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
+                    <span className="w-14 shrink-0 text-right text-sm font-semibold text-primary-600">{s.item.untimed ? '不定时' : s.time}</span>
+                    <span className="text-lg">
+                      {s.item.categoryIcon ?? CATEGORY_EMOJI[s.item.category] ?? '📌'}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">
+                        {s.item.category === 'custom' && s.item.categoryLabel
+                          ? `${s.item.categoryLabel} · `
+                          : ''}
+                        {s.item.title}
+                      </span>
+                      {s.item.content.text && (
+                        <span className="mt-0.5 block truncate text-xs text-ink-500">{s.item.content.text}</span>
+                      )}
+                    </span>
+                  </button>
                   {(() => {
                     if (s.item.untimed) {
                       // #12/#14：不定时 — 完成/放弃（仅限今日前后 3 天可操作）
@@ -532,21 +558,26 @@ export function DashboardPage() {
                       key={`d-${s.item.reminderId}-${s.time}-${i}`}
                       className="flex items-center gap-3 rounded-card border-l-4 border-primary-500/60 bg-ink-100/60 px-4 py-3 opacity-80"
                     >
-                      <span className="w-14 text-right text-sm font-semibold text-ink-500">{s.item.untimed ? '不定时' : s.time}</span>
+                      <button
+                        onClick={() => setDetailItem(s.item)}
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      >
+                      <span className="w-14 shrink-0 text-right text-sm font-semibold text-ink-500">{s.item.untimed ? '不定时' : s.time}</span>
                       <span className="text-lg opacity-50">
                         {s.item.categoryIcon ?? CATEGORY_EMOJI[s.item.category] ?? '📌'}
                       </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm text-ink-500 line-through decoration-ink-300">
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm text-ink-500 line-through decoration-ink-300">
                           {s.item.category === 'custom' && s.item.categoryLabel
                             ? `${s.item.categoryLabel} · `
                             : ''}
                           {s.item.title}
-                        </p>
+                        </span>
                         {s.item.content.text && (
-                          <p className="mt-0.5 truncate text-xs text-ink-500/70">{s.item.content.text}</p>
+                          <span className="mt-0.5 block truncate text-xs text-ink-500/70">{s.item.content.text}</span>
                         )}
-                      </div>
+                      </span>
+                      </button>
                       {effective > 1 ? (
                         <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-primary-500/15 px-2.5 py-1 text-[10px] font-medium text-primary-700">
                           <Check size={11} /> 已完成 {k}/{effective} 次
@@ -591,21 +622,26 @@ export function DashboardPage() {
                     key={`m-${s.item.reminderId}-${s.time}-${i}`}
                     className="flex items-center gap-3 rounded-card border-l-4 border-danger-500/70 bg-danger-500/5 px-4 py-3"
                   >
-                    <span className="w-14 text-right text-sm font-semibold text-danger-700">{s.item.untimed ? '不定时' : s.time}</span>
+                    <button
+                      onClick={() => setDetailItem(s.item)}
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    >
+                    <span className="w-14 shrink-0 text-right text-sm font-semibold text-danger-700">{s.item.untimed ? '不定时' : s.time}</span>
                     <span className="text-lg opacity-60">
                       {s.item.categoryIcon ?? CATEGORY_EMOJI[s.item.category] ?? '📌'}
                     </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-danger-700">
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm text-danger-700">
                         {s.item.category === 'custom' && s.item.categoryLabel
                           ? `${s.item.categoryLabel} · `
                           : ''}
                         {s.item.title}
-                      </p>
+                      </span>
                       {s.item.content.text && (
-                        <p className="mt-0.5 truncate text-xs text-danger-700/70">{s.item.content.text}</p>
+                        <span className="mt-0.5 block truncate text-xs text-danger-700/70">{s.item.content.text}</span>
                       )}
-                    </div>
+                    </span>
+                    </button>
                     {s.status === 'skipped' ? (
                       <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-ink-300 px-2.5 py-1 text-[10px] font-medium text-white">
                         ↷ 已跳过
@@ -682,6 +718,9 @@ export function DashboardPage() {
         </div>
       )}
 
+      {/* #25：提醒详情抽屉 */}
+      {detailItem && <ReminderDetailSheet item={detailItem} onClose={() => setDetailItem(null)} />}
+
       <BottomNav />
     </div>
   );
@@ -697,12 +736,14 @@ function IntervalCard({
   today,
   nowTime,
   onSlotAck,
+  onDetails,
 }: {
   item: CalendarItem;
   selected: string;
   today: string;
   nowTime: string;
   onSlotAck: (item: CalendarItem, time: string, status: 'completed' | 'skipped') => void;
+  onDetails: (item: CalendarItem) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const total = item.times.length;
@@ -721,11 +762,25 @@ function IntervalCard({
   return (
     <div className="rounded-card border-l-4 border-primary-500/50 bg-surface px-4 py-3 shadow-sm">
       <button onClick={() => setExpanded((v) => !v)} className="flex w-full items-center gap-3 text-left" aria-expanded={expanded}>
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg">
+        <span
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-lg"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDetails(item);
+          }}
+        >
           {item.categoryIcon ?? CATEGORY_EMOJI[item.category] ?? '📌'}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">{item.title}</span>
+          <span
+            className="block truncate text-sm font-medium underline-offset-2 hover:underline"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDetails(item);
+            }}
+          >
+            {item.title}
+          </span>
           <span className="mt-0.5 block truncate text-[11px] text-ink-500">
             {item.repeatRule?.type === 'interval'
               ? `每 ${item.repeatRule?.intervalValue ?? 1} ${(item.repeatRule?.intervalUnit as string) === 'minute' ? '分钟' : item.repeatRule?.intervalUnit === 'week' ? '周' : '小时'}`

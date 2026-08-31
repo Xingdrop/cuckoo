@@ -2,20 +2,10 @@ import { http } from '../http';
 
 /** 用户账号（FR-105：导出/注销） */
 export const usersApi = {
-  /** 导出全量数据（JSON 下载） */
-  exportData: async () => {
+  /** 导出全量数据（#25：返回 JSON 字符串，由调用方保存——APK 用文件系统写盘，浏览器下载） */
+  exportData: async (): Promise<string> => {
     const res = await http.get<Blob>('/users/me/export', { responseType: 'blob' });
-    const disposition = res.headers['content-disposition'] ?? '';
-    const match = /filename="?([^";]+)"?/.exec(disposition);
-    const filename = match?.[1] ?? `cuckoo-export-${Date.now()}.json`;
-    const url = URL.createObjectURL(res.data as Blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    return (res.data as Blob).text();
   },
 
   /** 注销账号（软删除 + 数据清理） */

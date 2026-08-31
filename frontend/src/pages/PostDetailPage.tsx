@@ -56,8 +56,8 @@ export function PostDetailPage() {
     }
   };
 
-  const load = useCallback(async () => {
-    if (!id) return;
+  const load = useCallback(async (): Promise<boolean> => {
+    if (!id) return false;
     try {
       // #17：离线时评论为空（缓存只读；评论列表不落缓存）
       const [p, c] = await Promise.all([
@@ -66,8 +66,10 @@ export function PostDetailPage() {
       ]);
       setPost(p);
       setComments(c.items);
+      return true;
     } catch (e) {
       setError(errorMessage(e));
+      return false;
     } finally {
       setLoading(false);
     }
@@ -148,7 +150,7 @@ export function PostDetailPage() {
         <h1 className="flex-1 text-lg font-semibold">帖子详情</h1>
       </header>
 
-      <PullToRefresh onRefresh={async () => { await load(); }}>
+      <PullToRefresh onRefresh={load}>
       <main className="px-4 pt-3">
         {!online && (
           <p className="mb-3 rounded-btn bg-warning-500/15 px-3 py-2 text-[11px] text-ink-700">

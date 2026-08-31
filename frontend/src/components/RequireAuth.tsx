@@ -51,7 +51,11 @@ export function GuestHint({ variant }: { variant: 'social' | 'lock' | 'offline' 
   const navigate = useNavigate();
   const guest = useGuestStore((s) => s.active);
   const goLogin = () => navigate('/login');
-  const goHome = () => navigate('/today');
+  const goBack = () => {
+    // #24：返回上一界面（无历史时回今日）
+    if (window.history.length > 1) navigate(-1);
+    else navigate('/today');
+  };
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center px-8 text-center">
       <span className="text-4xl">{variant === 'social' ? '👥' : variant === 'offline' ? '📡' : '🔒'}</span>
@@ -78,7 +82,7 @@ export function GuestHint({ variant }: { variant: 'social' | 'lock' | 'offline' 
         </button>
         {guest && (
           <button
-            onClick={goHome}
+            onClick={goBack}
             className="rounded-btn bg-ink-100 px-6 py-3 text-sm font-medium text-ink-700"
           >
             返回游客模式

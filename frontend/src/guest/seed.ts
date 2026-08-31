@@ -76,8 +76,10 @@ export async function bootstrapSeed(): Promise<SeedFile | null> {
     } catch {
       /* 缓存损坏 → 重新拉取 */
     }
-    const res = await fetch(SEED_FILE);
-    if (!res.ok) return null;
+    // #24：绝对路径失败时回退相对路径（个别 WebView/子路径部署场景），命中即可
+    let res = await fetch(SEED_FILE).catch(() => null);
+    if (!res || !res.ok) res = await fetch('offline-seed.json').catch(() => null);
+    if (!res || !res.ok) return null;
     const s = (await res.json()) as SeedFile;
     const err = validateSeed(s);
     if (err) {
@@ -90,6 +92,13 @@ export async function bootstrapSeed(): Promise<SeedFile | null> {
   } catch {
     return null;
   }
+}
+
+/** #24：离线种子状态诊断（null=正常；否则给出缺失原因） */
+export async function seedIssue(): Promise<string | null> {
+  const s = await bootstrapSeed();
+  if (s) return null;
+  return '离线数据文件未打包（offline-seed.json）或已损坏——请重新安装最新 APK，或联网打开一次 App 自动获取';
 }
 
 /** 离线登录：用户名+密码 → 返回种子用户与数据集（密码错误/不存在 → null） */

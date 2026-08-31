@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { useAuthStore } from '../stores/authStore';
 import { useConnectionStore } from '../stores/connectionStore';
+import { useGuestStore } from '../guest/guestStore';
 import { errorMessage } from '../services/http';
 import { socialApi, Post, PlanTemplate, Group } from '../services/api/api.social';
 import { filesApi } from '../services/api/api.files';
@@ -206,6 +207,11 @@ export function SocialPage() {
   };
 
   const publish = async () => {
+    // #24：发布按钮不置灰——点击给出明确提示（游客需登录 / 离线需联网）
+    if (useGuestStore.getState().active) {
+      setError('请登录后使用（发布需要正常账户）');
+      return;
+    }
     if (!online) {
       setError('当前未联网：发布帖子需联网后使用');
       return;
@@ -250,6 +256,15 @@ export function SocialPage() {
   };
 
   const openComposer = () => {
+    // #24：游客/离线点击 → 给出明确提示（按钮为灰色，但可点）
+    if (useGuestStore.getState().active) {
+      setError('请登录后使用（发布需要正常账户）');
+      return;
+    }
+    if (!useConnectionStore.getState().online) {
+      setError('当前未联网：发布帖子需联网后使用');
+      return;
+    }
     setShowComposer(true);
     void plansApi
       .list()
@@ -294,8 +309,12 @@ export function SocialPage() {
           </button>
           <button
             onClick={openComposer}
-            disabled={!online}
-            className="flex h-10 items-center gap-1 rounded-full bg-primary-500 px-4 text-sm font-medium text-white disabled:opacity-40"
+            className={`flex h-10 items-center gap-1 rounded-full px-4 text-sm font-medium ${
+              online && !useGuestStore.getState().active
+                ? 'bg-primary-500 text-white'
+                : 'bg-ink-100 text-ink-400'
+            }`}
+            aria-label="发布"
           >
             <PenSquare size={15} /> 发布
           </button>

@@ -1,9 +1,7 @@
-test-results/
+ï»¿test-results/
 playwright-report/
 coverage/
-
-
-# Android£¨Capacitor£©¹¹½¨²úÎïÓë±¾»úÅäÖÃ
+# Androidï¿½ï¿½Capacitorï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ë±¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 android/local.properties
 android/build/
 android/.gradle/
@@ -11,5 +9,3 @@ android/app/build/
 android/app/src/main/assets/public/
 android/capacitor-cordova-android-plugins/build/
 android/.idea/
-frontend/public/offline-seed.json
-public/offline-seed.json

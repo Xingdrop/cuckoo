@@ -10,10 +10,11 @@ import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
 import { useConnectionStore } from '../stores/connectionStore';
 import { useGuestStore } from '../guest/guestStore';
+import { useLocal } from '../guest/localMode';
 import { checkPushSubscribed, isPushSupported, pushFailMessage, subscribePush, unsubscribePush } from '../utils/push';
 import type { Reminder, UserSettings } from '../types';
 
-/** 设置开关行：checkbox 样式（accent 主题色） */
+/** 设置开关行：#24 自绘 pill 开关（原生 checkbox 在手机端勾选后颜色突变，统一主题色+过渡动画） */
 function SettingRow({
   checked,
   onChange,
@@ -33,13 +34,19 @@ function SettingRow({
         <p className={`text-sm ${disabled ? 'text-ink-500' : ''}`}>{label}</p>
         <p className={`mt-0.5 text-xs ${disabled ? 'text-ink-500/70' : 'text-ink-500'}`}>{desc}</p>
       </div>
-      <input
-        type="checkbox"
-        checked={checked}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
         disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-5 w-5 shrink-0 accent-primary-500"
-      />
+        onClick={() => onChange(!checked)}
+        className={`flex h-6 w-10 shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 disabled:opacity-40 ${
+          checked ? 'justify-end bg-primary-500' : 'justify-start bg-ink-200'
+        }`}
+      >
+        <span className="h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200" />
+      </button>
     </div>
   );
 }
@@ -131,12 +138,26 @@ export function SettingsPage() {
     navigate('/login');
   };
 
-  /** 导出全量数据（FR-105/AC-105） */
+  /** #24：导出全量数据——离线/游客直接用本地数据打包（json 下载），任何状态可用 */
   const handleExport = async () => {
     setBusy(true);
     setError(null);
     try {
-      await usersApi.exportData();
+      if (useLocal()) {
+        const g = useGuestStore.getState();
+        const bundle = g.exportBundle();
+        const blob = new Blob([JSON.stringify({ ...bundle, exportedAt: new Date().toISOString() }, null, 2)], {
+          type: 'application/json',
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `cuckoo-local-data-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        await usersApi.exportData();
+      }
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -308,16 +329,14 @@ export function SettingsPage() {
           </button>
           <button
             onClick={handleExport}
-            disabled={busy || !online}
-            title={!online ? '导出需联网' : undefined}
+            disabled={busy}
             className="flex w-full items-center gap-3 px-4 py-3.5 text-left disabled:opacity-40"
           >
             <Download size={18} className="shrink-0 text-primary-600" />
             <div>
               <p className="text-sm font-medium">导出我的数据</p>
-              <p className="mt-0.5 text-xs text-ink-500">下载 JSON（提醒/日志/药品/帖子/设置等全量）</p>
+              <p className="mt-0.5 text-xs text-ink-500">下载 JSON（提醒/日志/药品/计划/设置全量；离线也可用）</p>
             </div>
-            {!online && <span className="ml-auto text-[10px] text-ink-400">需联网</span>}
           </button>
           {/* #22：合并游客数据（默认不同步；开关 = 手动把游客数据并入当前账户，重复按更新时间较新） */}
           <div className="flex w-full items-center gap-3 px-4 py-3.5">
@@ -366,14 +385,24 @@ export function SettingsPage() {
           >
             <LogOut size={16} /> 退出登录
           </button>
-          <button
-            onClick={() => setConfirmDelete(true)}
-            disabled={!online}
-            title={!online ? '注销账号需联网' : undefined}
-            className="flex w-full items-center gap-2 px-4 py-3.5 text-sm text-danger-500 disabled:opacity-40"
-          >
-            <Trash2 size={16} /> 注销账号
-          </button>
+          {guestActive ? (
+            /* #24：游客 = 本地账户 → 注销 = 清空本地游客数据（无需联网） */
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="flex w-full items-center gap-2 px-4 py-3.5 text-sm text-danger-500"
+            >
+              <Trash2 size={16} /> 注销（清空游客本地数据）
+            </button>
+          ) : (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              disabled={!online}
+              title={!online ? '注销账号需联网' : undefined}
+              className="flex w-full items-center gap-2 px-4 py-3.5 text-sm text-danger-500 disabled:opacity-40"
+            >
+              <Trash2 size={16} /> 注销账号
+            </button>
+          )}
         </section>
 
         <p className="flex items-center justify-center gap-1 pt-2 text-xs text-ink-500">
@@ -393,15 +422,27 @@ export function SettingsPage() {
         />
       )}
 
-      {/* 注销确认 */}
+      {/* 注销确认（#24：游客 = 清空本地游客数据；账户 = 服务端注销） */}
       <ConfirmModal
         open={confirmDelete}
-        title="确认注销账号？"
-        message="注销后将删除该账号全部数据（提醒/记录/帖子等），审计日志留存；注销后旧登录状态立即失效。"
-        confirmText="确认注销"
+        title={guestActive ? '确认清空游客数据？' : '确认注销账号？'}
+        message={
+          guestActive
+            ? '将清除本机游客模式的全部数据（提醒/记录/计划/设置），且无法恢复。如需保留请先登录账户并执行「合并游客数据」。'
+            : '注销后将删除该账号全部数据（提醒/记录/帖子等），审计日志留存；注销后旧登录状态立即失效。'
+        }
+        confirmText={guestActive ? '确认清空' : '确认注销'}
         cancelText="取消"
         onCancel={() => setConfirmDelete(false)}
-        onConfirm={handleDelete}
+        onConfirm={async () => {
+          if (guestActive) {
+            useGuestStore.getState().clearGuestData();
+            setConfirmDelete(false);
+            setNotice('游客数据已清空（本机本地账户已注销）');
+          } else {
+            await handleDelete();
+          }
+        }}
       />
     </div>
   );

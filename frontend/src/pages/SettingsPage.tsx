@@ -99,6 +99,9 @@ export function SettingsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const guestActive = useGuestStore((s) => s.active);
   const [hasGuestData, setHasGuestData] = useState(() => localStorage.getItem('cuckoo_local:guest') !== null);
+  /** #26：合并预览弹窗（确认后合并）/ 清空游客数据确认 */
+  const [previewMerge, setPreviewMerge] = useState<string | null>(null);
+  const [confirmClearGuest, setConfirmClearGuest] = useState(false);
 
   useEffect(() => {
     authApi
@@ -158,14 +161,20 @@ export function SettingsPage() {
       const fileName = `cuckoo-data-${new Date().toISOString().slice(0, 10)}.json`;
       const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
       if (cap?.isNativePlatform?.()) {
-        // APK：写入「文档」目录（可通过系统文件/分享访问）
+        // APK：写入「文档」目录；失败回退「缓存」目录（文件系统权限受限场景）
         const { Filesystem, Directory } = await import('@capacitor/filesystem');
-        await Filesystem.writeFile({
-          path: fileName,
-          data: json,
-          directory: Directory.Documents,
-        });
-        setNotice(`已导出到本机「文档」目录：${fileName}`);
+        let dir = Directory.Documents;
+        try {
+          await Filesystem.writeFile({ path: fileName, data: json, directory: dir, recursive: true });
+        } catch {
+          dir = Directory.Cache;
+          await Filesystem.writeFile({ path: fileName, data: json, directory: dir, recursive: true });
+        }
+        setNotice(
+          dir === Directory.Documents
+            ? `已导出到本机「文档」目录：${fileName}`
+            : `已导出到应用缓存目录（离线保存）：${fileName}`,
+        );
       } else {
         const blob = new Blob([json], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -356,36 +365,51 @@ export function SettingsPage() {
               <p className="mt-0.5 text-xs text-ink-500">下载 JSON（提醒/日志/药品/计划/设置全量；离线也可用）</p>
             </div>
           </button>
-          {/* #22：合并游客数据（默认不同步；开关 = 手动把游客数据并入当前账户，重复按更新时间较新） */}
-          <div className="flex w-full items-center gap-3 px-4 py-3.5">
-            <Database size={18} className="shrink-0 text-primary-600" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">合并游客数据</p>
-              <p className="mt-0.5 text-xs text-ink-500">
-                把游客模式的数据并入当前账户（重复内容按更新时间较新保留）；游客数据默认不会自动同步
-              </p>
+          {/* #22/#26：合并游客数据——预览+确认合并；可单独清空游客数据 */}
+          <div className="w-full px-4 py-3.5">
+            <div className="flex items-center gap-3">
+              <Database size={18} className="shrink-0 text-primary-600" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">合并游客数据</p>
+                <p className="mt-0.5 text-xs text-ink-500">
+                  预览后确认合并到当前账户（重复内容按更新时间较新保留）；游客数据默认不会自动同步
+                </p>
+              </div>
             </div>
-            <button
-              onClick={async () => {
-                try {
-                  const r = useGuestStore.getState().mergeGuestData();
-                  setHasGuestData(localStorage.getItem('cuckoo_local:guest') !== null);
-                  setError(null);
-                  setNotice(
-                    r.merged > 0
-                      ? `已合并 ${r.merged} 条游客数据到当前账户${r.skipped > 0 ? `，${r.skipped} 条重复按更新时间保留了较新版本` : ''}`
-                      : '暂无游客数据可合并（或已合并过）',
-                  );
-                } catch (e) {
-                  setError(errorMessage(e));
-                }
-              }}
-              disabled={guestActive || !hasGuestData}
-              title={guestActive ? '请先退出游客模式并登录账户' : !hasGuestData ? '本机没有游客数据' : '合并游客数据'}
-              className="shrink-0 rounded-full bg-primary-500 px-3.5 py-1.5 text-xs font-medium text-white disabled:opacity-40 disabled:pointer-events-none"
-            >
-              {guestActive ? '需登录账户' : !hasGuestData ? '暂无游客数据' : '合并'}
-            </button>
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={() => {
+                  if (guestActive || !hasGuestData) return;
+                  // #26：预览内容（计数与部分提醒标题）
+                  try {
+                    const raw = localStorage.getItem('cuckoo_local:guest');
+                    const g = raw ? JSON.parse(raw) : null;
+                    const rl = (g?.reminders ?? []) as { title?: string }[];
+                    const lines = [
+                      `提醒 ${rl.length} 条 · 日志 ${(g?.logs ?? []).length} 条 · 药品 ${(g?.medicines ?? []).length} 种 · 计划 ${(g?.plans ?? []).length} 个`,
+                    ];
+                    if (rl.length) {
+                      lines.push('提醒示例：' + rl.slice(0, 3).map((x) => `「${x.title ?? ''}」`).join('、') + (rl.length > 3 ? ` 等 ${rl.length} 条` : ''));
+                    }
+                    lines.push('与账户重复的内容按更新时间较新保留；合并后游客数据将被清除。');
+                    setPreviewMerge(lines.join('\n'));
+                  } catch {
+                    setError('游客数据无法读取，请重试');
+                  }
+                }}
+                disabled={guestActive || !hasGuestData}
+                className="flex-1 rounded-btn bg-primary-500 py-2.5 text-xs font-medium text-white disabled:opacity-40"
+              >
+                预览并合并
+              </button>
+              <button
+                onClick={() => setConfirmClearGuest(true)}
+                disabled={guestActive || !hasGuestData}
+                className="flex-1 rounded-btn bg-danger-500/10 py-2.5 text-xs font-medium text-danger-600 disabled:opacity-40"
+              >
+                清空游客数据
+              </button>
+            </div>
           </div>
         </section>
 
@@ -440,6 +464,47 @@ export function SettingsPage() {
           }}
         />
       )}
+
+      {/* #26：合并游客数据——预览确认 */}
+      <ConfirmModal
+        open={previewMerge !== null}
+        title="确认合并游客数据？"
+        message={previewMerge ?? ''}
+        confirmText="确认合并"
+        cancelText="取消"
+        onCancel={() => setPreviewMerge(null)}
+        onConfirm={async () => {
+          try {
+            const r = useGuestStore.getState().mergeGuestData();
+            setHasGuestData(localStorage.getItem('cuckoo_local:guest') !== null);
+            setPreviewMerge(null);
+            setError(null);
+            setNotice(
+              r.merged > 0
+                ? `已合并 ${r.merged} 条游客数据到当前账户${r.skipped > 0 ? `，${r.skipped} 条重复按更新时间保留了较新版本` : ''}`
+                : '暂无游客数据可合并（或已合并过）',
+            );
+          } catch (e) {
+            setError(errorMessage(e));
+            setPreviewMerge(null);
+          }
+        }}
+      />
+      {/* #26：清空游客数据（不合并） */}
+      <ConfirmModal
+        open={confirmClearGuest}
+        title="确认清空游客数据？"
+        message="将删除本机游客模式的全部数据（提醒/记录/计划/设置），且无法恢复；如需保留请先「预览并合并」到当前账户。"
+        confirmText="确认清空"
+        cancelText="取消"
+        onCancel={() => setConfirmClearGuest(false)}
+        onConfirm={() => {
+          useGuestStore.getState().clearGuestData();
+          setHasGuestData(false);
+          setConfirmClearGuest(false);
+          setNotice('游客数据已清空');
+        }}
+      />
 
       {/* 注销确认（#24：游客 = 清空本地游客数据；账户 = 服务端注销） */}
       <ConfirmModal

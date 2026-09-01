@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { ReminderDetailSheet } from '../components/ReminderDetailSheet';
 import { remindersApi } from '../services/api/api.reminders';
+import { authApi } from '../services/api/api.auth';
 import { statsApi, DashboardStats, WaterInfo } from '../services/api/api.stats';
 import { useGuestStore } from '../guest/guestStore';
 import { dateHead, festivalIcon, lunarInfo, shiftKey, todayKey } from '../utils/calendar';
@@ -76,6 +77,14 @@ export function DashboardPage() {
   const [waterStats, setWaterStats] = useState<Record<string, WaterInfo>>({});
   /** #20：完成率选择器 */
   const [ratePickerOpen, setRatePickerOpen] = useState(false);
+  /** #26：喝水（当日达标）是否计入完成率 */
+  const [waterRate, setWaterRate] = useState(false);
+  useEffect(() => {
+    authApi
+      .getSettings()
+      .then((s) => setWaterRate(s.waterCountInRate === true))
+      .catch(() => undefined);
+  }, []);
   const guestActive = useGuestStore((s) => s.active);
   /** #25：今日提醒点击查看详情 */
   const [detailItem, setDetailItem] = useState<CalendarItem | null>(null);
@@ -349,9 +358,17 @@ export function DashboardPage() {
                 : 'bg-surface'
             }`}
           >
-            {/* #25：喝水卡重排——头部只放 标签+按钮，达标徽标独立成行不遮挡 */}
-            <div className="flex items-center justify-between">
-              <p className="truncate text-xs text-ink-500">💧 喝水{selected !== today ? `（${selected.slice(5)}）` : ''}</p>
+            {/* #26：固定高度紧凑喝水卡——达标与否/点击记录都不会让方框变大 */}
+            <div className="flex h-6 items-center justify-between">
+              <p className="flex min-w-0 items-center gap-1 text-xs text-ink-500">
+                <span className="shrink-0">💧 喝水</span>
+                {selected !== today && (
+                  <span className="shrink-0 rounded-full bg-ink-100 px-1.5 py-0.5 text-[9px] text-ink-500">
+                    {selected.slice(5)}
+                  </span>
+                )}
+                <span className="truncate text-ink-400">{water && water.rate >= 100 ? '· 达标' : ''}</span>
+              </p>
               <div className="relative shrink-0">
                 {selected === today ? (
                   <button
@@ -388,10 +405,10 @@ export function DashboardPage() {
             </div>
             {water ? (
               <>
-                <p className="mt-2 text-3xl font-bold leading-none text-primary-600">
+                <p className="mt-2 truncate text-xl font-bold leading-none text-primary-600">
                   {water.waterMl}
-                  <span className="ml-1 text-xs font-normal text-ink-400">ml</span>
-                  <span className="ml-2 text-xs font-normal text-ink-500">/ {water.waterGoalMl}ml</span>
+                  <span className="ml-0.5 text-[11px] font-normal text-ink-400">ml</span>
+                  <span className="ml-1.5 text-[11px] font-normal text-ink-500">/ {water.waterGoalMl}ml</span>
                 </p>
                 <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-ink-100">
                   <div
@@ -399,12 +416,6 @@ export function DashboardPage() {
                     style={{ width: `${Math.min(100, water.rate)}%` }}
                   />
                 </div>
-                {water.rate >= 100 && (
-                  <p className="mt-1.5 flex items-center gap-1 text-[10px] font-medium text-primary-600">
-                    <span className="rounded-full bg-primary-500 px-1.5 py-0.5 text-[9px] text-white">✓</span>
-                    今日目标已达成，继续保持
-                  </p>
-                )}
               </>
             ) : (
               <p className="mt-2 text-[11px] text-ink-300">记录喝水进度</p>
@@ -685,6 +696,32 @@ export function DashboardPage() {
               勾选的提醒才统计完成率；未勾选仍会正常提醒与打卡（默认全部计入）
             </p>
             <ul className="mt-3 max-h-72 space-y-1 overflow-y-auto rounded-btn bg-bg p-2">
+              {/* #26：喝水（当日达标）作为可选统计项——不建喝水提醒也可统计 */}
+              <li className="flex items-center gap-2 rounded-btn bg-surface px-3 py-2">
+                <span className="text-base">💧</span>
+                <span className="min-w-0 flex-1 truncate text-sm">喝水（当日达标）</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-label="喝水 计入完成率"
+                  aria-checked={waterRate}
+                  onClick={async () => {
+                    const next = !waterRate;
+                    setWaterRate(next);
+                    try {
+                      await authApi.updateSettings({ waterCountInRate: next });
+                    } catch {
+                      setWaterRate(!next);
+                    }
+                    if (selected === today) statsApi.dashboard().then(setStats).catch(() => undefined);
+                  }}
+                  className={`flex h-6 w-10 shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 ${
+                    waterRate ? 'justify-end bg-primary-500' : 'justify-start bg-ink-200'
+                  }`}
+                >
+                  <span className="h-5 w-5 rounded-full bg-white shadow-sm" />
+                </button>
+              </li>
               {items.length === 0 && <li className="py-3 text-center text-xs text-ink-300">当日暂无提醒</li>}
               {items.map((item) => (
                 <li

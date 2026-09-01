@@ -80,6 +80,11 @@ class UpdateSettingsDto {
   @IsOptional()
   @IsBoolean()
   waterInRate?: boolean;
+
+  /** #26：喝水（当日达标）作为完成率可选统计项（今日完成率面板逐项勾选） */
+  @IsOptional()
+  @IsBoolean()
+  waterCountInRate?: boolean;
 }
 
 @ApiTags('用户')

@@ -414,6 +414,11 @@ export const guestApi = {
       }
     }
     const water = this.waterInfo(date);
+    // #26：喝水（当日达标）可选统计项（与云端口径一致）
+    if (useGuestStore.getState().settings.waterCountInRate === true && water.reached) {
+      done += 1;
+      if (planned === 0) planned = 1;
+    }
     return {
       date,
       planned,
@@ -584,6 +589,7 @@ export const guestApi = {
       maxDelayCount: s.maxDelayCount ?? 3,
       waterGoalMl: s.waterGoalMl,
       waterInRate: s.waterInRate === true,
+      waterCountInRate: s.waterCountInRate === true,
     };
   },
   saveSettings(patch: Partial<UserSettings>): UserSettings {
@@ -591,7 +597,7 @@ export const guestApi = {
     for (const k of [
       'notificationEnabled', 'soundEnabled', 'vibrationEnabled', 'theme',
       'missedThresholdMinutes', 'showSkipButton', 'maxDelayCount',
-      'waterGoalMl', 'waterInRate',
+      'waterGoalMl', 'waterInRate', 'waterCountInRate',
     ] as const) {
       if (patch[k] !== undefined) (merged as Record<string, unknown>)[k] = patch[k];
     }

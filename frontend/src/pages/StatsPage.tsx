@@ -167,7 +167,7 @@ export function StatsPage() {
                   tickLine={false}
                 />
                 <YAxis tick={{ fontSize: 10, fill: '#6b7f79' }} axisLine={false} tickLine={false} />
-                <Tooltip cursor={false} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                <Tooltip cursor={{ fill: 'transparent', stroke: 'transparent' }} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
                 <Bar dataKey="rate" fill="#3e8e7e" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>

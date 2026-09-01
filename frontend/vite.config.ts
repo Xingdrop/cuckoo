@@ -39,6 +39,8 @@ export default defineConfig({
   ],
   server: {
     port: 5173,
+    // #26：0.0.0.0 监听——手机可经 WiFi 局域网访问 PC 上的服务做全流程测试
+    host: true,
     // 开发环境代理 API 到后端，避免跨域
     proxy: {
       '/api': { target: 'http://localhost:3000', changeOrigin: true },

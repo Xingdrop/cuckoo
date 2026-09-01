@@ -5,6 +5,7 @@ import { errorMessage } from '../services/http';
 import { medicinesApi, MedicineInput } from '../services/api/api.medicines';
 import { filesApi } from '../services/api/api.files';
 import { useLocal } from '../guest/localMode';
+import { compressMediaFile } from '../utils/media';
 
 /**
  * P-07b 添加/编辑药品（FR-301）
@@ -63,21 +64,23 @@ export function MedicineEditPage() {
     const list = Array.from(files).slice(0, Math.max(0, 9 - photoUrls.length));
     if (!list.length) return;
     if (useLocal()) {
-      // 离线：转 base64 存入本地（保存到本机数据，联网后编辑保存自动上传）
+      // #26：离线先压缩（与社交一致），再存 base64 到本地；联网后编辑保存自动上传
       setUploading(true);
       setError(null);
       const thumbs: string[] = [];
       for (const f of list) {
-        if (f.size > 1_500_000) {
-          setError('离线每张照片需 ≤1.5MB（可联网后上传大图）');
-          continue;
+        let dataUrl = '';
+        try {
+          const compressed = await compressMediaFile(f);
+          dataUrl = await new Promise<string>((resolve) => {
+            const fr = new FileReader();
+            fr.onload = () => resolve(String(fr.result ?? ''));
+            fr.onerror = () => resolve('');
+            fr.readAsDataURL(compressed);
+          });
+        } catch {
+          dataUrl = '';
         }
-        const dataUrl = await new Promise<string>((resolve) => {
-          const fr = new FileReader();
-          fr.onload = () => resolve(String(fr.result ?? ''));
-          fr.onerror = () => resolve('');
-          fr.readAsDataURL(f);
-        });
         if (dataUrl) thumbs.push(dataUrl);
       }
       setPhotoUrls((prev) => [...prev, ...thumbs].slice(0, 9));
@@ -317,7 +320,7 @@ export function MedicineEditPage() {
               </label>
             )}
           </div>
-          <p className="mt-1 text-[10px] text-ink-400">照片上传需联网；离线时请先保存，联网后再补充</p>
+          <p className="mt-1 text-[10px] text-ink-400">离线时可压缩保存到本地，联网后编辑保存自动上传</p>
         </div>
 
         <label className="flex items-center gap-2 rounded-card bg-surface px-4 py-3 text-sm shadow-sm">

@@ -76,11 +76,14 @@ body {
   }
 }
 
-/* 触摸目标最小 44px（无障碍基线 NFR-09） */
+/* 触摸目标最小 44px（无障碍基线 NFR-09）——#26：带显式 h-*/size-* 的自绘小控件（开关/打勾/图标钮）不适用 */
 button,
 [role="button"],
 a.btn {
   min-height: 44px;
+}
+button:where([class^="h-"], [class~="h-2"], [class~="h-3"], [class~="h-4"], [class~="h-5"], [class~="h-6"], [class~="h-7"], [class~="h-8"], [class~="h-9"], [class~="h-10"], [class~="h-11"], [class*=" size-"], [class^="size-"]) {
+  min-height: 0;
 }
 
 /* 移动端安全区 */

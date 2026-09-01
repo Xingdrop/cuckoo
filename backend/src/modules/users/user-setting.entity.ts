@@ -40,4 +40,8 @@ export class UserSetting {
   /** #14：喝水达标是否计入完成率（默认不计入；可在喝水管理开启） */
   @Column({ type: 'boolean', default: false })
   waterInRate: boolean;
+
+  /** #26：喝水（当日达标）作为完成率可选统计项（今日完成率面板逐项勾选） */
+  @Column({ type: 'boolean', default: false })
+  waterCountInRate: boolean;
 }

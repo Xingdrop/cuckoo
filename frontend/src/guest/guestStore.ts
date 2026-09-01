@@ -84,6 +84,8 @@ export interface GuestSettings {
   waterGoalMl: number;
   /** 兼容字段（#20 起不再使用——完成率改按提醒勾选） */
   waterInRate?: boolean;
+  /** #26：喝水（当日达标）作为完成率可选统计项 */
+  waterCountInRate?: boolean;
 }
 
 export interface GuestFeedPost {
@@ -186,6 +188,7 @@ const DEFAULT_SETTINGS: GuestSettings = {
   maxDelayCount: 3,
   waterGoalMl: 2000,
   waterInRate: false,
+  waterCountInRate: false,
 };
 
 type Owner = { mode: 'guest' | 'seed' | 'online'; userId: string } | null;

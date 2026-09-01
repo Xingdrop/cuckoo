@@ -25,8 +25,10 @@ export interface UserSettings {
   maxDelayCount: number;
   /** 每日喝水目标（ml） */
   waterGoalMl: number;
-  /** 喝水达标是否计入完成率（#13） */
+  /** 喝水达标是否计入完成率（#13，旧开关——已由 #20/#26 面板勾选取代） */
   waterInRate: boolean;
+  /** #26：喝水（当日达标）作为完成率可选统计项 */
+  waterCountInRate?: boolean;
 }
 
 export interface AuthResponse {

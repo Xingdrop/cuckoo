@@ -528,8 +528,8 @@ export function SocialPage() {
                 {post.mediaUrls.length > 0 && <MediaGrid urls={post.mediaUrls} className="mt-3" />}
 
                 {post.planSnapshot && (
-                  <div className="mt-3 rounded-btn bg-primary-50/60 px-3.5 py-3">
-                    {/* #2：计划名 + 点击查看详情 */}
+                  <div className="mt-3 rounded-btn bg-primary-50/60 px-3 py-2">
+                    {/* #2/#26：紧凑展示计划引用——缩小字号与留白，不占大面积 */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -537,11 +537,11 @@ export function SocialPage() {
                       }}
                       className="flex w-full items-center gap-1.5 text-left"
                     >
-                      <span className="text-xs font-medium text-primary-700">📋</span>
-                      <span className="min-w-0 flex-1 truncate text-xs font-medium text-primary-700">
+                      <span className="text-[11px] text-primary-700">📋</span>
+                      <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-primary-700">
                         {(post.planSnapshot as { from?: { name?: string } } | null)?.from?.name || '分享的计划'}
                       </span>
-                      <span className="shrink-0 text-[10px] text-primary-500">查看详情 ›</span>
+                      <span className="shrink-0 text-[9px] text-primary-500">查看详情 ›</span>
                     </button>
                     <button
                       onClick={(e) => {
@@ -549,7 +549,7 @@ export function SocialPage() {
                         void joinPost(post);
                       }}
                       disabled={joining === post.id}
-                      className={`mt-2 w-full rounded-btn py-2.5 text-sm font-medium transition-colors ${
+                      className={`mt-1.5 w-full rounded-btn py-2 text-xs font-medium transition-colors ${
                         post.myJoined
                           ? 'bg-ink-100 text-ink-700'
                           : 'bg-primary-500 text-white'

@@ -1,4 +1,4 @@
-import { Bell, BellOff, ChevronLeft, Droplets, Plus } from 'lucide-react';
+import { ChevronLeft, Droplets, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { errorMessage } from '../services/http';
@@ -40,18 +40,6 @@ export function WaterSettingsPage() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  /** 切换喝水提醒开关 */
-  const toggleReminder = async () => {
-    if (!waterReminder) return;
-    setError(null);
-    try {
-      const updated = await remindersApi.setActive(waterReminder.id, !waterReminder.isActive);
-      setWaterReminder(updated);
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-  };
 
   /** 保存每次水量 */
   const saveAmount = async () => {
@@ -126,34 +114,13 @@ export function WaterSettingsPage() {
           </div>
         </section>
 
-        {/* 提醒开关 */}
+        {/* #26：喝水提醒开关已移除——喝水提醒在「提醒列表 → 新建」中创建；完成率可在今日页面板勾选 */}
         <section className="rounded-card bg-surface p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {waterReminder?.isActive ? (
-                <Bell size={20} className="text-primary-600" />
-              ) : (
-                <BellOff size={20} className="text-ink-300" />
-              )}
-              <div>
-                <p className="text-sm font-medium">喝水提醒</p>
-                <p className="text-xs text-ink-500">
-                  {waterReminder
-                    ? waterReminder.isActive
-                      ? `已开启 · ${waterReminder.times?.join(' / ') ?? '每天'}`
-                      : '已关闭'
-                    : '暂无喝水提醒'}
-                </p>
-              </div>
-            </div>
-            <input
-              type="checkbox"
-              checked={waterReminder?.isActive ?? false}
-              disabled={!waterReminder}
-              onChange={toggleReminder}
-              className="h-5 w-5 accent-primary-500"
-            />
-          </div>
+          <p className="text-sm font-medium">说明</p>
+          <p className="mt-1 text-xs leading-relaxed text-ink-500">
+            喝水提醒请在「提醒页 → 新建提醒（分类：喝水）」中创建与启停；无需喝水提醒也能记录水量，
+            并可在今日页「完成率 → 选择计入提醒」中把「喝水（当日达标）」计入完成率。
+          </p>
         </section>
 
           {/* 水量与目标 */}

@@ -2,7 +2,6 @@ import { createPortal } from 'react-dom';
 import { AlarmClock, Camera, Check, ChevronRight, Image as ImageIcon, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { filesApi } from '../../services/api/api.files';
-import { LinkedText } from '../../components/LinkedText';
 import type { Reminder } from '../../types';
 import type { useReminderScheduler } from './useReminderScheduler';
 
@@ -31,6 +30,10 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
   const [showDelay, setShowDelay] = useState(false);
   const [customMinutes, setCustomMinutes] = useState('');
   const [showCamera, setShowCamera] = useState(false);
+  /** #4：普通拍照记录模式（完成后以 completed 记录照片） */
+  const [recordMode, setRecordMode] = useState(false);
+  const recordCamRef = useRef<HTMLInputElement | null>(null);
+  const recordGalRef = useRef<HTMLInputElement | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const galleryRef = useRef<HTMLInputElement | null>(null);
@@ -48,12 +51,12 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
   const maxDelayCount = reminder.delaySettings.maxDelayCount ?? 3;
   const customEnabled = reminder.delaySettings.customEnabled ?? true;
 
-  /** 拍照/相册选择 → 上传 → 完成挑战 */
-  const uploadAndComplete = async (file: File) => {
+  /** 拍照/相册选择 → 上传 → 完成（挑战=challenge_completed；普通记录=completed） */
+  const uploadAndComplete = async (file: File, status: 'completed' | 'challenge_completed' = 'challenge_completed') => {
     setPhotoBusy(true);
     try {
       const { url } = await filesApi.upload(file);
-      await act('challenge_completed', undefined, url);
+      await act(status, undefined, url);
     } catch {
       setPhotoBusy(false);
     }
@@ -76,13 +79,58 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
         <span className="text-2xl">{CATEGORY_EMOJI[reminder.category] ?? '📌'}</span>
       </div>
 
-      {/* 内容 */}
+      {/* 内容：#2 通知不通报提醒内容说明——仅标题；详情可到今日页点击查看 */}
       <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
         <h2 className="text-3xl font-bold leading-snug">{reminder.title}</h2>
-        {reminder.content.text && (
-          <p className="mt-4 text-lg leading-relaxed text-white/80">
-            <LinkedText text={reminder.content.text} />
-          </p>
+        {/* #4：拍照/相册记录（完成并记录照片） */}
+        {recordMode && (
+          <div className="mt-6 w-full">
+            <p className="mb-3 text-center text-sm text-white/80">拍摄记录照片</p>
+            <input
+              ref={recordCamRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void uploadAndComplete(f, 'completed');
+              }}
+            />
+            <input
+              ref={recordGalRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void uploadAndComplete(f, 'completed');
+              }}
+            />
+            <div className="flex gap-3">
+              <button
+                disabled={photoBusy}
+                onClick={() => recordCamRef.current?.click()}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-btn bg-white/15 py-3.5 text-sm transition-colors hover:bg-white/25 disabled:opacity-50"
+              >
+                <Camera size={18} /> {photoBusy ? '上传中…' : '拍照'}
+              </button>
+              <button
+                disabled={photoBusy}
+                onClick={() => recordGalRef.current?.click()}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-btn bg-white/15 py-3.5 text-sm transition-colors hover:bg-white/25 disabled:opacity-50"
+              >
+                <ImageIcon size={18} /> 相册
+              </button>
+            </div>
+            <button
+              disabled={photoBusy}
+              onClick={() => setRecordMode(false)}
+              className="mt-3 w-full py-2 text-sm text-white/60"
+            >
+              返回
+            </button>
+          </div>
         )}
         {/* #2：外部链接（视频/文档/网页等，点击跳转外部应用） */}
         {reminder.content.linkUrl && (
@@ -225,6 +273,14 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
               className="flex w-full items-center justify-center gap-2 rounded-card bg-primary-500 py-4 text-lg font-semibold transition-colors hover:bg-primary-400 disabled:opacity-50"
             >
               <Check size={22} /> 完成
+            </button>
+            {/* #4：任何提醒均可拍照/传图作为完成记录 */}
+            <button
+              disabled={busy || photoBusy}
+              onClick={() => setRecordMode(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-card bg-white/10 py-3 text-base transition-colors hover:bg-white/20 disabled:opacity-50"
+            >
+              <Camera size={18} /> 完成并拍照记录
             </button>
             <div className="flex gap-3">
               {maxDelayCount > 0 && (

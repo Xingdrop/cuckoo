@@ -7,16 +7,33 @@ export interface ApiErrorBody {
   details?: unknown;
 }
 
-/**
- * 全局 axios 实例：唯一 HTTP 出口（页面/组件禁止直接 import axios）。
+/** 全局 axios 实例：唯一 HTTP 出口（页面/组件禁止直接 import axios）。
  * - 自动注入 JWT token
  * - 401 时清理凭证并跳转登录页（保留回跳路径）
  * - 错误归一化为 ApiErrorBody
- */
+ * - #26：APK 可配置局域网服务器地址（设置 → 高级 → 服务器地址，仅存本机） */
+export function apiBase(): string {
+  const custom = localStorage.getItem('cuckoo_api_base') ?? '';
+  return custom ? `${custom.replace(/\/$/, '')}/api/v1` : '/api/v1';
+}
+
 export const http = axios.create({
-  baseURL: '/api/v1',
+  baseURL: apiBase(),
   timeout: 15000,
 });
+
+/** 切换服务器地址后重建 baseURL（保持拦截器） */
+export function refreshApiBase() {
+  http.defaults.baseURL = apiBase();
+}
+
+/** #26：把服务端相对路径（/uploads/…）转为当前服务器绝对地址（APK 连局域网服务器时图片/视频可显示） */
+export function absoluteUrl(u?: string | null): string {
+  if (!u) return '';
+  if (/^https?:\/\//i.test(u) || u.startsWith('data:')) return u;
+  const custom = localStorage.getItem('cuckoo_api_base');
+  return custom ? `${custom.replace(/\/$/, '')}${u}` : u;
+}
 
 /** token 存取（后续换 localStorage 加密或 cookie，接口不变） */
 export const tokenStore = {

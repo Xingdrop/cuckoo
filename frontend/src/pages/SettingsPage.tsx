@@ -6,6 +6,8 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { ReminderOverlay } from '../features/reminders/ReminderOverlay';
 import { authApi } from '../services/api/api.auth';
 import { usersApi } from '../services/api/api.users';
+import { loadAiConfig, saveAiConfig } from '../assistant/assistant';
+import { refreshApiBase } from '../services/http';
 import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
 import { useConnectionStore } from '../stores/connectionStore';
@@ -102,6 +104,10 @@ export function SettingsPage() {
   /** #26：合并预览弹窗（确认后合并）/ 清空游客数据确认 */
   const [previewMerge, setPreviewMerge] = useState<string | null>(null);
   const [confirmClearGuest, setConfirmClearGuest] = useState(false);
+  /** #26：AI 助手配置（本地保密存储） */
+  const [ai, setAi] = useState(() => loadAiConfig());
+  /** #26：服务器地址输入 */
+  const [apiBaseInput, setApiBaseInput] = useState(() => localStorage.getItem('cuckoo_api_base') ?? '');
 
   useEffect(() => {
     authApi
@@ -325,6 +331,77 @@ export function SettingsPage() {
           </button>
         </section>
 
+        {/* #26：语音助手——AI API 本地保密存储（key 不上传服务器） */}
+        <section className="divide-y divide-ink-100 rounded-card bg-surface shadow-sm">
+          <h2 className="px-4 py-3 text-sm font-medium">语音助手</h2>
+          <SettingRow
+            label="语音助手"
+            desc="开启后今日页左下角显示麦克风；长按页面任意处，上滑把圆圈拖入麦克风即可语音控制（浏览器需 HTTPS/允许麦克风）"
+            checked={ai.enabled}
+            disabled={busy}
+            onChange={(v) => {
+              saveAiConfig({ ...ai, enabled: v });
+              setAi({ ...ai, enabled: v });
+              setNotice(v ? '语音助手已开启（可在今日页长按唤醒）' : '语音助手已关闭');
+            }}
+          />
+          <div className="px-4 py-3">
+            <label className="text-xs text-ink-500">AI API 地址（OpenAI 兼容，如 https://api.openai.com/v1 ）</label>
+            <input
+              value={ai.baseUrl}
+              onChange={(e) => {
+                const v = { ...ai, baseUrl: e.target.value };
+                setAi(v);
+                saveAiConfig(v);
+              }}
+              placeholder="https://api.openai.com/v1"
+              className="mt-1 w-full rounded-btn border border-ink-100 bg-bg px-3 py-2 text-sm outline-none focus:border-primary-400"
+            />
+            <label className="mt-2 block text-xs text-ink-500">API 密钥（仅保存在本机，不会上传服务器）</label>
+            <input
+              type="password"
+              value={ai.apiKey}
+              onChange={(e) => {
+                const v = { ...ai, apiKey: e.target.value };
+                setAi(v);
+                saveAiConfig(v);
+              }}
+              placeholder="sk-…"
+              className="mt-1 w-full rounded-btn border border-ink-100 bg-bg px-3 py-2 text-sm outline-none focus:border-primary-400"
+            />
+            <label className="mt-2 block text-xs text-ink-500">模型</label>
+            <input
+              value={ai.model}
+              onChange={(e) => {
+                const v = { ...ai, model: e.target.value };
+                setAi(v);
+                saveAiConfig(v);
+              }}
+              placeholder="gpt-4o-mini / deepseek-chat"
+              className="mt-1 w-full rounded-btn border border-ink-100 bg-bg px-3 py-2 text-sm outline-none focus:border-primary-400"
+            />
+            <button
+              disabled={!ai.apiKey || busy}
+              onClick={async () => {
+                setBusy(true);
+                setError(null);
+                try {
+                  const { runAssistant } = await import('../assistant/assistant');
+                  const r = await runAssistant('你好，简单介绍你可以帮忙做什么设置');
+                  setNotice(r.error || r.reply);
+                } catch (e) {
+                  setError(errorMessage(e));
+                } finally {
+                  setBusy(false);
+                }
+              }}
+              className="mt-3 rounded-btn bg-primary-50 px-4 py-2 text-xs font-medium text-primary-600 disabled:opacity-50"
+            >
+              测试连接
+            </button>
+          </div>
+        </section>
+
         {/* 我的数据（M5：报告/成就/导出）——离线置灰（需联网） */}
         <section className="divide-y divide-ink-100 rounded-card bg-surface shadow-sm">
           <h2 className="px-4 py-3 text-sm font-medium">我的数据</h2>
@@ -408,6 +485,32 @@ export function SettingsPage() {
                 className="flex-1 rounded-btn bg-danger-500/10 py-2.5 text-xs font-medium text-danger-600 disabled:opacity-40"
               >
                 清空游客数据
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* #26：高级——局域网服务器地址（APK 连接 PC 开发服务器调试用，仅存本机） */}
+        <section className="divide-y divide-ink-100 rounded-card bg-surface shadow-sm">
+          <h2 className="px-4 py-3 text-sm font-medium">高级</h2>
+          <div className="px-4 py-3">
+            <p className="text-xs text-ink-500">服务器地址（留空=默认；APK 连接电脑局域网：http://电脑IP:3000）</p>
+            <div className="mt-1 flex gap-2">
+              <input
+                value={apiBaseInput}
+                onChange={(e) => setApiBaseInput(e.target.value)}
+                placeholder="http://192.168.1.5:3000"
+                className="min-w-0 flex-1 rounded-btn border border-ink-100 bg-bg px-3 py-2 text-sm outline-none focus:border-primary-400"
+              />
+              <button
+                onClick={() => {
+                  localStorage.setItem('cuckoo_api_base', apiBaseInput.trim());
+                  refreshApiBase();
+                  setNotice(apiBaseInput.trim() ? `已切换服务器：${apiBaseInput.trim()}` : '已恢复默认服务器地址');
+                }}
+                className="shrink-0 rounded-btn bg-primary-500 px-4 py-2 text-xs font-medium text-white"
+              >
+                保存
               </button>
             </div>
           </div>

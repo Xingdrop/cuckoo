@@ -21,8 +21,12 @@ async function bootstrap() {
     prefix: '/uploads/',
   });
 
-  // CORS 白名单（.env: CORS_ORIGINS）
-  app.enableCors({ origin: config.get<string[]>('corsOrigins') });
+  // CORS：#26 开发环境放开任意来源（APK capacitor://localhost / 手机浏览器局域网测试）；生产用白名单
+  if (config.get('env') !== 'production') {
+    app.enableCors({ origin: true });
+  } else {
+    app.enableCors({ origin: config.get<string[]>('corsOrigins') });
+  }
 
   // 全局校验管道：DTO class-validator 校验失败 → 400 VALIDATION_FAILED
   app.useGlobalPipes(

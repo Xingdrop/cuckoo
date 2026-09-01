@@ -1,5 +1,6 @@
 import { Play, X } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
+import { absoluteUrl } from '../services/http';
 
 /** 判断 URL 是否为视频（#8：帖子支持视频播放） */
 export function isVideoUrl(u: string): boolean {
@@ -31,7 +32,7 @@ function VideoTile({ url }: { url: string }) {
     <div className="relative aspect-video w-full overflow-hidden bg-black">
       <video
         ref={ref}
-        src={url}
+        src={absoluteUrl(url)}
         controls={playing}
         playsInline
         preload="metadata"
@@ -88,7 +89,7 @@ export function MediaGrid({ urls, className = '' }: { urls: string[]; className?
             <VideoTile key={m.url} url={m.url} />
           ) : (
             <button key={m.url} className="block w-full" onClick={() => setPreview(i)} aria-label="查看大图">
-              <img src={m.url} alt="帖子媒体" loading="lazy" className="aspect-video w-full object-cover" />
+              <img src={absoluteUrl(m.url)} alt="帖子媒体" loading="lazy" className="aspect-video w-full object-cover" />
             </button>
           ),
         )}
@@ -108,7 +109,7 @@ export function MediaGrid({ urls, className = '' }: { urls: string[]; className?
           </button>
           {items[preview] && (
             <img
-              src={items[preview].url}
+              src={absoluteUrl(items[preview].url)}
               alt="大图预览"
               className="max-h-[80dvh] max-w-full object-contain"
               onClick={(e) => e.stopPropagation()}

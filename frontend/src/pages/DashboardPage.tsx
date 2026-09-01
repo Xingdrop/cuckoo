@@ -1,12 +1,16 @@
-import { BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Plus, Settings } from 'lucide-react';
+import { BarChart3, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Plus, Settings } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { ReminderDetailSheet } from '../components/ReminderDetailSheet';
+import { VoiceAssistant } from '../features/voice/VoiceAssistant';
 import { remindersApi } from '../services/api/api.reminders';
 import { authApi } from '../services/api/api.auth';
 import { statsApi, DashboardStats, WaterInfo } from '../services/api/api.stats';
+import { filesApi } from '../services/api/api.files';
 import { useGuestStore } from '../guest/guestStore';
+import { useConnectionStore } from '../stores/connectionStore';
+import { compressMediaFile } from '../utils/media';
 import { dateHead, festivalIcon, lunarInfo, shiftKey, todayKey } from '../utils/calendar';
 
 const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
@@ -206,13 +210,13 @@ export function DashboardPage() {
   const totalPlanned = rateSlots.length;
   const rate = totalPlanned > 0 ? Math.round((totalDone / totalPlanned) * 100) : 0;
 
-  /** #21：间隔提醒逐时点打卡（完成/放弃 仅影响该时点） */
-  const intervalAck = async (item: CalendarItem, time: string, status: 'completed' | 'skipped') => {
+  /** #21：间隔提醒逐时点打卡（完成/放弃 仅影响该时点；#26 可带照片记录） */
+  const intervalAck = async (item: CalendarItem, time: string, status: 'completed' | 'skipped', photoUrl?: string) => {
     const [y, m, d] = selected.split('-').map(Number);
     const [hh, mm] = time.split(':').map(Number);
     const slot = new Date(y, m - 1, d, hh, mm);
     try {
-      await remindersApi.ack(item.reminderId, { status, scheduledTime: slot.toISOString() });
+      await remindersApi.ack(item.reminderId, { status, scheduledTime: slot.toISOString(), photoUrl });
     } catch {
       /* 重复/失败静默，刷新后以服务端为准 */
     }
@@ -236,15 +240,48 @@ export function DashboardPage() {
   );
 
   /** #12：不定时提醒 完成/放弃（今日）——记录到当日正午（ack 仅需唯一时刻） */
-  const untimedAck = async (item: CalendarItem, status: 'completed' | 'skipped') => {
+  const untimedAck = async (item: CalendarItem, status: 'completed' | 'skipped', photoUrl?: string) => {
     const [y, m, d] = selected.split('-').map(Number);
     const noon = new Date(y, m - 1, d, 12, 0);
     try {
-      await remindersApi.ack(item.reminderId, { status, scheduledTime: noon.toISOString() });
+      await remindersApi.ack(item.reminderId, { status, scheduledTime: noon.toISOString(), photoUrl });
     } catch {
       /* 重复/失败静默，刷新后以服务端为准 */
     }
     void load(selected);
+  };
+
+  /** #26：今日页行内「📷 完成并拍照」——拍/选照片 → 压缩 → 上传 → 以 completed 记录（含照片） */
+  const camRef = useRef<HTMLInputElement | null>(null);
+  const [camTarget, setCamTarget] = useState<{ item: CalendarItem; time?: string } | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = (msg: string) => {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2600);
+  };
+  const openCameraFor = (item: CalendarItem, time?: string) => {
+    setCamTarget({ item, time });
+    camRef.current?.click();
+  };
+  const onCamPicked = async (file: File | undefined) => {
+    const target = camTarget;
+    setCamTarget(null);
+    if (!file || !target) return;
+    if (!useConnectionStore.getState().online) {
+      showToast('拍照记录需联网（可先点「完成」，联网后编辑补传）');
+      return;
+    }
+    try {
+      const compressed = await compressMediaFile(file);
+      const { url } = await filesApi.upload(compressed);
+      if (target.time) await intervalAck(target.item, target.time, 'completed', url);
+      else await untimedAck(target.item, 'completed', url);
+      showToast('✅ 已完成并记录照片');
+    } catch {
+      showToast('照片上传失败，请重试');
+    }
   };
 
   return (
@@ -468,6 +505,7 @@ export function DashboardPage() {
                   nowTime={nowTime}
                   onSlotAck={intervalAck}
                   onDetails={setDetailItem}
+                  onPhoto={openCameraFor}
                 />
               ))}
             </div>
@@ -504,7 +542,7 @@ export function DashboardPage() {
                       // #12/#14：不定时 — 完成/放弃（仅限今日前后 3 天可操作）
                       const canOperate = Math.abs(dayDiff) <= 3;
                       return canOperate ? (
-                        <div className="flex shrink-0 gap-1.5">
+                        <div className="flex shrink-0 items-center gap-1.5">
                           <button
                             onClick={() => void untimedAck(s.item, 'completed')}
                             className="rounded-full bg-primary-500 px-2.5 py-1 text-[11px] font-medium text-white"
@@ -516,6 +554,14 @@ export function DashboardPage() {
                             className="rounded-full bg-ink-100 px-2.5 py-1 text-[11px] font-medium text-ink-600"
                           >
                             放弃
+                          </button>
+                          {/* #26：完成并拍照记录 */}
+                          <button
+                            onClick={() => openCameraFor(s.item)}
+                            aria-label="完成并拍照记录"
+                            className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-500/10 text-primary-600"
+                          >
+                            <Camera size={13} />
                           </button>
                         </div>
                       ) : (
@@ -662,6 +708,15 @@ export function DashboardPage() {
                         ✗ 已错过
                       </span>
                     )}
+                    <button
+                      onClick={() => {
+                        openCameraFor(s.item, s.item.untimed ? undefined : s.time);
+                      }}
+                      aria-label="补记完成并拍照记录"
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-danger-500/15 text-danger-600"
+                    >
+                      <Camera size={13} />
+                    </button>
                     {/* #4：已放弃（跳过）的允许再次确认完成 */}
                     {s.status === 'skipped' && (
                       <button
@@ -758,6 +813,30 @@ export function DashboardPage() {
       {/* #25：提醒详情抽屉 */}
       {detailItem && <ReminderDetailSheet item={detailItem} onClose={() => setDetailItem(null)} />}
 
+      {/* #26：完成并拍照记录——隐藏拍照输入 + 轻提示 */}
+      <input
+        ref={camRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          void onCamPicked(f);
+        }}
+      />
+      {toast && (
+        <div className="fixed inset-x-0 bottom-20 z-[60] flex justify-center px-6">
+          <p className="max-w-full truncate rounded-full bg-ink-900/90 px-4 py-2 text-xs text-white shadow-lg">
+            {toast}
+          </p>
+        </div>
+      )}
+
+      {/* #26：语音助手（长按上滑划入麦克风唤醒） */}
+      <VoiceAssistant onToast={showToast} />
+
       <BottomNav />
     </div>
   );
@@ -774,6 +853,7 @@ function IntervalCard({
   nowTime,
   onSlotAck,
   onDetails,
+  onPhoto,
 }: {
   item: CalendarItem;
   selected: string;
@@ -781,6 +861,7 @@ function IntervalCard({
   nowTime: string;
   onSlotAck: (item: CalendarItem, time: string, status: 'completed' | 'skipped') => void;
   onDetails: (item: CalendarItem) => void;
+  onPhoto: (item: CalendarItem, time: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const total = item.times.length;
@@ -856,7 +937,7 @@ function IntervalCard({
                 ) : (
                   <span className="text-ink-400">未提醒</span>
                 )}
-                <span className="ml-auto flex shrink-0 gap-1.5">
+                <span className="ml-auto flex shrink-0 items-center gap-1.5">
                   {!doneRow && (
                     <>
                       {(missedRow || skippedRow) && (
@@ -883,6 +964,14 @@ function IntervalCard({
                           </button>
                         </>
                       )}
+                      {/* #26：完成并拍照记录（今日页行内） */}
+                      <button
+                        onClick={() => onPhoto(item, t.time)}
+                        aria-label="完成并拍照记录"
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-500/10 text-primary-600"
+                      >
+                        <Camera size={12} />
+                      </button>
                     </>
                   )}
                 </span>

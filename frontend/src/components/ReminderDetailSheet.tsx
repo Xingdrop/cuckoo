@@ -1,4 +1,5 @@
 import { ChevronRight, FileText, Link as LinkIcon, X } from 'lucide-react';
+import { absoluteUrl } from '../services/http';
 import type { CalendarItem } from '../types';
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -60,7 +61,7 @@ export function ReminderDetailSheet({
             {c.imageUrls!.map((u, i) => (
               <img
                 key={u}
-                src={u}
+                src={absoluteUrl(u)}
                 alt={`图片 ${i + 1}`}
                 className="aspect-square w-full rounded-btn object-cover"
               />
@@ -70,7 +71,7 @@ export function ReminderDetailSheet({
 
         {c.videoUrl && (
           <div className="relative mt-3 overflow-hidden rounded-btn bg-black">
-            <video src={c.videoUrl} controls playsInline className="max-h-64 w-full" />
+            <video src={absoluteUrl(c.videoUrl)} controls playsInline className="max-h-64 w-full" />
             <span className="pointer-events-none absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] text-white">
               ▶ 视频
             </span>

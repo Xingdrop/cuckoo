@@ -78,7 +78,7 @@ export const remindersApi = {
   /** 鎵ц涓婃姤锛堝箓绛夛細鍚屼竴 scheduledTime 鍙涓€娆★級 */
   ack: (id: string, body: { status: ReminderLogStatus; scheduledTime: string; delayMinutes?: number; photoUrl?: string }) =>
     useLocal()
-      ? Promise.resolve(guestApi.ack(id, body.status, body.scheduledTime))
+      ? Promise.resolve(guestApi.ack(id, body.status, body.scheduledTime, body.photoUrl))
       : http.post(`/reminders/${id}/ack`, body).then((r) => r.data),
 
   delay: (id: string, minutes: number) =>

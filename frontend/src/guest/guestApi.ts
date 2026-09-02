@@ -372,8 +372,8 @@ export const guestApi = {
     return found ? toReminder(found) : ({} as Reminder);
   },
 
-  ack(id: string, status: 'completed' | 'skipped' | string, scheduledTime?: string) {
-    useGuestStore.getState().ack(id, status === 'skipped' ? 'skipped' : 'completed', scheduledTime);
+  ack(id: string, status: 'completed' | 'skipped' | string, scheduledTime?: string, photoUrl?: string) {
+    useGuestStore.getState().ack(id, status === 'skipped' ? 'skipped' : 'completed', scheduledTime, photoUrl);
     return { ok: true, log: { id: `l-${Date.now()}` } };
   },
 

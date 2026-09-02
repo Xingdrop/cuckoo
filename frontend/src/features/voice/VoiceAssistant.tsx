@@ -157,23 +157,27 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
 
   return (
     <>
-      {/* 语音按钮（#26：浅色固定，贴合今日页底部；长按页面任意处上滑把圆圈拖入 */}
-      {enabled && (
-        <button
-          ref={micRef}
-          aria-label="语音助手"
-          title="长按页面任意处，上滑把圆圈拖到此处说话"
-          onClick={() => onToast('长按页面任意处，上滑把圆圈拖到麦克风即可说话')}
-          className={`fixed bottom-20 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-medium shadow-md transition-all ${
-            recording
-              ? 'animate-pulse border-danger-500 bg-danger-500 text-white'
-              : 'border-ink-100 bg-surface/95 text-primary-700'
-          }`}
-        >
-          {recording ? <MicOff size={13} /> : <Mic size={13} />}
-          {recording ? '正在聆听…' : '语音助手'}
-        </button>
-      )}
+      {/* 语音按钮（#26：浅色固定，贴合今日页底部；未开启时点击提示去设置开启） */}
+      <button
+        ref={micRef}
+        aria-label="语音助手"
+        title="长按页面任意处，上滑把圆圈拖到此处说话"
+        onClick={() =>
+          enabled
+            ? onToast('长按页面任意处，上滑把圆圈拖到麦克风即可说话')
+            : onToast('语音助手未开启：请到「设置 → 语音助手」开启并配置 AI API')
+        }
+        className={`fixed bottom-20 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-medium shadow-md transition-all ${
+          recording
+            ? 'animate-pulse border-danger-500 bg-danger-500 text-white'
+            : enabled
+              ? 'border-ink-100 bg-surface/95 text-primary-700'
+              : 'border-ink-100 bg-surface/70 text-ink-300'
+        }`}
+      >
+        {recording ? <MicOff size={13} /> : <Mic size={13} />}
+        {recording ? '正在聆听…' : enabled ? '语音助手' : '语音助手（未开启）'}
+      </button>
 
       {/* 长按圆圈跟随手指 */}
       {armed && pos && !recording && (

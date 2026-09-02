@@ -227,7 +227,10 @@ interface GuestState {
   insertReminder: (r: GuestReminder) => void;
   updateReminder: (id: string, patch: Partial<GuestReminder>) => void;
   removeReminder: (id: string) => void;
-  ack: (id: string, status: 'completed' | 'skipped', at?: string) => void;
+  /** #26：日志带照片（拍照/挑战打卡） */
+  photoUrl?: string | null;
+
+  ack: (id: string, status: 'completed' | 'skipped', at?: string, photoUrl?: string) => void;
   recordWater: (ml: number) => void;
   todayWater: () => number;
 
@@ -434,7 +437,7 @@ export const useGuestStore = create<GuestState>()(
           persistNow();
         },
 
-        ack: (id, status, at) => {
+        ack: (id, status, at, photoUrl) => {
           set((s) => ({
             logs: [
               ...s.logs,
@@ -444,6 +447,7 @@ export const useGuestStore = create<GuestState>()(
                 scheduledTime: at ?? new Date(`${todayKey()}T12:00:00`).toISOString(),
                 status,
                 amount: 0,
+                photoUrl: photoUrl ?? null,
                 createdAt: nowIso(),
               },
             ],

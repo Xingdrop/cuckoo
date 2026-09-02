@@ -124,7 +124,8 @@ export type ReminderLogStatus =
   | 'skipped'
   | 'missed'
   | 'challenge_completed'
-  | 'manual';
+  | 'manual'
+  | 'photo';
 
 export interface ReminderLog {
   id: string;

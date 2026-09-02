@@ -90,6 +90,12 @@ export const remindersApi = {
     useLocal()
       ? Promise.resolve(guestApi.logs(id, page, pageSize))
       : http.get<Page<ReminderLog>>(`/reminders/${id}/logs`, { params: { page, pageSize } }).then((r) => r.data),
+
+  /** #26：替换某条日志的照片（保留记录） */
+  updateLogPhoto: (logId: string, photoUrl: string) =>
+    useLocal()
+      ? Promise.resolve(guestApi.updateLogPhoto(logId, photoUrl))
+      : http.post(`/reminders/logs/${logId}/photo`, { photoUrl }).then((r) => r.data),
 };
 
 

@@ -35,7 +35,7 @@ export interface GuestLog {
   id: string;
   reminderId: string | null;
   scheduledTime: string; // ISO
-  status: 'completed' | 'skipped' | 'delayed' | 'missed' | 'challenge_completed' | 'manual';
+  status: 'completed' | 'skipped' | 'delayed' | 'missed' | 'challenge_completed' | 'manual' | 'photo';
   amount: number;
   createdAt: string;
 }
@@ -230,7 +230,9 @@ interface GuestState {
   /** #26：日志带照片（拍照/挑战打卡） */
   photoUrl?: string | null;
 
-  ack: (id: string, status: 'completed' | 'skipped', at?: string, photoUrl?: string) => void;
+  ack: (id: string, status: 'completed' | 'skipped' | 'photo', at?: string, photoUrl?: string) => void;
+  /** #26：替换某条日志的照片（保留原记录与时间语义） */
+  updateLogPhoto: (logId: string, photoUrl: string) => void;
   recordWater: (ml: number) => void;
   todayWater: () => number;
 
@@ -451,6 +453,13 @@ export const useGuestStore = create<GuestState>()(
                 createdAt: nowIso(),
               },
             ],
+          }));
+          persistNow();
+        },
+
+        updateLogPhoto: (logId, photoUrl) => {
+          set((s) => ({
+            logs: s.logs.map((l) => (l.id === logId ? { ...l, photoUrl, createdAt: nowIso() } : l)),
           }));
           persistNow();
         },

@@ -19,6 +19,7 @@ import {
   Min,
 } from 'class-validator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { BadRequestException } from '@nestjs/common';
 import { AckReminderDto } from './dto/ack-reminder.dto';
 import { CreateReminderDto } from './dto/create-reminder.dto';
 import { UpdateReminderDto } from './dto/update-reminder.dto';
@@ -146,5 +147,16 @@ export class RemindersController {
     @Query() query: LogsQueryDto,
   ) {
     return this.remindersService.logs(userId, id, query.page ?? 1, query.pageSize ?? 20);
+  }
+
+  @Post('logs/:logId/photo')
+  @ApiOperation({ summary: '#26：替换照片（拍照记录详情页再次拍照）' })
+  replaceLogPhoto(
+    @CurrentUser('sub') userId: string,
+    @Param('logId') logId: string,
+    @Body() dto: { photoUrl?: string },
+  ) {
+    if (!dto.photoUrl) throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '缺少 photoUrl' });
+    return this.remindersService.replaceLogPhoto(userId, logId, dto.photoUrl);
   }
 }

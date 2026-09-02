@@ -372,9 +372,15 @@ export const guestApi = {
     return found ? toReminder(found) : ({} as Reminder);
   },
 
-  ack(id: string, status: 'completed' | 'skipped' | string, scheduledTime?: string, photoUrl?: string) {
-    useGuestStore.getState().ack(id, status === 'skipped' ? 'skipped' : 'completed', scheduledTime, photoUrl);
+  ack(id: string, status: 'completed' | 'skipped' | 'photo' | string, scheduledTime?: string, photoUrl?: string) {
+    useGuestStore.getState().ack(id, status === 'skipped' ? 'skipped' : (status as 'completed' | 'photo'), scheduledTime, photoUrl);
     return { ok: true, log: { id: `l-${Date.now()}` } };
+  },
+
+  /** #26：替换照片（保留原记录） */
+  updateLogPhoto(logId: string, photoUrl: string) {
+    useGuestStore.getState().updateLogPhoto(logId, photoUrl);
+    return { ok: true };
   },
 
   /** #26：提醒日志（照片记录页用） */

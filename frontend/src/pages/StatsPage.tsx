@@ -1,10 +1,12 @@
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { CalendarDays, ChevronLeft, Download } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { CalendarDays, Camera, ChevronLeft, Download, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { statsApi, DashboardStats, DayStat } from '../services/api/api.stats';
 import { remindersApi } from '../services/api/api.reminders';
+import { filesApi } from '../services/api/api.files';
 import { absoluteUrl, errorMessage } from '../services/http';
+import { compressMediaFile } from '../utils/media';
 
 /** 热力图 4 档颜色映射（M5 完善：0 / 1-49 / 50-99 / 100%） */
 const HEAT_COLORS = ['bg-ink-100', 'bg-primary-200', 'bg-primary-400', 'bg-primary-600'];
@@ -16,11 +18,11 @@ function heatColor(rate: number): string {
   return HEAT_COLORS[3];
 }
 
-/** #26：每个提醒的照片记录（完成/挑战打卡上传的照片 + 上传时间） */
+/** #26：每个提醒的照片记录（完成/挑战/拍照记录 + 上传时间；可替换） */
 interface PhotoGroup {
   reminderId: string;
   title: string;
-  photos: { url: string; at: string }[];
+  photos: { logId: string; url: string; at: string }[];
 }
 
 /**
@@ -40,40 +42,73 @@ export function StatsPage() {
   /** #26：照片记录 */
   const [photoGroups, setPhotoGroups] = useState<PhotoGroup[]>([]);
   const [photoMsg, setPhotoMsg] = useState<string | null>(null);
+  const [photoView, setPhotoView] = useState<{ group: PhotoGroup; photo: { logId: string; url: string; at: string } } | null>(null);
+  const replaceRef = useRef<HTMLInputElement | null>(null);
+  const [replaceBusy, setReplaceBusy] = useState(false);
+
+  const loadPhotos = useCallback(async () => {
+    try {
+      const list = await remindersApi.list();
+      const groups: PhotoGroup[] = [];
+      for (const r of list) {
+        try {
+          const page = await remindersApi.logs(r.id, 1, 200);
+          const photos = page.items
+            .filter((l) => Boolean((l as { photoUrl?: string }).photoUrl))
+            .map((l) => ({
+              logId: l.id,
+              url: (l as { photoUrl?: string }).photoUrl as string,
+              at: (l as { createdAt?: string }).createdAt ?? '',
+            }));
+          if (photos.length) groups.push({ reminderId: r.id, title: r.title, photos });
+        } catch {
+          /* 单个提醒失败跳过 */
+        }
+      }
+      setPhotoGroups(groups);
+    } catch {
+      /* 无权限/离线忽略 */
+    }
+  }, []);
 
   useEffect(() => {
     statsApi.dashboard().then(setStats).catch(() => undefined);
     statsApi.trend(7).then(setTrend).catch(() => undefined);
     statsApi.waterInfo().then(setWater).catch(() => undefined);
-    // #26：拉取每个提醒的照片日志（完成/拍照打卡上传）
-    void (async () => {
+    void loadPhotos();
+  }, [loadPhotos]);
+
+  /** #26：详情页「再次拍照替换」→ 压缩上传 → 原记录保留、更新照片 */
+  const replacePhoto = async (file: File | undefined) => {
+    const view = photoView;
+    if (!file || !view) return;
+    setReplaceBusy(true);
+    try {
+      const compressed = await compressMediaFile(file);
+      let url: string;
       try {
-        const list = await remindersApi.list();
-        const groups: PhotoGroup[] = [];
-        for (const r of list) {
-          try {
-            const page = await remindersApi.logs(r.id, 1, 200);
-            const photos = page.items
-              .filter(
-                (l) =>
-                  Boolean((l as { photoUrl?: string }).photoUrl) &&
-                  (l.status === 'completed' || l.status === 'challenge_completed'),
-              )
-              .map((l) => ({
-                url: (l as { photoUrl?: string }).photoUrl as string,
-                at: (l as { createdAt?: string }).createdAt ?? '',
-              }));
-            if (photos.length) groups.push({ reminderId: r.id, title: r.title, photos });
-          } catch {
-            /* 单个提醒失败跳过 */
-          }
-        }
-        setPhotoGroups(groups);
+        url = (await filesApi.upload(compressed)).url;
       } catch {
-        /* 无权限/离线忽略 */
+        url = await new Promise<string>((resolve) => {
+          const fr = new FileReader();
+          fr.onload = () => resolve(String(fr.result ?? ''));
+          fr.onerror = () => resolve('');
+          fr.readAsDataURL(compressed);
+        });
+        if (!url) throw new Error('encode');
       }
-    })();
-  }, []);
+      await remindersApi.updateLogPhoto(view.photo.logId, url);
+      setPhotoView(null);
+      await loadPhotos();
+      setPhotoMsg('✅ 照片已替换');
+      setTimeout(() => setPhotoMsg(null), 2600);
+    } catch {
+      setPhotoMsg('替换失败，请重试');
+      setTimeout(() => setPhotoMsg(null), 2600);
+    } finally {
+      setReplaceBusy(false);
+    }
+  };
 
   /** #26：一键导出某提醒的全部照片（浏览器逐个下载；APK 写入文档目录） */
   const exportPhotoGroup = async (g: PhotoGroup) => {
@@ -331,12 +366,17 @@ export function StatsPage() {
                   </div>
                   <div className="mt-2 grid grid-cols-3 gap-1.5">
                     {g.photos.map((p, i) => (
-                      <div key={`${p.url}-${i}`} className="relative aspect-square overflow-hidden rounded-btn bg-ink-100">
+                      <button
+                        key={`${p.url}-${i}`}
+                        onClick={() => setPhotoView({ group: g, photo: p })}
+                        className="relative aspect-square overflow-hidden rounded-btn bg-ink-100"
+                        aria-label={`查看 ${g.title} 照片详情`}
+                      >
                         <img src={absoluteUrl(p.url)} alt={`${g.title} 照片`} className="h-full w-full object-cover" />
                         <span className="pointer-events-none absolute bottom-0.5 left-0.5 rounded bg-black/55 px-1 py-0.5 text-[8px] text-white">
                           {new Date(p.at).toISOString().slice(0, 10)} {new Date(p.at).toISOString().slice(11, 16)}
                         </span>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -344,6 +384,47 @@ export function StatsPage() {
             </div>
           )}
         </section>
+
+        {/* #26：照片详情——大图 + 时间 + 再次拍照替换 */}
+        {photoView && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6" onClick={() => setPhotoView(null)}>
+            <div className="w-full max-w-sm rounded-card bg-surface p-4" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <p className="min-w-0 flex-1 truncate text-sm font-medium">{photoView.group.title}</p>
+                <button onClick={() => setPhotoView(null)} aria-label="关闭" className="rounded-full bg-ink-100 p-1.5 text-ink-500">
+                  <X size={16} />
+                </button>
+              </div>
+              <img
+                src={absoluteUrl(photoView.photo.url)}
+                alt="照片详情"
+                className="mt-3 max-h-[55dvh] w-full rounded-btn object-contain"
+              />
+              <p className="mt-2 text-center text-[11px] text-ink-500">
+                拍照/上传时间：{new Date(photoView.photo.at).toLocaleString()}
+              </p>
+              <input
+                ref={replaceRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = '';
+                  void replacePhoto(f);
+                }}
+              />
+              <button
+                onClick={() => replaceRef.current?.click()}
+                disabled={replaceBusy}
+                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-btn bg-primary-500 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+              >
+                <Camera size={15} /> {replaceBusy ? '替换中…' : '再次拍照替换'}
+              </button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

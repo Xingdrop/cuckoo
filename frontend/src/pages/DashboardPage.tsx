@@ -250,9 +250,8 @@ export function DashboardPage() {
     void load(selected);
   };
 
-  /** #26：今日页行内「📷」——拍/选照片 → 压缩（→上传/本机暂存）→ 弹窗确认后再改为已完成（不自动改） */
+  /** #26：今日页行内「📷」——拍/选照片 → 压缩（→上传/本机暂存）→ 立即形成拍照记录并提交（不询问完成与否） */
   const camRef = useRef<HTMLInputElement | null>(null);
-  const [camTarget, setCamTarget] = useState<{ item: CalendarItem; time?: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showToast = (msg: string) => {
@@ -260,21 +259,23 @@ export function DashboardPage() {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2600);
   };
-  const openCameraFor = (item: CalendarItem, time?: string) => {
-    setCamTarget({ item, time });
+  const openCameraFor = (item: CalendarItem, _time?: string) => {
+    setCamTarget(item);
     camRef.current?.click();
   };
+  const [camTarget, setCamTarget] = useState<CalendarItem | null>(null);
   const onCamPicked = async (file: File | undefined) => {
     const target = camTarget;
     setCamTarget(null);
     if (!file || !target) return;
     try {
       const compressed = await compressMediaFile(file);
-      /** 上传失败（离线/服务器未达）→ 压缩后以 base64 暂存本机（照片记录页可见；联网后同步扩展） */
+      /** 上传失败（离线/服务器未达）→ 压缩后以 base64 暂存本机（照片记录页可见） */
       let url: string;
       try {
         const r = await filesApi.upload(compressed);
         url = r.url;
+        showToast('📷 照片已提交');
       } catch {
         url = await new Promise<string>((resolve) => {
           const fr = new FileReader();
@@ -283,21 +284,24 @@ export function DashboardPage() {
           fr.readAsDataURL(compressed);
         });
         if (!url) throw new Error('encode');
-        showToast('照片已暂存本机（联网后上传），请确认是否完成');
+        showToast('📷 照片已暂存本机（联网后上传）');
       }
-      // 不自动修改——弹窗确认
-      setCompleteConfirm({ item: target.item, time: target.time, photoUrl: url, arrived: true });
+      // 拍照即形成记录并提交（photo 状态——独立于完成标记，不计入完成率）
+      await remindersApi.ack(target.reminderId, {
+        status: 'photo',
+        scheduledTime: new Date().toISOString(),
+        photoUrl: url,
+      });
+      void load(selected);
     } catch {
       showToast('照片处理失败，请重试');
     }
   };
 
-  /** #26：确认弹窗（已错过 点击 / 拍照后确认完成） */
+  /** #26：已错过 点击确认改为已完成（不含拍照；确认后才修改） */
   const [completeConfirm, setCompleteConfirm] = useState<{
     item: CalendarItem;
     time?: string;
-    photoUrl?: string;
-    arrived?: boolean;
   } | null>(null);
   const [completeBusy, setCompleteBusy] = useState(false);
   const confirmComplete = async () => {
@@ -305,9 +309,9 @@ export function DashboardPage() {
     if (!c) return;
     setCompleteBusy(true);
     try {
-      if (c.time) await intervalAck(c.item, c.time, 'completed', c.photoUrl);
-      else await untimedAck(c.item, 'completed', c.photoUrl);
-      showToast(c.photoUrl ? '✅ 已完成并记录照片' : '✅ 已修改为已完成');
+      if (c.time) await intervalAck(c.item, c.time, 'completed');
+      else await untimedAck(c.item, 'completed');
+      showToast('✅ 已修改为已完成');
       setCompleteConfirm(null);
     } finally {
       setCompleteBusy(false);
@@ -732,9 +736,13 @@ export function DashboardPage() {
                         ↷ 已跳过
                       </span>
                     ) : (
-                      <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-danger-500 px-2.5 py-1 text-[10px] font-medium text-white">
+                      <button
+                        onClick={() => setCompleteConfirm({ item: s.item, time: s.item.untimed ? undefined : s.time })}
+                        className="flex shrink-0 items-center gap-0.5 rounded-full bg-danger-500 px-2.5 py-1 text-[10px] font-medium text-white"
+                        aria-label="修改为已完成"
+                      >
                         ✗ 已错过
-                      </span>
+                      </button>
                     )}
                     <button
                       onClick={() => {
@@ -841,30 +849,25 @@ export function DashboardPage() {
       {/* #25：提醒详情抽屉 */}
       {detailItem && <ReminderDetailSheet item={detailItem} onClose={() => setDetailItem(null)} />}
 
-      {/* #26：确认弹窗——已错过点击 / 拍照完成后，均需确认才修改为已完成 */}
+      {/* #26：确认弹窗——已错过点击后确认才修改为已完成（拍照不弹窗，直接形成记录） */}
       {completeConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-8">
           <div className="w-full max-w-sm rounded-card bg-surface p-5 shadow-xl">
-            <h3 className="text-base font-semibold">
-              {completeConfirm.photoUrl ? '照片已就绪，是否完成？' : '修改为已完成？'}
-            </h3>
+            <h3 className="text-base font-semibold">修改为已完成？</h3>
             <p className="mt-2 text-sm text-ink-600">
-              {completeConfirm.photoUrl
-                ? `「${completeConfirm.item.title}」已 ${completeConfirm.time ? `${completeConfirm.time} · ` : ''}拍照记录，确认后标记为已完成并保留照片。`
-                : `「${completeConfirm.item.title}」${completeConfirm.time ? `${completeConfirm.time} · ` : ''}已错过，确认后将修改为已完成。`}
+              「{completeConfirm.item.title}」{completeConfirm.time ? `${completeConfirm.time} · ` : ''}
+              已错过，确认后将修改为已完成。
             </p>
             <div className="mt-4 flex gap-2">
-              {!completeConfirm.photoUrl && (
-                <button
-                  onClick={() => {
-                    setDetailItem(completeConfirm.item);
-                    setCompleteConfirm(null);
-                  }}
-                  className="flex-1 rounded-btn bg-ink-100 py-2.5 text-sm font-medium text-ink-700"
-                >
-                  查看详情
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  setDetailItem(completeConfirm.item);
+                  setCompleteConfirm(null);
+                }}
+                className="flex-1 rounded-btn bg-ink-100 py-2.5 text-sm font-medium text-ink-700"
+              >
+                查看详情
+              </button>
               <button
                 onClick={() => setCompleteConfirm(null)}
                 disabled={completeBusy}
@@ -877,7 +880,7 @@ export function DashboardPage() {
                 disabled={completeBusy}
                 className="flex-1 rounded-btn bg-primary-500 py-2.5 text-sm font-medium text-white disabled:opacity-50"
               >
-                {completeBusy ? '处理中…' : completeConfirm.photoUrl ? '确认完成' : '修改为已完成'}
+                {completeBusy ? '处理中…' : '修改为已完成'}
               </button>
             </div>
           </div>

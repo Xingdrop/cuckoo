@@ -395,7 +395,17 @@ export class RemindersService {
 
       // 幂等：同一时刻已记录则直接返回（不重复扣库存/重排）
       const existing = await logRepo.findOne({ where: { reminderId: id, scheduledTime } });
-      if (existing) return { ok: true, log: existing, duplicate: true };
+      if (existing) {
+        // #26：拍照记录重复上报 = 替换照片（更新 photoUrl 与时间，不改状态）
+        if (dto.status === ReminderLogStatus.PHOTO && dto.photoUrl) {
+          await logRepo.update(
+            { id: existing.id },
+            { photoUrl: dto.photoUrl, actualTime: new Date() },
+          );
+          return { ok: true, log: { ...existing, photoUrl: dto.photoUrl, actualTime: new Date() }, duplicate: true, replaced: true };
+        }
+        return { ok: true, log: existing, duplicate: true };
+      }
 
       const isCompleted =
         dto.status === ReminderLogStatus.COMPLETED ||
@@ -461,7 +471,9 @@ export class RemindersService {
 
       // 调度重排（TypeORM 1.x 的 save 对 transformer 列写旧值，故用 update）
       const now = new Date();
-      if (dto.status === ReminderLogStatus.DELAYED) {
+      if (dto.status === ReminderLogStatus.PHOTO) {
+        // #26：拍照记录不推进提醒调度（独立于完成标记）
+      } else if (dto.status === ReminderLogStatus.DELAYED) {
         const delayMs = (dto.delayMinutes ?? 0) * 60_000;
         await reminderRepo.update(
           { id, userId },
@@ -533,9 +545,16 @@ export class RemindersService {
     });
   }
 
+  /** #26：替换某条日志的照片（详情页再次拍照——保留记录，更新 photoUrl 与时间） */
+  async replaceLogPhoto(userId: string, logId: string, photoUrl: string) {
+    const found = await this.logRepo.findOne({ where: { id: logId, userId } });
+    if (!found) throw new BadRequestException({ code: 'NOT_FOUND', message: '记录不存在' });
+    await this.logRepo.update({ id: logId, userId }, { photoUrl, actualTime: new Date() });
+    return { ok: true, log: { ...found, photoUrl } };
+  }
+
   /** 某提醒的执行记录（分页） */
-  async logs(userId: string, reminderId: string, page = 1, pageSize = 20) {
-    const [items, total] = await this.logRepo.findAndCount({
+  async logs(userId: string, reminderId: string, page = 1, pageSize = 20) {    const [items, total] = await this.logRepo.findAndCount({
       where: { reminderId, userId },
       order: { scheduledTime: 'DESC' },
       skip: (page - 1) * pageSize,

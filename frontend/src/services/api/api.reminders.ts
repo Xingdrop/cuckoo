@@ -88,7 +88,7 @@ export const remindersApi = {
 
   logs: (id: string, page = 1, pageSize = 20) =>
     useLocal()
-      ? Promise.resolve({ items: [], total: 0, page, pageSize } as Page<ReminderLog>)
+      ? Promise.resolve(guestApi.logs(id, page, pageSize))
       : http.get<Page<ReminderLog>>(`/reminders/${id}/logs`, { params: { page, pageSize } }).then((r) => r.data),
 };
 

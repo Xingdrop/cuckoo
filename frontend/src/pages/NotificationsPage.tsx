@@ -37,7 +37,8 @@ export function NotificationsPage() {
   const load = useCallback(async () => {
     try {
       const r = await notificationsApi.list();
-      setItems(r.items);
+      // #26：通知中心（社交右上角铃铛）不通报「每日提醒」类通知（missed 超时提醒等）
+      setItems(r.items.filter((n) => n.type !== 'missed'));
     } catch (e) {
       setError(errorMessage(e));
     } finally {

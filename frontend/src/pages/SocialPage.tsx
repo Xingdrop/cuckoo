@@ -116,7 +116,8 @@ export function SocialPage() {
       setPosts(p.items);
       setTemplates(t);
       setGroups(g);
-      setUnread(n.unread);
+      // #26：铃铛角标不计入「每日提醒」类通知（missed）
+      setUnread(n.items.filter((x) => x.type !== 'missed' && !x.isRead).length);
       return true;
     } catch (e) {
       if (!useConnectionStore.getState().online) setNetToast(Date.now());

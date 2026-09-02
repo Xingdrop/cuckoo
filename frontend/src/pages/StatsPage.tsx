@@ -1,8 +1,10 @@
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { CalendarDays, ChevronLeft } from 'lucide-react';
+import { CalendarDays, ChevronLeft, Download } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { statsApi, DashboardStats, DayStat } from '../services/api/api.stats';
+import { remindersApi } from '../services/api/api.reminders';
+import { absoluteUrl, errorMessage } from '../services/http';
 
 /** 热力图 4 档颜色映射（M5 完善：0 / 1-49 / 50-99 / 100%） */
 const HEAT_COLORS = ['bg-ink-100', 'bg-primary-200', 'bg-primary-400', 'bg-primary-600'];
@@ -12,6 +14,13 @@ function heatColor(rate: number): string {
   if (rate < 50) return HEAT_COLORS[1];
   if (rate < 100) return HEAT_COLORS[2];
   return HEAT_COLORS[3];
+}
+
+/** #26：每个提醒的照片记录（完成/挑战打卡上传的照片 + 上传时间） */
+interface PhotoGroup {
+  reminderId: string;
+  title: string;
+  photos: { url: string; at: string }[];
 }
 
 /**
@@ -28,12 +37,94 @@ export function StatsPage() {
     const n = new Date();
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`;
   });
+  /** #26：照片记录 */
+  const [photoGroups, setPhotoGroups] = useState<PhotoGroup[]>([]);
+  const [photoMsg, setPhotoMsg] = useState<string | null>(null);
 
   useEffect(() => {
     statsApi.dashboard().then(setStats).catch(() => undefined);
     statsApi.trend(7).then(setTrend).catch(() => undefined);
     statsApi.waterInfo().then(setWater).catch(() => undefined);
+    // #26：拉取每个提醒的照片日志（完成/拍照打卡上传）
+    void (async () => {
+      try {
+        const list = await remindersApi.list();
+        const groups: PhotoGroup[] = [];
+        for (const r of list) {
+          try {
+            const page = await remindersApi.logs(r.id, 1, 200);
+            const photos = page.items
+              .filter(
+                (l) =>
+                  Boolean((l as { photoUrl?: string }).photoUrl) &&
+                  (l.status === 'completed' || l.status === 'challenge_completed'),
+              )
+              .map((l) => ({
+                url: (l as { photoUrl?: string }).photoUrl as string,
+                at: (l as { createdAt?: string }).createdAt ?? '',
+              }));
+            if (photos.length) groups.push({ reminderId: r.id, title: r.title, photos });
+          } catch {
+            /* 单个提醒失败跳过 */
+          }
+        }
+        setPhotoGroups(groups);
+      } catch {
+        /* 无权限/离线忽略 */
+      }
+    })();
   }, []);
+
+  /** #26：一键导出某提醒的全部照片（浏览器逐个下载；APK 写入文档目录） */
+  const exportPhotoGroup = async (g: PhotoGroup) => {
+    try {
+      setPhotoMsg(`正在导出「${g.title}」${g.photos.length} 张照片…`);
+      const { Filesystem, Directory } = await import('@capacitor/filesystem').catch(() => ({
+        Filesystem: null,
+        Directory: null,
+      }));
+      const native = Boolean((window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.());
+      let saved = 0;
+      for (let i = 0; i < g.photos.length; i++) {
+        const p = g.photos[i];
+        const name = `${g.title.slice(0, 12).replace(/[\\/:*?"<>|]/g, '_')}-${new Date(p.at).toISOString().slice(0, 10)}-${i + 1}.jpg`;
+        const url = absoluteUrl(p.url);
+        if (/^https?:\/\//i.test(url)) {
+          const blob = await fetch(url).then((r) => r.blob());
+          if (native && Filesystem) {
+            const base64 = await blobToBase64(blob);
+            await Filesystem.writeFile({ path: name, data: base64, directory: Directory.Documents, recursive: true });
+          } else {
+            const o = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = o;
+            a.download = name;
+            a.click();
+            URL.revokeObjectURL(o);
+          }
+        } else {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = name;
+          a.click();
+        }
+        saved += 1;
+      }
+      setPhotoMsg(`${native ? '已写入本机文档目录' : '已开始下载'}：「${g.title}」共 ${saved} 张`);
+      setTimeout(() => setPhotoMsg(null), 3200);
+    } catch (e) {
+      setPhotoMsg(`导出失败：${errorMessage(e)}`);
+      setTimeout(() => setPhotoMsg(null), 3200);
+    }
+  };
+
+  const blobToBase64 = (blob: Blob) =>
+    new Promise<string>((resolve) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result ?? '').split(',')[1] ?? '');
+      fr.onerror = () => resolve('');
+      fr.readAsDataURL(blob);
+    });
 
   useEffect(() => {
     statsApi.heatmap(month).then(setHeatmap).catch(() => undefined);
@@ -174,30 +265,83 @@ export function StatsPage() {
           </div>
         </section>
 
-        {/* 分类统计 */}
+        {/* 分类统计：#26 中文标签；喝水独立展示（无论是否计入完成率） */}
         <section className="rounded-card bg-surface p-4 shadow-sm">
           <h2 className="text-sm font-medium">分类统计（今日）</h2>
           {stats && Object.keys(stats.categoryStats).length > 0 ? (
             <ul className="mt-3 space-y-2.5">
-              {Object.entries(stats.categoryStats).map(([name, c]) => (
-                <li key={name}>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-ink-700">{name}</span>
-                    <span className="text-xs text-ink-500">
-                      {c.done}/{c.planned} · {c.rate}%
-                    </span>
-                  </div>
-                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-ink-100">
-                    <div
-                      className="h-full rounded-full bg-primary-500"
-                      style={{ width: `${c.rate}%` }}
-                    />
-                  </div>
-                </li>
-              ))}
+              {Object.entries(stats.categoryStats).map(([name, c]) => {
+                const label =
+                  name === 'water'
+                    ? '喝水'
+                    : (
+                        {
+                          exercise: '运动',
+                          medication: '用药',
+                          rest: '休息',
+                          work: '工作',
+                          eye: '护眼',
+                          posture: '体态',
+                          custom: '自定义',
+                        } as Record<string, string>
+                      )[name] ?? name;
+                const right =
+                  name === 'water'
+                    ? `${((c as { waterMl?: number }).waterMl ?? 0)} / ${((c as { waterGoalMl?: number }).waterGoalMl ?? 2000)}ml · ${c.rate}%`
+                    : `${c.done}/${c.planned} · ${c.rate}%`;
+                return (
+                  <li key={name}>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-ink-700">{label}</span>
+                      <span className="text-xs text-ink-500">{right}</span>
+                    </div>
+                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-ink-100">
+                      <div
+                        className="h-full rounded-full bg-primary-500"
+                        style={{ width: `${c.rate}%` }}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="mt-3 text-sm text-ink-500">今日暂无统计数据</p>
+          )}
+        </section>
+
+        {/* #26：照片记录（每个提醒 完成/打卡 上传的照片 + 时间；可一键导出） */}
+        <section className="rounded-card bg-surface p-4 shadow-sm">
+          <h2 className="text-sm font-medium">照片记录（打卡）</h2>
+          {photoMsg && <p className="mt-2 text-xs text-primary-600">{photoMsg}</p>}
+          {photoGroups.length === 0 ? (
+            <p className="mt-3 text-sm text-ink-500">暂无照片记录（完成提醒时可拍照记录）</p>
+          ) : (
+            <div className="mt-3 space-y-4">
+              {photoGroups.map((g) => (
+                <div key={g.reminderId}>
+                  <div className="flex items-center justify-between">
+                    <p className="min-w-0 flex-1 truncate text-sm font-medium">{g.title}</p>
+                    <button
+                      onClick={() => void exportPhotoGroup(g)}
+                      className="flex shrink-0 items-center gap-1 rounded-full bg-primary-50 px-2.5 py-1 text-[11px] font-medium text-primary-600"
+                    >
+                      <Download size={12} /> 导出 {g.photos.length} 张
+                    </button>
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-1.5">
+                    {g.photos.map((p, i) => (
+                      <div key={`${p.url}-${i}`} className="relative aspect-square overflow-hidden rounded-btn bg-ink-100">
+                        <img src={absoluteUrl(p.url)} alt={`${g.title} 照片`} className="h-full w-full object-cover" />
+                        <span className="pointer-events-none absolute bottom-0.5 left-0.5 rounded bg-black/55 px-1 py-0.5 text-[8px] text-white">
+                          {new Date(p.at).toISOString().slice(0, 10)} {new Date(p.at).toISOString().slice(11, 16)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </section>
       </main>

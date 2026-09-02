@@ -9,7 +9,6 @@ import { authApi } from '../services/api/api.auth';
 import { statsApi, DashboardStats, WaterInfo } from '../services/api/api.stats';
 import { filesApi } from '../services/api/api.files';
 import { useGuestStore } from '../guest/guestStore';
-import { useConnectionStore } from '../stores/connectionStore';
 import { compressMediaFile } from '../utils/media';
 import { dateHead, festivalIcon, lunarInfo, shiftKey, todayKey } from '../utils/calendar';
 
@@ -269,18 +268,28 @@ export function DashboardPage() {
     const target = camTarget;
     setCamTarget(null);
     if (!file || !target) return;
-    if (!useConnectionStore.getState().online) {
-      showToast('拍照记录需联网（可先点「完成」，联网后编辑补传）');
-      return;
-    }
     try {
       const compressed = await compressMediaFile(file);
-      const { url } = await filesApi.upload(compressed);
+      /** #26：上传失败（离线/服务器未达）→ 压缩后以 base64 暂存本机完成记录（联网后可在照片记录中看到；后续服务端同步扩展） */
+      let url: string;
+      try {
+        const r = await filesApi.upload(compressed);
+        url = r.url;
+      } catch {
+        url = await new Promise<string>((resolve) => {
+          const fr = new FileReader();
+          fr.onload = () => resolve(String(fr.result ?? ''));
+          fr.onerror = () => resolve('');
+          fr.readAsDataURL(compressed);
+        });
+        if (!url) throw new Error('encode');
+        showToast('已记录（照片暂存本机，联网后上传）');
+      }
       if (target.time) await intervalAck(target.item, target.time, 'completed', url);
       else await untimedAck(target.item, 'completed', url);
-      showToast('✅ 已完成并记录照片');
+      if (!url.startsWith('data:')) showToast('✅ 已完成并记录照片');
     } catch {
-      showToast('照片上传失败，请重试');
+      showToast('照片处理失败，请重试');
     }
   };
 
@@ -360,8 +369,8 @@ export function DashboardPage() {
       </header>
 
       <main className="px-4">
-        {/* 完成率 + 喝水并排（2026-08 改版：缩小为两列） */}
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        {/* 完成率 + 喝水并排（2026-08 改版：缩小为两列；#26 紧凑卡不拉伸） */}
+        <div className="mt-4 grid grid-cols-2 items-start gap-3">
         {/* #20：完成率卡 —— 点击进入「选择计入提醒」 */}
           <button
             onClick={() => setRatePickerOpen(true)}
@@ -389,13 +398,13 @@ export function DashboardPage() {
           </button>
 
           <section
-            className={`rounded-card p-4 shadow-sm transition-colors ${
+            className={`rounded-card p-3 shadow-sm transition-colors ${
               water && water.rate >= 100
                 ? 'bg-gradient-to-r from-primary-500/15 to-primary-100/40 ring-2 ring-primary-500/60'
                 : 'bg-surface'
             }`}
           >
-            {/* #26：固定高度紧凑喝水卡——达标与否/点击记录都不会让方框变大 */}
+            {/* #26：紧凑喝水卡——内容随高度收缩，不留大片空白；达标与否/点击记录都不改变方框 */}
             <div className="flex h-6 items-center justify-between">
               <p className="flex min-w-0 items-center gap-1 text-xs text-ink-500">
                 <span className="shrink-0">💧 喝水</span>
@@ -404,7 +413,6 @@ export function DashboardPage() {
                     {selected.slice(5)}
                   </span>
                 )}
-                <span className="truncate text-ink-400">{water && water.rate >= 100 ? '· 达标' : ''}</span>
               </p>
               <div className="relative shrink-0">
                 {selected === today ? (
@@ -418,13 +426,13 @@ export function DashboardPage() {
                       setAddedFlash(t);
                       setTimeout(() => setAddedFlash((v) => (v === t ? null : v)), 900);
                     }}
-                    className="rounded-full bg-primary-500 px-2.5 py-1 text-[11px] font-medium text-white"
+                    className="rounded-full bg-primary-500 px-2 py-0.5 text-[11px] font-medium text-white"
                   >
                     +200
                   </button>
                 ) : (
                   <span
-                    className="rounded-full bg-ink-100 px-2.5 py-1 text-[11px] font-medium text-ink-300"
+                    className="rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-medium text-ink-300"
                     title="只能记录今天的水"
                   >
                     +200
@@ -442,17 +450,18 @@ export function DashboardPage() {
             </div>
             {water ? (
               <>
-                <p className="mt-2 truncate text-xl font-bold leading-none text-primary-600">
+                <p className="mt-2 truncate text-lg font-bold leading-none text-primary-600">
                   {water.waterMl}
                   <span className="ml-0.5 text-[11px] font-normal text-ink-400">ml</span>
                   <span className="ml-1.5 text-[11px] font-normal text-ink-500">/ {water.waterGoalMl}ml</span>
                 </p>
-                <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-ink-100">
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-100">
                   <div
                     className="h-full rounded-full bg-primary-500 transition-all"
                     style={{ width: `${Math.min(100, water.rate)}%` }}
                   />
                 </div>
+                {water.rate >= 100 && <p className="mt-1 text-[10px] font-medium text-primary-600">✓ 达标</p>}
               </>
             ) : (
               <p className="mt-2 text-[11px] text-ink-300">记录喝水进度</p>

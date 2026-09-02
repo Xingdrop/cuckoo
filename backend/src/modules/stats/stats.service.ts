@@ -90,6 +90,14 @@ export class StatsService {
     const waterMl = waterLogs.reduce((sum, l) => sum + l.amount, 0);
     const setting = await this.settingRepo.findOne({ where: { userId } });
     const waterGoalMl = setting?.waterGoalMl ?? 2000;
+    // #26：喝水单独进入分类统计（无论是否计入完成率；行内展示 水量/目标）
+    categoryStats.water = {
+      planned: waterGoalMl > 0 ? 1 : 0,
+      done: waterGoalMl > 0 && waterMl >= waterGoalMl ? 1 : 0,
+      rate: waterGoalMl > 0 ? Math.min(100, Math.round((waterMl / waterGoalMl) * 100)) : 0,
+      waterMl,
+      waterGoalMl,
+    } as never;
 
     return {
       date: dateStr,

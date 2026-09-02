@@ -157,18 +157,21 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
 
   return (
     <>
-      {/* 语音按钮（助手开启时显示） */}
+      {/* 语音按钮（#26：浅色固定，贴合今日页底部；长按页面任意处上滑把圆圈拖入 */}
       {enabled && (
         <button
           ref={micRef}
           aria-label="语音助手"
           title="长按页面任意处，上滑把圆圈拖到此处说话"
           onClick={() => onToast('长按页面任意处，上滑把圆圈拖到麦克风即可说话')}
-          className={`fixed bottom-24 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all ${
-            recording ? 'animate-pulse bg-danger-500 text-white' : 'bg-primary-500/90 text-white'
+          className={`fixed bottom-20 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-medium shadow-md transition-all ${
+            recording
+              ? 'animate-pulse border-danger-500 bg-danger-500 text-white'
+              : 'border-ink-100 bg-surface/95 text-primary-700'
           }`}
         >
-          {recording ? <MicOff size={20} /> : <Mic size={20} />}
+          {recording ? <MicOff size={13} /> : <Mic size={13} />}
+          {recording ? '正在聆听…' : '语音助手'}
         </button>
       )}
 

@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom';
 import { AlarmClock, Camera, Check, ChevronRight, Image as ImageIcon, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { filesApi } from '../../services/api/api.files';
+import { LinkedText } from '../../components/LinkedText';
 import type { Reminder } from '../../types';
 import type { useReminderScheduler } from './useReminderScheduler';
 
@@ -78,6 +79,11 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
       {/* 内容：#2 通知不通报提醒内容说明——仅标题；详情可到今日页点击查看 */}
       <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
         <h2 className="text-3xl font-bold leading-snug">{reminder.title}</h2>
+        {reminder.content.text && (
+          <p className="mt-4 text-lg leading-relaxed text-white/80">
+            <LinkedText text={reminder.content.text} />
+          </p>
+        )}
         {/* #2：外部链接（视频/文档/网页等，点击跳转外部应用） */}
         {reminder.content.linkUrl && (
           <a

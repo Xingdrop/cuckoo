@@ -377,6 +377,20 @@ export const guestApi = {
     return { ok: true, log: { id: `l-${Date.now()}` } };
   },
 
+  /** #26：提醒日志（照片记录页用） */
+  logs(id: string, page = 1, pageSize = 20) {
+    const all = useGuestStore
+      .getState()
+      .logs.filter((l) => l.reminderId === id)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return {
+      items: all.slice((page - 1) * pageSize, page * pageSize),
+      total: all.length,
+      page,
+      pageSize,
+    };
+  },
+
   // ==================== 统计（本地推导） ====================
   waterInfo(date?: string) {
     const key = date ?? todayKey();
@@ -426,9 +440,34 @@ export const guestApi = {
       missed,
       rate: planned > 0 ? Math.round((done / planned) * 100) : done > 0 ? 100 : 0,
       streakDays: 0,
-      categoryStats: {},
+      categoryStats: {
+        // #26：喝水单独进入分类统计（无论是否计入完成率）
+        water: {
+          planned: water.waterGoalMl > 0 ? 1 : 0,
+          done: water.reached ? 1 : 0,
+          rate: water.waterGoalMl > 0 ? Math.min(100, Math.round((water.waterMl / water.waterGoalMl) * 100)) : 0,
+          waterMl: water.waterMl,
+          waterGoalMl: water.waterGoalMl,
+        } as never,
+        ...this.categoryStats(date),
+      },
       water,
     } as never;
+  },
+
+  /** #26：分类统计（今日各分类完成/计划） */
+  categoryStats(date: string) {
+    const out: Record<string, { planned: number; done: number; rate: number }> = {};
+    for (const item of this.calendar(date)) {
+      const key = item.categoryLabel ?? item.category;
+      if (!out[key]) out[key] = { planned: 0, done: 0, rate: 0 };
+      for (const t of item.times) {
+        if (t.status !== 'skipped') out[key].planned += 1;
+        if (t.status === 'completed' || t.status === 'challenge_completed') out[key].done += 1;
+      }
+      out[key].rate = out[key].planned > 0 ? Math.round((out[key].done / out[key].planned) * 100) : 0;
+    }
+    return out;
   },
 
   trend(days = 7) {

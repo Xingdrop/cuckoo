@@ -39,3 +39,6 @@ Plugin/
 /CHANGELOG.md
 
 /tools/
+
+# ---- 测试产物 ----
+test-results/

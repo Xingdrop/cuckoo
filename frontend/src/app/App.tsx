@@ -63,6 +63,9 @@ function SyncOnOnline() {
   const [msg, setMsg] = useState<null | 'ok' | 'fail'>(null);
   useEffect(() => {
     const run = async () => {
+      // 未登录（无 token）时没有回灌对象：种子镜像访客触发 import 必然 401，
+      // 既弹"同步失败"横幅又会被 401 拦截器误踢到登录页
+      if (!tokenStore.get()) return;
       try {
         const { syncMirrorToCloud } = await import('../guest/mirror');
         const ok = await syncMirrorToCloud();

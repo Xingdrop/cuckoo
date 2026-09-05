@@ -63,18 +63,13 @@ export class SeedService implements OnApplicationBootstrap {
     const img = (name: string) => media[name] ?? '';
     const seq = (...names: string[]) => names.map(img).filter(Boolean);
 
-    /** 喝水计划：8 时点 × 200ml ≈ 1600ml（中国居民膳食指南 1500~1700ml/天）。
-     *  时间依据中华医学会/各地卫健委科普：晨起空腹、上午、午餐前 30 分钟、午后、
-     *  下午、下班前、晚饭后、睡前 2 小时（少量，避免夜尿）；少量多次，不等口渴。 */
+    /** 喝水计划：3 个关键时点 × 200ml（用户决策：最少打扰）。
+     *  时间依据中华医学会/各地卫健委科普：晨起空腹第一杯最重要；午后补水缓解困倦；
+     *  晚饭后助消化。其余时点鼓励用户按「少量多次、不渴也喝」自主记录。 */
     const waterConfig: TemplateReminderConfig[] = [
       { category: 'water', title: '晨起第一杯温水', repeatRule: { type: 'daily' }, startTime: '07:30', content: { text: '起床后空腹喝 200ml 温水：补充一夜失水、降低血液黏度、唤醒肠胃（小口慢饮）。', imageUrls: seq('water-1'), waterAmountMl: 200 } },
-      { category: 'water', title: '早餐后补水', repeatRule: { type: 'daily' }, startTime: '09:30', content: { text: '早餐后一小时 200ml，帮助代谢与肠道蠕动。', imageUrls: seq('water-2'), waterAmountMl: 200 } },
-      { category: 'water', title: '午餐前半杯', repeatRule: { type: 'daily' }, startTime: '11:30', content: { text: '午餐前 30 分钟 200ml，增加饱腹感；餐前不宜大量饮水，以免冲淡胃液。', imageUrls: seq('water-3'), waterAmountMl: 200 } },
-      { category: 'water', title: '午后补水', repeatRule: { type: 'daily' }, startTime: '13:30', content: { text: '午后 200ml，缓解饭后困倦。', imageUrls: seq('water-4'), waterAmountMl: 200 } },
-      { category: 'water', title: '下午茶时间', repeatRule: { type: 'daily' }, startTime: '15:30', content: { text: '下午 200ml，提神缓解疲劳——15~17 点膀胱经活跃，利于代谢。', imageUrls: seq('water-5'), waterAmountMl: 200 } },
-      { category: 'water', title: '下班前一杯', repeatRule: { type: 'daily' }, startTime: '17:30', content: { text: '结束工作前 200ml，为晚间代谢储备水分。', imageUrls: seq('water-6'), waterAmountMl: 200 } },
-      { category: 'water', title: '晚饭后半小时', repeatRule: { type: 'daily' }, startTime: '19:00', content: { text: '晚饭后 200ml，助消化、稀释血液。', imageUrls: seq('water-7'), waterAmountMl: 200 } },
-      { category: 'water', title: '睡前少量', repeatRule: { type: 'daily' }, startTime: '20:30', content: { text: '睡前 2 小时 100~200ml：补充夜间水分，但不宜多饮以免夜尿影响睡眠。', imageUrls: seq('water-8'), waterAmountMl: 100 } },
+      { category: 'water', title: '午后补水', repeatRule: { type: 'daily' }, startTime: '13:30', content: { text: '午后 200ml，缓解饭后困倦、补充上午流失水分。', imageUrls: seq('water-5'), waterAmountMl: 200 } },
+      { category: 'water', title: '晚饭后一杯', repeatRule: { type: 'daily' }, startTime: '19:00', content: { text: '晚饭后半小时 200ml，助消化、稀释血液；睡前不宜大量饮水。', imageUrls: seq('water-7'), waterAmountMl: 200 } },
     ];
 
     const officeConfig: TemplateReminderConfig[] = [
@@ -92,11 +87,11 @@ export class SeedService implements OnApplicationBootstrap {
       {
         id: 'tpl-water-schedule',
         title: '科学喝水时间表',
-        description: '8 杯水计划：晨起到睡前 8 个时点 × 200ml（约 1600ml），少量多次、不渴也喝。',
+        description: '每日 3 个关键时点 × 200ml：晨起空腹、午后补水、晚饭后——少而关键的补水节奏。',
         status: PlanTemplateStatus.PUBLISHED,
-        version: 2,
+        version: 3,
         createdBy: 'system',
-        mediaUrls: seq('water-1', 'water-4', 'water-8'),
+        mediaUrls: seq('water-1', 'water-5', 'water-8'),
         reminderConfig: waterConfig as never,
       },
       {

@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL1ByaXZhY3lQYWdlLnRzeHwyMDI2LTA5fGY1MmRjYmQ3ZjU= */
 import { ChevronLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -9,7 +10,7 @@ export function PrivacyPage() {
   const navigate = useNavigate();
   return (
     <div className="mx-auto max-w-md pb-10">
-      <header className="sticky top-0 z-10 flex items-center gap-2 bg-bg/95 px-4 py-3 backdrop-blur">
+      <header className="sticky top-0 z-10 flex items-center gap-2 bg-bg px-4 py-3">
         <button
           onClick={() => navigate(-1)}
           className="flex h-11 w-11 items-center justify-center text-ink-700"

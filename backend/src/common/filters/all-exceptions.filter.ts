@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8YmFja2VuZC9zcmMvY29tbW9uL2ZpbHRlcnMvYWxsLWV4Y2VwdGlvbnMuZmlsdGVyLnRzfDIwMjYtMDl8ZmNmOGQxNzJhMA== */
 import {
   ArgumentsHost,
   Catch,

@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8YmFja2VuZC9zcmMvY29tbW9uL2ltYWdlLXNpZ25hdHVyZS50c3wyMDI2LTA5fDE1MzQ5OWZkZjk= */
 /**
  * 图片魔数校验（文件上传三重校验之一：扩展名 + MIME + 魔数）。
  * 纯函数便于单测（UT-COMMON-05）；在 sharp 处理前使用，防止伪装扩展名的非图片文件进入后续流程。

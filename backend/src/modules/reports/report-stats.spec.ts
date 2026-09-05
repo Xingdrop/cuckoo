@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8YmFja2VuZC9zcmMvbW9kdWxlcy9yZXBvcnRzL3JlcG9ydC1zdGF0cy5zcGVjLnRzfDIwMjYtMDl8Mjk2NmJlNDA3Mw== */
 import { aggregatePlans, buildSuggestion } from './report-stats';
 import type { PlanItem } from './report-stats';
 

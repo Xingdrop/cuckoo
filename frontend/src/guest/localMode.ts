@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2d1ZXN0L2xvY2FsTW9kZS50c3wyMDI2LTA5fGVjNDg2YmViZjg= */
 import { useGuestStore } from './guestStore';
 import { useConnectionStore } from '../stores/connectionStore';
 

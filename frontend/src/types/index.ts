@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3R5cGVzL2luZGV4LnRzfDIwMjYtMDl8ODBmOTUwY2NkNw== */
 /**
  * 全局类型定义（与后端 DTO/实体字段一一对齐，见 docs/技术方案设计.md §6）
  * 后端字段变更时必须同步本文件。

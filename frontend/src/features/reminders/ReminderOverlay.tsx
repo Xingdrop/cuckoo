@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2ZlYXR1cmVzL3JlbWluZGVycy9SZW1pbmRlck92ZXJsYXkudHN4fDIwMjYtMDl8NTBkMTgzNzBkMQ== */
 import { createPortal } from 'react-dom';
 import { AlarmClock, Camera, Check, ChevronRight, Image as ImageIcon, X } from 'lucide-react';
 import { useRef, useState } from 'react';

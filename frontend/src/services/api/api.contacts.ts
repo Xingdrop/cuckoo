@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3NlcnZpY2VzL2FwaS9hcGkuY29udGFjdHMudHN8MjAyNi0wOXw5MWFlZjE5OTRi */
 import { http } from '../http';
 import { useLocal, useGuestMode } from '../../guest/localMode';
 import type { ContactInput } from '../../types/schemas';

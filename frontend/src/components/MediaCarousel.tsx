@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2NvbXBvbmVudHMvTWVkaWFDYXJvdXNlbC50c3h8MjAyNi0wOXwzMWZiOGFhODIx */
 import { ChevronLeft, ChevronRight, Play, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { absoluteUrl } from '../services/http';
@@ -69,7 +70,7 @@ export function MediaCarousel({
           )}
         </div>
         {urls.length > 1 && (
-          <span className="pointer-events-none absolute right-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-medium text-white">
+          <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-medium text-white">
             {idx + 1}/{urls.length}
           </span>
         )}

@@ -1,4 +1,5 @@
-import { Award, BarChart3, Bell, BellRing, ChevronLeft, Database, Download, LogOut, Shield, Trash2, Users } from 'lucide-react';
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL1NldHRpbmdzUGFnZS50c3h8MjAyNi0wOXwxMGVlM2RkNWJj */
+import { Award, BarChart3, Bell, BellRing, ChevronLeft, Database, Download, LogOut, Shield, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -13,6 +14,7 @@ import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
 import { useConnectionStore } from '../stores/connectionStore';
 import { useGuestStore } from '../guest/guestStore';
+import { THEMES, useThemeStore, type ThemeId } from '../stores/themeStore';
 import { useLocal } from '../guest/localMode';
 import { checkPushSubscribed, isPushSupported, pushFailMessage, subscribePush, unsubscribePush } from '../utils/push';
 import type { Reminder, UserSettings } from '../types';
@@ -101,6 +103,7 @@ export function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const guestActive = useGuestStore((s) => s.active);
+  const { theme, setTheme } = useThemeStore();
   const [hasGuestData, setHasGuestData] = useState(() => localStorage.getItem('cuckoo_local:guest') !== null);
   /** #26：合并预览弹窗（确认后合并）/ 清空游客数据确认 */
   const [previewMerge, setPreviewMerge] = useState<string | null>(null);
@@ -228,7 +231,7 @@ export function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-md pb-20">
-      <header className="sticky top-0 z-10 flex items-center gap-2 bg-bg/95 px-4 py-3 backdrop-blur">
+      <header className="sticky top-0 z-10 flex items-center gap-2 bg-bg px-4 py-3">
         <button
           onClick={() => navigate(-1)}
           className="flex h-11 w-11 items-center justify-center text-ink-700"
@@ -287,6 +290,32 @@ export function SettingsPage() {
         {error && (
           <p className="rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
         )}
+
+        {/* 主题（外观）——三选一即时生效 */}
+        <section className="rounded-card bg-surface p-4 shadow-sm">
+          <h2 className="text-sm font-medium">主题外观</h2>
+          <div className="mt-3 grid grid-cols-3 gap-2.5">
+            {THEMES.map((t) => {
+              const active = theme === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTheme(t.id as ThemeId)}
+                  aria-pressed={active}
+                  className={`rounded-xl border-2 p-2.5 text-left transition-colors ${active ? 'border-primary-500 bg-primary-50' : 'border-ink-100'}`}
+                >
+                  <span className="flex gap-1">
+                    {t.dots.map((c) => (
+                      <span key={c} className="h-4 w-4 rounded-full border border-black/5" style={{ backgroundColor: c }} />
+                    ))}
+                  </span>
+                  <span className={`mt-2 block text-xs font-semibold ${active ? 'text-primary-700' : 'text-ink-700'}`}>{t.name}</span>
+                  <span className="mt-0.5 block text-[10px] leading-tight text-ink-400">{t.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
 
         {/* 通知偏好（每个选项独立） */}
         <section className="divide-y divide-ink-100 rounded-card bg-surface shadow-sm">
@@ -495,26 +524,7 @@ export function SettingsPage() {
           </div>
         </section>
 
-        {/* 亲友（绑定/摘要/聊天/联系人）——在线账户功能 */}
-        <section className="divide-y divide-ink-100 rounded-card bg-surface shadow-sm">
-          <h2 className="px-4 py-3 text-sm font-medium">亲友</h2>
-          <button
-            onClick={() => navigate('/family')}
-            disabled={!online}
-            title={!online ? '该功能需联网' : undefined}
-            className="flex w-full items-center gap-3 px-4 py-3.5 text-left disabled:opacity-40"
-          >
-            <Users size={18} className="shrink-0 text-primary-600" />
-            <div>
-              <p className="text-sm font-medium">亲友与家人</p>
-              <p className="mt-0.5 text-xs text-ink-500">
-                邀请码绑定亲友 · 查看彼此完成情况与照片 · 简易聊天 · 漏服/库存通知联系人
-              </p>
-            </div>
-            {!online && <span className="ml-auto text-[10px] text-ink-400">需联网</span>}
-          </button>
-        </section>
-
+        {/* 亲友已迁移至：个人主页「亲友与家人」与社交页「亲友」tab */}
         {/* #26：高级——局域网服务器地址（APK 连接 PC 开发服务器调试用，仅存本机） */}
         <section className="divide-y divide-ink-100 rounded-card bg-surface shadow-sm">
           <h2 className="px-4 py-3 text-sm font-medium">高级</h2>

@@ -1,4 +1,4 @@
-// @Sdrop 布谷(Cuckoo) v1 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2FwcC9BcHAudHN4fDIwMjYtMDg=
+// @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2FwcC9BcHAudHN4fDIwMjYtMDh8NjdjYzRlNDE4ZQ==
 import { lazy, Suspense, useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
 import { WifiOff } from 'lucide-react';
@@ -14,8 +14,11 @@ import { tokenStore } from '../services/http';
 /**
  * 懒加载页面的辅助包装：页面组件均为 named export。
  * 分包收益：recharts（Dashboard/Stats）与各页面独立 chunk，首屏只加载登录页与骨架。
+ * 性能修复（导航卡顿）：首点 tab 需现场下载 chunk——收集 loader，启动后空闲时统一预取。
  */
+const loaders: (() => Promise<unknown>)[] = [];
 function lazyPage<T extends Record<string, unknown>>(loader: () => Promise<T>, name: keyof T) {
+  loaders.push(loader as () => Promise<unknown>);
   return lazy(async () => ({ default: (await loader())[name] as ComponentType }));
 }
 
@@ -52,6 +55,21 @@ function PageFallback() {
   return (
     <div className="flex min-h-dvh items-center justify-center text-sm text-ink-300">加载中…</div>
   );
+}
+
+/** 性能：空闲时预取全部懒加载路由 chunk——首次点击 tab 零等待（修复导航卡顿） */
+function PrefetchRoutes() {
+  useEffect(() => {
+    const idle = (cb: () => void) => {
+      const w = window as unknown as { requestIdleCallback?: (cb: () => void) => number };
+      if (w.requestIdleCallback) w.requestIdleCallback(cb);
+      else setTimeout(cb, 1200);
+    };
+    idle(() => {
+      for (const load of loaders) void load().catch(() => undefined);
+    });
+  }, []);
+  return null;
 }
 
 /**
@@ -166,6 +184,7 @@ export function App() {
 
   return (
     <BrowserRouter>
+      <PrefetchRoutes />
       <GlobalOfflineBadge />
       <SyncOnOnline />
       <ReminderScheduler />

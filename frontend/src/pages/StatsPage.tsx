@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL1N0YXRzUGFnZS50c3h8MjAyNi0wOXw0OWJiMjhhNDdm */
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { CalendarDays, Camera, ChevronLeft, Download, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -182,7 +183,7 @@ export function StatsPage() {
 
   return (
     <div className="mx-auto max-w-md pb-10">
-      <header className="sticky top-0 z-10 flex items-center gap-2 bg-bg/95 px-4 py-3 backdrop-blur">
+      <header className="sticky top-0 z-10 flex items-center gap-2 bg-bg px-4 py-3">
         <button
           onClick={() => navigate(-1)}
           className="flex h-11 w-11 items-center justify-center text-ink-700"

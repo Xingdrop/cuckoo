@@ -1,3 +1,4 @@
+// @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvYW5kcm9pZC9hcHAvYnVpbGQuZ3JhZGxlfDIwMjYtMDl8NWI0OTQ2MDNhZA==
 apply plugin: 'com.android.application'
 
 android {

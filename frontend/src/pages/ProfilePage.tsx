@@ -1,4 +1,5 @@
-import { Check, ChevronLeft, Camera, Settings, UserPlus } from 'lucide-react';
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL1Byb2ZpbGVQYWdlLnRzeHwyMDI2LTA5fDc4YzI3NGE1MTE= */
+import { Check, ChevronLeft, Camera, Settings, UserPlus, HeartHandshake, ChevronRight } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ErrorBanner, LoadingState } from '../components/ui/Feedback';
@@ -84,7 +85,7 @@ export function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-md pb-10">
-      <header className="sticky top-0 z-10 flex items-center gap-2 bg-bg/95 px-4 py-3 backdrop-blur">
+      <header className="sticky top-0 z-10 flex items-center gap-2 bg-bg px-4 py-3">
         <button
           onClick={() => navigate(-1)}
           className="flex h-11 w-11 items-center justify-center text-ink-700"
@@ -195,6 +196,23 @@ export function ProfilePage() {
                 <p className="mt-0.5 text-[11px] text-ink-500">发帖数</p>
               </div>
             </section>
+
+            {/* 亲友与家人（家人绑定/摘要/聊天入口；M9 自设置迁移至此） */}
+            {profile.isSelf && (
+              <button
+                onClick={() => navigate('/family')}
+                className="flex w-full items-center gap-3 rounded-card bg-surface p-4 text-left shadow-sm"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
+                  <HeartHandshake size={19} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">亲友与家人</span>
+                  <span className="mt-0.5 block text-xs text-ink-500">邀请码绑定 · 健康摘要 · 聊天 · 通知联系人</span>
+                </span>
+                <ChevronRight size={16} className="shrink-0 text-ink-300" />
+              </button>
+            )}
 
             {/* 发帖/收藏（#6） */}
             <section>

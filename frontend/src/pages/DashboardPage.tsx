@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL0Rhc2hib2FyZFBhZ2UudHN4fDIwMjYtMDl8ZjA0NDEzOTI5ZA== */
 import { BarChart3, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Plus, Settings } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -410,25 +411,29 @@ export function DashboardPage() {
             className="rounded-card bg-surface p-3 text-left shadow-sm"
             aria-label="选择计入完成率的提醒"
           >
-            <div className="flex h-6 items-center justify-between">
-              <p className="text-xs text-ink-500">完成率</p>
-              <span className="flex items-center gap-1.5">
-                <span className="text-[10px] text-primary-500">选择 ›</span>
-                {/* 统计入口：阻止冒泡——不触发外层"选择计入提醒"弹窗 */}
-                <span
-                  role="button"
-                  tabIndex={0}
-                  aria-label="进入统计"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate('/stats');
-                  }}
-                  className="flex items-center gap-0.5 rounded-full bg-primary-500/10 px-1.5 py-0.5 text-[10px] font-medium text-primary-700 active:bg-primary-500/20"
-                >
-                  <BarChart3 size={10} /> 统计
-                </span>
+            {/* 右上角操作列：选择（计入）/ 统计 上下排列，样式区分（选择=幽灵字钮；统计=实底徽标） */}
+            <span className="flex flex-col items-end gap-1">
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label="选择计入完成率的提醒"
+                className="text-[10px] leading-none text-ink-400 underline decoration-dotted underline-offset-2"
+              >
+                选择 ›
               </span>
-            </div>
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label="进入统计"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate('/stats');
+                }}
+                className="flex items-center gap-0.5 rounded-full bg-primary-500 px-1.5 py-0.5 text-[10px] font-semibold text-white"
+              >
+                <BarChart3 size={10} strokeWidth={2.6} /> 统计
+              </span>
+            </span>
             <p className="mt-1 text-2xl font-bold leading-none text-primary-600">
               {selected === today && stats ? stats.rate : rate}%
             </p>
@@ -507,10 +512,17 @@ export function DashboardPage() {
                     style={{ width: `${Math.min(100, water.rate)}%` }}
                   />
                 </div>
-                {water.rate >= 100 && <p className="mt-1 text-[10px] font-medium text-primary-600">✓ 达标</p>}
+                {/* 底部信息行（与完成率卡「连续 N 天」行等高，消除卡片空白） */}
+                <p className="mt-1 h-4 truncate text-[10px] leading-4 text-ink-400">
+                  {water.rate >= 100 ? (
+                    <span className="font-medium text-primary-600">✓ 今日已达标</span>
+                  ) : (
+                    <>还可喝 {Math.max(0, water.waterGoalMl - water.waterMl)}ml · 每杯约 200ml</>
+                  )}
+                </p>
               </>
             ) : (
-              <p className="mt-2 text-[11px] text-ink-300">记录喝水进度</p>
+              <p className="mt-2 h-8 text-[11px] text-ink-300">记录喝水进度</p>
             )}
           </section>
         </div>

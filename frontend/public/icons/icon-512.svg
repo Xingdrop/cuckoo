@@ -1,81 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#2E7D6B"/>
-      <stop offset="1" stop-color="#54B39A"/>
-    </linearGradient>
-    <linearGradient id="clockFace" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#F3FAF6"/>
+      <stop offset="0" stop-color="#F9915F"/>
+      <stop offset="1" stop-color="#F2764A"/>
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="116" fill="url(#bg)"/>
-  <!-- 柔光装饰 -->
-  <circle cx="88" cy="88" r="60" fill="#FFFFFF" opacity="0.06"/>
-  <circle cx="446" cy="430" r="76" fill="#FFFFFF" opacity="0.06"/>
-
-  <!-- 圆钟（布谷鸟挂钟，顶部栖鸟） -->
-  <ellipse cx="256" cy="452" rx="150" ry="18" fill="#1F5A4F" opacity="0.28"/>
-  <!-- 钟顶小屋顶 -->
-  <path d="M196 188 L256 138 L316 188 Z" fill="#F2A65A"/>
-  <path d="M196 188 L256 138 L316 188 Z" fill="none" stroke="#E08F3F" stroke-width="6" stroke-linejoin="round"/>
-  <!-- 表盘 -->
-  <circle cx="256" cy="316" r="146" fill="url(#clockFace)"/>
-  <circle cx="256" cy="316" r="146" fill="none" stroke="#DCEAE4" stroke-width="8"/>
-  <!-- 摆锤 -->
-  <line x1="256" y1="430" x2="256" y2="462" stroke="#DCEAE4" stroke-width="10" stroke-linecap="round"/>
-  <circle cx="256" cy="470" r="13" fill="#F2A65A"/>
-  <!-- 刻度 -->
-  <circle cx="256" cy="196" r="10" fill="#CFE3DC"/>
-  <circle cx="376" cy="316" r="10" fill="#CFE3DC"/>
-  <circle cx="256" cy="436" r="10" fill="#CFE3DC"/>
-  <circle cx="136" cy="316" r="10" fill="#CFE3DC"/>
-  <circle cx="339" cy="233" r="6" fill="#DCEAE4"/>
-  <circle cx="339" cy="399" r="6" fill="#DCEAE4"/>
-  <circle cx="173" cy="399" r="6" fill="#DCEAE4"/>
-  <circle cx="173" cy="233" r="6" fill="#DCEAE4"/>
-  <!-- 指针（10:10 微笑角度） -->
-  <path d="M256 316 L188 262" stroke="#2E7D6B" stroke-width="20" stroke-linecap="round" fill="none"/>
-  <path d="M256 316 L322 268" stroke="#2E7D6B" stroke-width="20" stroke-linecap="round" fill="none"/>
-  <circle cx="256" cy="316" r="16" fill="#F2A65A"/>
-  <circle cx="256" cy="316" r="6" fill="#E08F3F"/>
-
-  <!-- 布谷鸟（chibi 大头圆身，栖在钟顶） -->
-  <!-- 尾羽 -->
-  <path d="M158 156 Q118 176 112 214 Q150 216 176 192 Q164 172 158 156 Z" fill="#1F5A4F"/>
-  <path d="M172 178 Q142 200 138 232 Q170 230 190 208 Z" fill="#2E7D6B"/>
-  <!-- 身体（头身一体圆胖） -->
-  <ellipse cx="252" cy="140" rx="82" ry="68" fill="#256557"/>
-  <!-- 肚皮 -->
-  <ellipse cx="262" cy="168" rx="46" ry="34" fill="#F6EFE3"/>
-  <!-- 头顶呆毛 -->
-  <path d="M236 76 Q230 52 248 44 Q250 62 244 74 Z" fill="#1F5A4F"/>
-  <path d="M256 72 Q258 46 278 42 Q274 62 262 74 Z" fill="#2E7D6B"/>
-  <!-- 翅膀（挥动） -->
-  <path d="M186 128 Q150 132 142 166 Q176 178 204 158 Q192 142 186 128 Z" fill="#35836F"/>
-  <!-- 大眼睛（亮晶晶） -->
-  <circle cx="230" cy="120" r="19" fill="#FFFFFF"/>
-  <circle cx="286" cy="120" r="19" fill="#FFFFFF"/>
-  <circle cx="233" cy="123" r="10" fill="#22302C"/>
-  <circle cx="289" cy="123" r="10" fill="#22302C"/>
-  <circle cx="236" cy="119" r="4" fill="#FFFFFF"/>
-  <circle cx="292" cy="119" r="4" fill="#FFFFFF"/>
-  <!-- 腮红 -->
-  <ellipse cx="204" cy="146" rx="10" ry="7" fill="#F7A8B8" opacity="0.85"/>
-  <ellipse cx="312" cy="146" rx="10" ry="7" fill="#F7A8B8" opacity="0.85"/>
-  <!-- 唱歌的嘴（张开） -->
-  <path d="M316 132 L352 142 L318 156 Z" fill="#F2A65A"/>
-  <path d="M318 148 L340 152 L320 158 Z" fill="#E08F3F"/>
-  <!-- 爪子（抓着钟顶） -->
-  <path d="M232 204 q-6 12 -16 12 M232 204 q0 14 -6 18 M232 204 q8 10 16 10" stroke="#E08F3F" stroke-width="8" stroke-linecap="round" fill="none"/>
-  <path d="M282 204 q-6 12 -16 12 M282 204 q0 14 -6 18 M282 204 q8 10 16 10" stroke="#E08F3F" stroke-width="8" stroke-linecap="round" fill="none"/>
-
-  <!-- 歌符（布谷~） -->
-  <g fill="#FFD98A">
-    <ellipse cx="392" cy="96" rx="13" ry="10" transform="rotate(-18 392 96)"/>
-    <rect x="400" y="52" width="7" height="46" rx="3.5"/>
-    <path d="M400 52 Q424 56 426 76 Q414 70 400 72 Z"/>
-  </g>
-  <circle cx="368" cy="150" r="6" fill="#FFD98A" opacity="0.75"/>
-  <circle cx="420" cy="128" r="5" fill="#FFD98A" opacity="0.55"/>
+  <!-- 极简鸟：单块白色剪影 + 三角喙 + 一点眼 + 一笔翅 + 小三角尾 -->
+  <path d="M158 322 Q158 216 268 216 Q336 216 354 272 L400 290 L354 310 Q336 380 258 380 Q158 380 158 322 Z" fill="#FFFFFF"/>
+  <path d="M120 318 L160 288 L152 344 Z" fill="#FFFFFF"/>
+  <circle cx="300" cy="272" r="13" fill="#F2764A"/>
+  <path d="M214 312 Q252 290 292 310" stroke="#F2764A" stroke-width="15" fill="none" stroke-linecap="round"/>
+  <!-- 地平线一点：稳定感 -->
+  <path d="M196 404 H316" stroke="#FFFFFF" stroke-width="16" stroke-linecap="round" opacity=".45"/>
 </svg>

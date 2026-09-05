@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL1BsYW5zUGFnZS50c3h8MjAyNi0wOXw4ZDkwNTFkOTFi */
 import { ChevronDown, ChevronLeft, GripVertical, Pencil, Plus, Send, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -116,7 +117,7 @@ export function PlansPage() {
 
   return (
     <div className="mx-auto max-w-md pb-20">
-      <header className="sticky top-0 z-10 flex items-center gap-2 bg-bg/95 px-4 py-3 backdrop-blur">
+      <header className="sticky top-0 z-10 flex items-center gap-2 bg-bg px-4 py-3">
         <button
           onClick={() => navigate(-1)}
           className="flex h-11 w-11 items-center justify-center text-ink-700"

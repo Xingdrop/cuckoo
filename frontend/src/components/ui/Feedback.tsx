@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2NvbXBvbmVudHMvdWkvRmVlZGJhY2sudHN4fDIwMjYtMDl8YjAyMzE5ZDgxNw== */
 import type { ReactNode } from 'react';
 import { BirdMascot } from '../BirdMascot';
 

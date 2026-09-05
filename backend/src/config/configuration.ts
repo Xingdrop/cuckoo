@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8YmFja2VuZC9zcmMvY29uZmlnL2NvbmZpZ3VyYXRpb24udHN8MjAyNi0wOXw2MDBiMWZmNzRk */
 /**
  * 全局配置：环境变量加载与校验。
  * 所有可转移参数集中在此读取，字段与 .env.example 一一对应。

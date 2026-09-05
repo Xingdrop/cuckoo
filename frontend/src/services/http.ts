@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3NlcnZpY2VzL2h0dHAudHN8MjAyNi0wOXwwOGZmMDZhZjdj */
 import axios, { AxiosError } from 'axios';
 
 /** 统一 API 错误体（与后端 AllExceptionsFilter 对齐，见 docs/技术方案设计.md §6.2） */

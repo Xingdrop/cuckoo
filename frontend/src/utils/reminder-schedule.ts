@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3V0aWxzL3JlbWluZGVyLXNjaGVkdWxlLnRzfDIwMjYtMDl8NzA5ZDJmOTc1MQ== */
 import type { IntervalUnit, RepeatRule } from '../types';
 
 /**

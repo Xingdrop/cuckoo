@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL1NvY2lhbFBhZ2UudHN4fDIwMjYtMDl8ODQ5OTBjN2IzNg== */
 import { ArrowUp, Bell, Heart, ImagePlus, MessageCircle, PenSquare, Play, Star, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +9,8 @@ import { useConnectionStore } from '../stores/connectionStore';
 import { useGuestStore } from '../guest/guestStore';
 import { absoluteUrl, errorMessage } from '../services/http';
 import { socialApi, Post, PlanTemplate } from '../services/api/api.social';
+import { familyApi, type FamilyBindingItem } from '../services/api/api.family';
+import { FamilyTab } from './social/FamilyTab';
 import { filesApi } from '../services/api/api.files';
 import { compressMediaFile } from '../utils/media';
 import { MediaGrid } from '../components/MediaGrid';
@@ -35,9 +38,10 @@ export function SocialPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const online = useConnectionStore((s) => s.online);
-  const [tab, setTab] = useState<'feed' | 'following' | 'mine' | 'templates'>('feed');
+  const [tab, setTab] = useState<'feed' | 'following' | 'mine' | 'templates' | 'family'>('feed');
   const [posts, setPosts] = useState<Post[]>([]);
   const [templates, setTemplates] = useState<PlanTemplate[]>([]);
+  const [family, setFamily] = useState<FamilyBindingItem[] | null>(null);
   const [unread, setUnread] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [showComposer, setShowComposer] = useState(false);
@@ -106,9 +110,15 @@ export function SocialPage() {
       setNetToast(Date.now());
     }
     try {
-      const [p, t, n] = await Promise.all([socialApi.listPosts(), socialApi.templates(), notificationsApi.list()]);
+      const [p, t, n, fam] = await Promise.all([
+        socialApi.listPosts(),
+        socialApi.templates(),
+        notificationsApi.list(),
+        user ? familyApi.listBindings().catch(() => [] as FamilyBindingItem[]) : Promise.resolve([] as FamilyBindingItem[]),
+      ]);
       setPosts(p.items);
       setTemplates(t);
+      setFamily(fam);
       // #26：铃铛角标不计入「每日提醒」类通知（missed）
       setUnread(n.items.filter((x) => x.type !== 'missed' && !x.isRead).length);
       return true;
@@ -117,7 +127,7 @@ export function SocialPage() {
       setError(errorMessage(e));
       return false;
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     void load();
@@ -316,6 +326,7 @@ export function SocialPage() {
           ['following', '关注'],
           ['mine', '我的'],
           ['templates', '官方计划'],
+          ['family', '亲友'],
         ] as const).map(([key, label]) => (
           <button
             key={key}
@@ -646,6 +657,9 @@ export function SocialPage() {
           </ul>
         )}
 
+        {tab === 'family' && (
+          <FamilyTab family={family} onChanged={load} />
+        )}
       </main>
       </PullToRefresh>
 

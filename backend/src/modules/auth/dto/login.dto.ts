@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8YmFja2VuZC9zcmMvbW9kdWxlcy9hdXRoL2R0by9sb2dpbi5kdG8udHN8MjAyNi0wOXwzNDI5NTFmMDVi */
 import { IsString, MaxLength, MinLength } from 'class-validator';
 
 export class LoginDto {

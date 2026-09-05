@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8YmFja2VuZC9zcmMvbW9kdWxlcy9leGVyY2lzZXMvZXhlcmNpc2UuZW50aXR5LnRzfDIwMjYtMDl8YmY1ZGM0OTBmYw== */
 import { Column, CreateDateColumn, Entity, PrimaryColumn } from 'typeorm';
 import { utcDateTime } from '../../common/datetime.transformer';
 
@@ -25,6 +26,10 @@ export class Exercise {
 
   @Column({ type: 'varchar',  nullable: true })
   imageUrl: string | null;
+
+  /** 跟练组图（分解动作 2~3 帧；#微运动详情） */
+  @Column({ type: 'simple-json', nullable: true })
+  imageUrls: string[] | null;
 
   @Column({ type: 'varchar',  nullable: true })
   videoUrl: string | null;

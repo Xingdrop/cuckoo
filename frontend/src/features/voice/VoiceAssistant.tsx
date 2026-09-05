@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2ZlYXR1cmVzL3ZvaWNlL1ZvaWNlQXNzaXN0YW50LnRzeHwyMDI2LTA5fDIwZWY2MmQxZTc= */
 import { Mic, MicOff, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { loadAiConfig, runAssistant, speechSupported, type AssistantOutcome } from '../../assistant/assistant';
@@ -191,7 +192,7 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
 
       {/* 录音实时字幕 */}
       {recording && (
-        <div className="fixed inset-x-0 top-0 z-[70] border-b border-primary-100 bg-surface/95 px-4 pb-3 pt-4 shadow-sm backdrop-blur">
+        <div className="fixed inset-x-0 top-0 z-[70] border-b border-primary-100 bg-surface/95 px-4 pb-3 pt-4 shadow-sm">
           <p className="flex items-center gap-2 text-xs text-primary-600">
             <span className="h-2 w-2 animate-pulse rounded-full bg-danger-500" />
             正在聆听…（松手结束）

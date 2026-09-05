@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL01lZGljaW5lRWRpdFBhZ2UudHN4fDIwMjYtMDl8NjJjMjE5MTM2Zg== */
 import { ChevronLeft, ImagePlus, Trash2, X } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -163,7 +164,7 @@ export function MedicineEditPage() {
 
   return (
     <div className="mx-auto max-w-md pb-10">
-      <header className="sticky top-0 z-10 flex items-center gap-2 bg-bg/95 px-4 py-3 backdrop-blur">
+      <header className="sticky top-0 z-10 flex items-center gap-2 bg-bg px-4 py-3">
         <button
           onClick={() => navigate(-1)}
           className="flex h-11 w-11 items-center justify-center text-ink-700"

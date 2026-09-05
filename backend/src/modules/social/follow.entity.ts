@@ -1,3 +1,4 @@
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8YmFja2VuZC9zcmMvbW9kdWxlcy9zb2NpYWwvZm9sbG93LmVudGl0eS50c3wyMDI2LTA5fDkyY2ZjMmE4NTQ= */
 import { Column, CreateDateColumn, Entity, PrimaryColumn, Unique } from 'typeorm';
 import { randomUUID } from 'node:crypto';
 import { utcDateTime } from '../../common/datetime.transformer';

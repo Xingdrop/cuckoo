@@ -1,12 +1,57 @@
+/*@Sdrop布谷(Cuckoo)v2SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3N0eWxlcy90b2tlbnMuY3NzfDIwMjYtMDl8M2I1MmM5YWY2Yw==*/
 @import "tailwindcss";
 
 /* ============================================================
-   布谷设计系统 Design Tokens
-   色板来源：健康管理调性（温和 / 可信 / 清爽）
-   换肤（P2）：新增主题时覆盖 --color-* 变量即可
+   布谷设计系统 Design Tokens v2（2026-09-06）
+   - 三套运行时主题：meadow 青翠晨露 / peach 蜜桃暖阳（默认）/ glacier 冰岛蓝湾
+   - 主题切换 = html[data-theme]，工具类引用 CSS 变量即时生效
+   - 正文对比度 ≥4.5:1 使用 600/700 档
    ============================================================ */
 @theme {
-  /* 主色：青绿（布谷鸟森林意象） */
+  /* ===== 主题色（默认 = peach 蜜桃暖阳；覆盖见下方 [data-theme] 块） ===== */
+  --color-primary-50: #fef5ef;
+  --color-primary-100: #ffe8d9;
+  --color-primary-200: #ffcdb0;
+  --color-primary-300: #ffa87f;
+  --color-primary-400: #fb8a57;
+  --color-primary-500: #f2764a;
+  --color-primary-600: #e05a2b;
+  --color-primary-700: #b8491f;
+  --color-primary-800: #963c1c;
+  --color-primary-900: #5c2a14;
+
+  /* 强调色（成就/激励）：薄荷绿（与暖主色互补） */
+  --color-accent-100: #e2f6ec;
+  --color-accent-300: #9fdfc2;
+  --color-accent-500: #3fae7e;
+  --color-accent-700: #2b8560;
+
+  /* 语义色 */
+  --color-danger-500: #e05c5c;
+  --color-danger-700: #c03939;
+  --color-warning-500: #e6a23e;
+
+  /* 中性色（暖棕，贴合蜜桃主题） */
+  --color-ink-900: #40312a;
+  --color-ink-700: #5c4a3d;
+  --color-ink-500: #8a7462;
+  --color-ink-300: #b09a88;
+  --color-ink-100: #f0e4d8;
+
+  /* 背景 */
+  --color-bg: #fff9f4;
+  --color-surface: #ffffff;
+
+  /* 字体与圆角 */
+  --font-sans:
+    "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+  --radius-card: 1.25rem;
+  --radius-btn: 0.875rem;
+}
+
+/* ===== 主题 1：青翠晨露（原布谷绿） ===== */
+[data-theme="meadow"] {
   --color-primary-50: #eef7f4;
   --color-primary-100: #d5ece5;
   --color-primary-200: #abd9cc;
@@ -17,46 +62,53 @@
   --color-primary-700: #275b52;
   --color-primary-800: #214a43;
   --color-primary-900: #1c3d38;
-
-  /* 辅助色：鼓励橙（成就/激励） */
   --color-accent-100: #fdf0e0;
   --color-accent-300: #f7c98f;
   --color-accent-500: #f2a65a;
   --color-accent-700: #d9822f;
-
-  /* 语义色 */
-  --color-danger-500: #e05c5c;
-  --color-danger-700: #c03939;
-  --color-warning-500: #e6b13e;
-
-  /* 中性色（暖灰，避免冷硬） */
   --color-ink-900: #22302c;
   --color-ink-700: #3d4f4a;
   --color-ink-500: #6b7f79;
   --color-ink-300: #7f9490;
   --color-ink-100: #e2eae7;
-
-  /* 背景 */
-  --color-bg: #f7faf9;
+  --color-bg: #f4faf7;
   --color-surface: #ffffff;
-
-  /* 字体与圆角 */
-  --font-sans:
-    "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", -apple-system,
-    "Segoe UI", Roboto, sans-serif;
-  --radius-card: 1rem;
-  --radius-btn: 0.75rem;
 }
 
-/* 基础样式 */
+/* ===== 主题 3：冰岛蓝湾 ===== */
+[data-theme="glacier"] {
+  --color-primary-50: #eef6fb;
+  --color-primary-100: #d8eaf5;
+  --color-primary-200: #b0d4ea;
+  --color-primary-300: #82b8db;
+  --color-primary-400: #589bc9;
+  --color-primary-500: #3d7ea6;
+  --color-primary-600: #2f6485;
+  --color-primary-700: #27526c;
+  --color-primary-800: #21445a;
+  --color-primary-900: #1c3748;
+  --color-accent-100: #fdf0e0;
+  --color-accent-300: #f7c98f;
+  --color-accent-500: #f2a65a;
+  --color-accent-700: #d9822f;
+  --color-ink-900: #1f3138;
+  --color-ink-700: #35505c;
+  --color-ink-500: #5e7a8a;
+  --color-ink-300: #8aa2ae;
+  --color-ink-100: #dfe9ef;
+  --color-bg: #f5f9fc;
+  --color-surface: #ffffff;
+}
+
+/* ===== 基础 ===== */
 html {
   font-family: var(--font-sans);
   color: var(--color-ink-900);
   background: var(--color-bg);
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.25s ease;
 }
 
-/* #17 移动端适配：禁止水平滚动（内容极端窄屏时收缩而非溢出）；WebView 字号不受系统字体缩放影响 */
 html,
 body {
   overflow-x: hidden;
@@ -64,19 +116,17 @@ body {
   max-width: 100%;
 }
 
-/* 底部导航常驻：内容 padding 保证不被遮挡（各页面已 pb-20） */
 #root {
   min-height: 100dvh;
 }
 
-/* 兼容旧 WebView（Android 7 内置 Chromium < 108 不支持 dvh）：回退 100vh */
 @supports not (height: 100dvh) {
   .min-h-dvh {
     min-height: 100vh;
   }
 }
 
-/* 触摸目标最小 44px（无障碍基线 NFR-09）——#26：带显式 h-*/size-* 的自绘小控件（开关/打勾/图标钮）不适用 */
+/* 触摸目标最小 44px（NFR-09）——带显式 h-*/size-* 的自绘小控件豁免 */
 button,
 [role="button"],
 a.btn {
@@ -86,12 +136,19 @@ button:where([class^="h-"], [class~="h-2"], [class~="h-3"], [class~="h-4"], [cla
   min-height: 0;
 }
 
+/* 键盘可达性：统一焦点环 */
+:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 /* 移动端安全区 */
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* ============ 达成/浮动动画（2026-08：#2 喝水达成动画） ============ */
+/* ============ 动效 ============ */
 @keyframes pop-in {
   from {
     transform: scale(0.5);
@@ -119,7 +176,18 @@ button:where([class^="h-"], [class~="h-2"], [class~="h-3"], [class~="h-4"], [cla
   animation: float-up 0.9s ease-out forwards;
 }
 
-/* #25：Recharts 无障碍层焦点黄框去除（统计近7天趋势点击后的黄色方框） */
+/* 卡片阴影（主题感知的中性低饱和影） */
+.card-shadow {
+  box-shadow: 0 2px 10px rgb(64 49 42 / 0.06), 0 1px 3px rgb(64 49 42 / 0.04);
+}
+[data-theme="meadow"] .card-shadow {
+  box-shadow: 0 2px 10px rgb(28 61 56 / 0.08), 0 1px 3px rgb(28 61 56 / 0.05);
+}
+[data-theme="glacier"] .card-shadow {
+  box-shadow: 0 2px 10px rgb(28 55 72 / 0.08), 0 1px 3px rgb(28 55 72 / 0.05);
+}
+
+/* #25：Recharts 焦点黄框去除 */
 .recharts-accessibility-layer,
 .recharts-accessibility-layer:focus,
 .recharts-accessibility-layer:focus-visible,

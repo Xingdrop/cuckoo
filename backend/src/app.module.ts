@@ -24,6 +24,7 @@ import { AchievementsModule } from './modules/achievements/achievements.module';
 import { PlansModule } from './modules/plans/plans.module';
 import { FamilyModule } from './modules/family/family.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
+import { AppDownloadModule } from './modules/app-download/app-download.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { User } from './modules/users/user.entity';
 import { UserSetting } from './modules/users/user-setting.entity';
@@ -134,6 +135,7 @@ import { SeedModule } from './seed/seed.module';
     PlansModule,
     FamilyModule,
     ContactsModule,
+    AppDownloadModule,
     AuditModule,
     AchievementsModule,
   ],

@@ -404,7 +404,22 @@ export function DashboardPage() {
           >
             <div className="flex h-6 items-center justify-between">
               <p className="text-xs text-ink-500">完成率</p>
-              <span className="text-[10px] text-primary-500">选择 ›</span>
+              <span className="flex items-center gap-1.5">
+                <span className="text-[10px] text-primary-500">选择 ›</span>
+                {/* 统计入口：阻止冒泡——不触发外层"选择计入提醒"弹窗 */}
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-label="进入统计"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate('/stats');
+                  }}
+                  className="flex items-center gap-0.5 rounded-full bg-primary-500/10 px-1.5 py-0.5 text-[10px] font-medium text-primary-700 active:bg-primary-500/20"
+                >
+                  <BarChart3 size={10} /> 统计
+                </span>
+              </span>
             </div>
             <p className="mt-1 text-2xl font-bold leading-none text-primary-600">
               {selected === today && stats ? stats.rate : rate}%

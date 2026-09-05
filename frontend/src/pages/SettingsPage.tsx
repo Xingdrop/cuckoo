@@ -6,6 +6,7 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { ReminderOverlay } from '../features/reminders/ReminderOverlay';
 import { authApi } from '../services/api/api.auth';
 import { usersApi } from '../services/api/api.users';
+import { appApi, type AppApkInfo } from '../services/api/api.app';
 import { loadAiConfig, saveAiConfig } from '../assistant/assistant';
 import { refreshApiBase } from '../services/http';
 import { errorMessage } from '../services/http';
@@ -108,6 +109,9 @@ export function SettingsPage() {
   const [ai, setAi] = useState(() => loadAiConfig());
   /** #26：服务器地址输入 */
   const [apiBaseInput, setApiBaseInput] = useState(() => localStorage.getItem('cuckoo_api_base') ?? '');
+  /** APK 下载入口信息（APK 内已安装 → 隐藏） */
+  const [apk, setApk] = useState<AppApkInfo | null>(null);
+  const isNative = Boolean((window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.());
 
   useEffect(() => {
     authApi
@@ -118,7 +122,8 @@ export function SettingsPage() {
       setPushEnabled(ok);
       setPushSupport(isPushSupported());
     });
-  }, []);
+    if (!isNative) appApi.info().then(setApk).catch(() => setApk({ available: false }));
+  }, [isNative]);
 
   const update = async (patch: Partial<UserSettings>) => {
     setError(null);
@@ -536,6 +541,26 @@ export function SettingsPage() {
           </div>
         </section>
 
+        {/* 下载 App——网页端提供最新 APK 安装包（APK 内已安装 → 隐藏） */}
+        {!isNative && apk?.available && (
+          <section className="divide-y divide-ink-100 rounded-card bg-surface shadow-sm">
+            <a href={appApi.downloadUrl()} download="cuckoo-app.apk" className="flex w-full items-center gap-3 px-4 py-3.5">
+              <Download size={18} className="shrink-0 text-primary-600" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium">下载 App（Android）</p>
+                <p className="mt-0.5 text-xs text-ink-500">
+                  最新安装包
+                  {apk.sizeBytes != null && ` · ${(apk.sizeBytes / 1024 / 1024).toFixed(1)} MB`}
+                  {apk.updatedAt && ` · 构建于 ${apk.updatedAt.slice(0, 10)}`}
+                </p>
+              </div>
+              <span className="ml-auto shrink-0 rounded-full bg-primary-500/10 px-2.5 py-1 text-[11px] font-medium text-primary-700">
+                下载
+              </span>
+            </a>
+          </section>
+        )}
+
         {/* 账号 */}
         <section className="divide-y divide-ink-100 rounded-card bg-surface shadow-sm">
           <button
@@ -572,7 +597,7 @@ export function SettingsPage() {
         </section>
 
         <p className="flex items-center justify-center gap-1 pt-2 text-xs text-ink-500">
-          <Bell size={12} /> 布谷 Cuckoo v0.1 · 准时提醒，温柔守护
+          <Bell size={12} /> 布谷 Cuckoo v0.2 · 准时提醒，温柔守护
         </p>
       </main>
 

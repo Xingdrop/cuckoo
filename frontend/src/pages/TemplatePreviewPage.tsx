@@ -2,8 +2,10 @@ import { ChevronLeft, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { LoadingState } from '../components/ui/Feedback';
+import { MediaCarousel } from '../components/MediaCarousel';
 import { useConnectionStore } from '../stores/connectionStore';
 import { socialApi } from '../services/api/api.social';
+import { absoluteUrl } from '../services/http';
 import type { PlanTemplate } from '../services/api/api.social';
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -89,8 +91,9 @@ export function TemplatePreviewPage() {
     category?: string;
     title?: string;
     startTime?: string;
-    content?: Record<string, unknown>;
+    content?: { text?: string; imageUrls?: string[] };
   }>;
+  const heroMedia = (tpl?.mediaUrls ?? []).filter(Boolean);
 
   return (
     <div className="mx-auto max-w-md pb-10">
@@ -119,7 +122,11 @@ export function TemplatePreviewPage() {
               </p>
             )}
             <section className="rounded-card bg-surface p-5 text-center shadow-sm">
-              <span className="text-3xl">🏛️</span>
+              {heroMedia.length > 0 ? (
+                <MediaCarousel urls={heroMedia} aspect="aspect-[16/9]" className="mb-3" />
+              ) : (
+                <span className="text-3xl">🏛️</span>
+              )}
               <h2 className="mt-2 flex items-center justify-center gap-1.5 text-lg font-semibold">
                 {tpl.title}
                 {joined && (
@@ -143,10 +150,28 @@ export function TemplatePreviewPage() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{c.title ?? '未命名提醒'}</p>
-                        <p className="text-[11px] text-ink-500">
+                        <p className="line-clamp-2 text-[11px] text-ink-500">
                           {c.startTime ? `每天 ${c.startTime}` : '每天（不定时）'}
-                          {c.content?.text ? ` · ${String(c.content.text)}` : ''}
+                          {c.content?.text ? ` · ${c.content.text}` : ''}
                         </p>
+                        {(c.content?.imageUrls?.length ?? 0) > 0 && (
+                          <span className="mt-1 flex gap-1">
+                            {c.content!.imageUrls!.slice(0, 4).map((u) => (
+                              <img
+                                key={u}
+                                src={absoluteUrl(u)}
+                                alt=""
+                                loading="lazy"
+                                className="h-10 w-10 rounded-md bg-bg object-cover"
+                              />
+                            ))}
+                            {(c.content!.imageUrls?.length ?? 0) > 4 && (
+                              <span className="flex h-10 w-10 items-center justify-center rounded-md bg-ink-100 text-[10px] text-ink-500">
+                                +{c.content!.imageUrls!.length - 4}
+                              </span>
+                            )}
+                          </span>
+                        )}
                       </div>
                       <span className="shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-[10px] text-primary-600">
                         {c.startTime ? '定时' : '不定时'}

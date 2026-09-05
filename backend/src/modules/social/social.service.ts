@@ -20,14 +20,13 @@ import { PlanJoinRecord } from './plan-join-record.entity';
 import { PlanTemplate, PlanTemplateStatus } from './plan-template.entity';
 import { Post, PostStatus, PostType } from './post.entity';
 import { SensitiveWord } from './sensitive-word.entity';
-import { Group, GroupMember, GroupPost } from './group.entity';
 
 /** 帖子正文长度上限（与前端输入框一致） */
 const POST_CONTENT_MAX = 2000;
 
 /**
- * 社交模块（FR-601~609）
- * 帖子/点赞/评论/收藏 + 一键加入计划（事务+幂等）+ 官方计划 + 兴趣小组
+ * 社交模块（FR-601~604/606~608；兴趣小组已于 2026-09-05 移除）
+ * 帖子/点赞/评论/收藏 + 一键加入计划（事务+幂等）+ 官方计划
  */
 @Injectable()
 export class SocialService {
@@ -42,12 +41,6 @@ export class SocialService {
     private readonly templateRepo: Repository<PlanTemplate>,
     @InjectRepository(Reminder)
     private readonly reminderRepo: Repository<Reminder>,
-    @InjectRepository(Group)
-    private readonly groupRepo: Repository<Group>,
-    @InjectRepository(GroupMember)
-    private readonly memberRepo: Repository<GroupMember>,
-    @InjectRepository(GroupPost)
-    private readonly groupPostRepo: Repository<GroupPost>,
     @InjectRepository(SensitiveWord)
     private readonly sensitiveWordRepo: Repository<SensitiveWord>,
     @InjectRepository(User)
@@ -509,28 +502,6 @@ export class SocialService {
     return { joined: true, duplicate: false, planId: plan.id, configCount: config.length };
   }
 
-  // ============ 兴趣小组（FR-605） ============
-
-  async createGroup(userId: string, dto: { name: string; description: string }) {
-    const group = this.groupRepo.create({
-      id: randomUUID(),
-      name: dto.name,
-      description: dto.description,
-      ownerId: userId,
-      coverUrl: null,
-      memberCount: 1,
-    });
-    const saved = await this.groupRepo.save(group);
-    await this.memberRepo.save(
-      this.memberRepo.create({ id: randomUUID(), groupId: saved.id, userId, role: 'owner' }),
-    );
-    return saved;
-  }
-
-  async listGroups() {
-    return this.groupRepo.find({ order: { memberCount: 'DESC' } });
-  }
-
   // ============ 个人主页 / 关注（2026-08） ============
 
   /** 关注/取消关注（幂等 toggle） */
@@ -602,51 +573,6 @@ export class SocialService {
       stats: { totalLogs, completedLogs },
       posts,
     };
-  }
-
-  async joinGroup(userId: string, groupId: string) {
-    const group = await this.groupRepo.findOne({ where: { id: groupId } });
-    if (!group) throw new NotFoundException({ code: 'NOT_FOUND', message: '小组不存在' });
-    const existing = await this.memberRepo.findOne({ where: { groupId, userId } });
-    if (existing) return { joined: true, duplicate: true };
-    await this.memberRepo.save(
-      this.memberRepo.create({ id: randomUUID(), groupId, userId, role: 'member' }),
-    );
-    await this.groupRepo.increment({ id: groupId }, 'memberCount', 1);
-    return { joined: true };
-  }
-
-  async groupPosts(groupId: string, page = 1, pageSize = 20) {
-    const [items, total] = await this.groupPostRepo.findAndCount({
-      where: { groupId },
-      order: { createdAt: 'DESC' },
-      skip: (page - 1) * pageSize,
-      take: Math.min(pageSize, 100),
-    });
-    const postIds = items.map((g) => g.postId);
-    const posts = postIds.length
-      ? await this.postRepo.find({ where: { id: In(postIds) }, relations: { user: true } })
-      : [];
-    return {
-      items: posts.map((p) => ({
-        ...p,
-        author: { id: p.user.id, username: p.user.username, avatarUrl: p.user.avatarUrl },
-      })),
-      total,
-      page,
-      pageSize,
-    };
-  }
-
-  async groupLeaderboard(groupId: string) {
-    // 简化：成员按加入时间 + 组内活跃（帖子数）——MVP 用成员列表排序
-    const members = await this.memberRepo.find({
-      where: { groupId },
-      order: { joinedAt: 'ASC' },
-      take: 20,
-      relations: { group: false },
-    });
-    return members;
   }
 
   private async ensurePost(postId: string) {

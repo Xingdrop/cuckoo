@@ -115,14 +115,6 @@ export interface GuestTemplate {
   version: number;
 }
 
-export interface GuestGroup {
-  id: string;
-  name: string;
-  description: string;
-  coverUrl: string | null;
-  ownerId: string | null;
-  memberCount: number;
-}
 
 export interface GuestNotification {
   id: string;
@@ -167,7 +159,6 @@ export interface SeedDataset {
   posts?: unknown[];
   feed?: GuestFeedPost[];
   templates?: GuestTemplate[];
-  groups?: GuestGroup[];
   followings?: string[];
   favorites?: string[];
   notifications?: GuestNotification[];
@@ -203,7 +194,6 @@ interface GuestState {
   settings: GuestSettings;
   feed: GuestFeedPost[];
   templates: GuestTemplate[];
-  groups: GuestGroup[];
   exercises: GuestExercise[];
   followings: string[];
   favorites: string[];
@@ -249,7 +239,7 @@ interface GuestState {
   saveSettings: (patch: Partial<GuestSettings>) => void;
   seedSocial: (
     d: Partial<
-      Pick<SeedDataset, 'feed' | 'templates' | 'groups' | 'exercises' | 'followings' | 'favorites' | 'notifications'>
+      Pick<SeedDataset, 'feed' | 'templates' | 'exercises' | 'followings' | 'favorites' | 'notifications'>
     >,
   ) => void;
   /** #22：把游客数据集合并进当前账户（按 id + updatedAt 较新）；返回 {merged, skipped} */
@@ -271,7 +261,7 @@ interface GuestState {
 }
 
 const COLLECTIONS = [
-  'reminders', 'logs', 'medicines', 'plans', 'settings', 'feed', 'templates', 'groups',
+  'reminders', 'logs', 'medicines', 'plans', 'settings', 'feed', 'templates',
   'exercises', 'followings', 'favorites', 'notifications',
 ] as const;
 
@@ -288,7 +278,6 @@ const emptyDataset = () => ({
   settings: { ...DEFAULT_SETTINGS },
   feed: [] as GuestFeedPost[],
   templates: [] as GuestTemplate[],
-  groups: [] as GuestGroup[],
   exercises: [] as GuestExercise[],
   followings: [] as string[],
   favorites: [] as string[],
@@ -339,7 +328,6 @@ export const useGuestStore = create<GuestState>()(
           settings: { ...DEFAULT_SETTINGS, ...(merged.settings ?? {}) },
           feed: (merged.feed ?? []) as GuestFeedPost[],
           templates: (merged.templates ?? []) as GuestTemplate[],
-          groups: (merged.groups ?? []) as GuestGroup[],
           exercises: (merged.exercises ?? []) as GuestExercise[],
           followings: (merged.followings ?? []) as string[],
           favorites: (merged.favorites ?? []) as string[],
@@ -357,7 +345,6 @@ export const useGuestStore = create<GuestState>()(
         settings: { ...DEFAULT_SETTINGS },
         feed: [],
         templates: [],
-        groups: [],
         exercises: [],
         followings: [],
         favorites: [],
@@ -391,7 +378,6 @@ export const useGuestStore = create<GuestState>()(
           if (d.settings) patch.settings = { ...DEFAULT_SETTINGS, ...d.settings };
           patch.feed = d.feed ?? [];
           patch.templates = d.templates ?? [];
-          patch.groups = d.groups ?? [];
           patch.exercises = d.exercises ?? [];
           patch.followings = d.followings ?? [];
           patch.favorites = d.favorites ?? [];
@@ -544,7 +530,6 @@ export const useGuestStore = create<GuestState>()(
           set((s) => ({
             feed: d.feed ?? s.feed,
             templates: d.templates ?? s.templates,
-            groups: d.groups ?? s.groups,
             exercises: d.exercises ?? s.exercises,
             followings: d.followings ?? s.followings,
             favorites: d.favorites ?? s.favorites,
@@ -630,7 +615,6 @@ export const useGuestStore = create<GuestState>()(
             settings: { ...DEFAULT_SETTINGS },
             feed: base.feed,
             templates: base.templates,
-            groups: base.groups,
             followings: base.followings,
             favorites: base.favorites,
             notifications: base.notifications,
@@ -738,7 +722,6 @@ export const useGuestStore = create<GuestState>()(
         settings: s.settings,
         feed: s.feed,
         templates: s.templates,
-        groups: s.groups,
         exercises: s.exercises,
         followings: s.followings,
         favorites: s.favorites,

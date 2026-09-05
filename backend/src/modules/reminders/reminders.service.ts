@@ -32,6 +32,7 @@ import {
   Reminder,
   ReminderCategory,
   ReminderContent,
+  RepeatRule,
   RepeatType,
 } from './reminder.entity';
 
@@ -165,6 +166,8 @@ export class RemindersService {
       categoryLabel: string | null;
       categoryIcon: string | null;
       content: ReminderContent;
+      /** #26 详情浮窗：重复规则（前端生成人话描述） */
+      repeatRule: RepeatRule;
       times: { time: string; status: string | null }[];
       todayTotal: number;
       untimed: boolean;
@@ -246,6 +249,8 @@ export class RemindersService {
         categoryLabel: r.categoryLabel,
         categoryIcon: r.categoryIcon,
         content: r.content,
+        // #26 详情浮窗：重复规则描述需要完整 rule
+        repeatRule: r.repeatRule,
         times: times.map((t) => {
           const [hh, mm] = t.split(':').map(Number);
           const slot = localToUtc(timezone, y, m, d, hh, mm);

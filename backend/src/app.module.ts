@@ -41,7 +41,6 @@ import { NotificationLog } from './modules/notifications/notification-log.entity
 import { Device } from './modules/notifications/device.entity';
 import { Exercise } from './modules/exercises/exercise.entity';
 import { SensitiveWord } from './modules/social/sensitive-word.entity';
-import { Group, GroupMember, GroupPost } from './modules/social/group.entity';
 import { Follow } from './modules/social/follow.entity';
 import { FamilyBinding } from './modules/family/family-binding.entity';
 import { FamilyInvite } from './modules/family/family-invite.entity';
@@ -99,9 +98,6 @@ import { SeedModule } from './seed/seed.module';
           Device,
           Exercise,
           SensitiveWord,
-          Group,
-          GroupMember,
-          GroupPost,
           Follow,
           FamilyBinding,
           FamilyInvite,

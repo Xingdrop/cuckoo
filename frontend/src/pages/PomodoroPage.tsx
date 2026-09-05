@@ -154,6 +154,10 @@ export function PomodoroPage() {
           />
           <span className="text-sm text-ink-500">分钟</span>
         </div>
+        <p className="mt-3 px-1 text-[11px] leading-relaxed text-ink-400">
+          经典番茄钟为「专注 25 分钟 + 休息 5 分钟」，适合大多数专注任务；深度工作可用 50+10，
+          初次尝试可从 15+3 开始——按自己的注意力节奏调整即可，专注结束后会自动进入休息循环。
+        </p>
       </main>
     </div>
   );

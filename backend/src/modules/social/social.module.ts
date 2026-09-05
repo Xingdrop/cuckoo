@@ -6,7 +6,6 @@ import { Reminder } from '../reminders/reminder.entity';
 import { ReminderLog } from '../reminders/reminder-log.entity';
 import { User } from '../users/user.entity';
 import { Follow } from './follow.entity';
-import { Group, GroupMember, GroupPost } from './group.entity';
 import { Interaction } from './interaction.entity';
 import { PlanJoinRecord } from './plan-join-record.entity';
 import { PlanTemplate } from './plan-template.entity';
@@ -29,9 +28,6 @@ import { SocialService } from './social.service';
       User,
       Plan,
       Follow,
-      Group,
-      GroupMember,
-      GroupPost,
     ]),
     AuditModule,
   ],

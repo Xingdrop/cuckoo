@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { BirdMascot } from '../BirdMascot';
 
 /** 页面级错误横幅（统一错误展示样式） */
 export function ErrorBanner({ message }: { message: string | null }) {
@@ -13,11 +14,13 @@ export function LoadingState() {
   return <div className="py-16 text-center text-sm text-ink-500">加载中…</div>;
 }
 
-/** 页面级空态（icon 传入 lucide 图标组件元素） */
+/** 页面级空态（默认带布谷鸟吉祥物；icon 可覆盖为 lucide 图标元素） */
 export function EmptyState({ icon, children }: { icon?: ReactNode; children: ReactNode }) {
   return (
     <div className="rounded-card bg-surface p-10 text-center text-sm text-ink-500 shadow-sm">
-      {icon && <div className="mx-auto mb-3 flex justify-center text-ink-300">{icon}</div>}
+      <div className="mx-auto mb-3 flex justify-center">
+        {icon ?? <BirdMascot size={84} className="opacity-90" />}
+      </div>
       {children}
     </div>
   );

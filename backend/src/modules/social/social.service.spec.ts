@@ -15,7 +15,6 @@ import { Interaction } from './interaction.entity';
 import { PlanJoinRecord } from './plan-join-record.entity';
 import { PlanTemplate } from './plan-template.entity';
 import { SensitiveWord } from './sensitive-word.entity';
-import { Group, GroupMember, GroupPost } from './group.entity';
 import { Follow } from './follow.entity';
 import { Notification } from '../notifications/notification.entity';
 import { NotificationLog } from '../notifications/notification-log.entity';
@@ -65,7 +64,7 @@ describe('SocialService（UT-JOIN）', () => {
       entities: [
         User, UserSetting, Reminder, ReminderLog, Medicine, EmergencyContact,
         Post, Interaction, PlanJoinRecord, PlanTemplate, SensitiveWord,
-        Group, GroupMember, GroupPost, Follow,
+        Follow,
         Notification, NotificationLog, Device, Exercise,
         AuditLog, Report, Achievement, AchievementRule, Plan,
       ],
@@ -80,9 +79,6 @@ describe('SocialService（UT-JOIN）', () => {
     userRepo = dataSource.getRepository(User);
     const interactionRepo = dataSource.getRepository(Interaction);
     const templateRepo = dataSource.getRepository(PlanTemplate);
-    const groupRepo = dataSource.getRepository(Group);
-    const memberRepo = dataSource.getRepository(GroupMember);
-    const groupPostRepo = dataSource.getRepository(GroupPost);
     const sensitiveWordRepo = dataSource.getRepository(SensitiveWord);
     const followRepo = dataSource.getRepository(Follow);
     const logRepo = dataSource.getRepository(ReminderLog);
@@ -95,9 +91,6 @@ describe('SocialService（UT-JOIN）', () => {
         { provide: getRepositoryToken(PlanJoinRecord), useValue: joinRepo },
         { provide: getRepositoryToken(PlanTemplate), useValue: templateRepo },
         { provide: getRepositoryToken(Reminder), useValue: reminderRepo },
-        { provide: getRepositoryToken(Group), useValue: groupRepo },
-        { provide: getRepositoryToken(GroupMember), useValue: memberRepo },
-        { provide: getRepositoryToken(GroupPost), useValue: groupPostRepo },
         { provide: getRepositoryToken(SensitiveWord), useValue: sensitiveWordRepo },
         { provide: getRepositoryToken(User), useValue: userRepo },
         { provide: getRepositoryToken(Plan), useValue: planRepo },

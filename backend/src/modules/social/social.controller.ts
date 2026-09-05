@@ -51,16 +51,6 @@ class PageQueryDto {
   pageSize?: number;
 }
 
-class CreateGroupDto {
-  @IsString()
-  @MaxLength(30)
-  name: string;
-
-  @IsString()
-  @MaxLength(300)
-  description: string;
-}
-
 @ApiTags('社交')
 @Controller()
 export class SocialController {
@@ -158,30 +148,5 @@ export class SocialController {
   @ApiOperation({ summary: '退出官方计划（从我的计划移除，状态回退未加入）' })
   leaveTemplate(@CurrentUser('sub') userId: string, @Param('id') id: string) {
     return this.socialService.leaveTemplate(userId, id);
-  }
-
-  // ---- 兴趣小组 ----
-  @Get('groups')
-  @ApiOperation({ summary: '小组列表（FR-605）' })
-  groups() {
-    return this.socialService.listGroups();
-  }
-
-  @Post('groups')
-  @ApiOperation({ summary: '创建小组' })
-  createGroup(@CurrentUser('sub') userId: string, @Body() dto: CreateGroupDto) {
-    return this.socialService.createGroup(userId, dto);
-  }
-
-  @Post('groups/:id/join')
-  @ApiOperation({ summary: '加入小组' })
-  joinGroup(@CurrentUser('sub') userId: string, @Param('id') id: string) {
-    return this.socialService.joinGroup(userId, id);
-  }
-
-  @Get('groups/:id/posts')
-  @ApiOperation({ summary: '组内帖子' })
-  groupPosts(@Param('id') id: string, @Query() q: PageQueryDto) {
-    return this.socialService.groupPosts(id, q.page ?? 1, q.pageSize ?? 20);
   }
 }

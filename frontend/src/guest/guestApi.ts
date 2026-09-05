@@ -10,7 +10,7 @@ import type {
   UserSettings,
 } from '../types';
 import type { Plan } from '../services/api/api.plans';
-import type { Post, PlanTemplate, Group } from '../services/api/api.social';
+import type { Post, PlanTemplate } from '../services/api/api.social';
 import type { Exercise } from '../services/api/api.exercises';
 
 /**
@@ -685,9 +685,6 @@ export const guestApi = {
     if (!t) return undefined;
     const plans = useGuestStore.getState().plans;
     return { ...t, joined: plans.some((p) => p.sourceType === 'official' && p.sourceId === t.id) };
-  },
-  groups(): Group[] {
-    return useGuestStore.getState().groups.map((g) => ({ ...g, ownerId: g.ownerId ?? '' }));
   },
   notifications(): Page<{ id: string; userId: string; type: string; title: string; content: string; linkUrl: string | null; isRead: boolean; createdAt: string }> & { unread: number } {
     const items = useGuestStore.getState().notifications.map((n) => ({ ...n, userId: 'local' }));

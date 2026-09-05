@@ -40,15 +40,6 @@ export interface PlanTemplate {
   joined?: boolean;
 }
 
-export interface Group {
-  id: string;
-  name: string;
-  description: string;
-  coverUrl: string | null;
-  ownerId: string;
-  memberCount: number;
-}
-
 /** #17：在线拉取成功后写入本地缓存（断网时由 guestApi 供数——"断网前接收的数据"） */
 /** #22：游客/离线禁用的账户操作统一错误（游客提示需登录；离线账户提示需联网） */
 const accountOpErr = (act: string) =>
@@ -176,22 +167,6 @@ export const socialApi = {
       ? Promise.resolve(guestApi.leaveOfficialTemplate(id))
       : http.delete(`/plan-templates/${id}/join`).then((r) => r.data),
 
-  // 小组
-  groups: () => {
-    if (useLocal()) return Promise.resolve<Group[]>(guestApi.groups());
-    return http.get<Group[]>('/groups').then((r) => {
-      cacheWrite({ groups: r.data });
-      return r.data;
-    });
-  },
-  createGroup: (body: { name: string; description: string }) =>
-    useLocal()
-      ? Promise.reject(accountOpErr('创建小组'))
-      : http.post<Group>('/groups', body).then((r) => r.data),
-  joinGroup: (id: string) =>
-    useLocal()
-      ? Promise.reject(accountOpErr('加入小组'))
-      : http.post(`/groups/${id}/join`).then((r) => r.data),
 };
 
 /** 通知中心 */

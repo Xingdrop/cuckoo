@@ -2,7 +2,8 @@ import { BarChart3, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Plus,
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
-import { ReminderDetailSheet } from '../components/ReminderDetailSheet';
+import { ReminderDetailModal } from '../components/ReminderDetailModal';
+import { BirdMascot } from '../components/BirdMascot';
 import { VoiceAssistant } from '../features/voice/VoiceAssistant';
 import { remindersApi } from '../services/api/api.reminders';
 import { authApi } from '../services/api/api.auth';
@@ -39,6 +40,13 @@ function missedCount(item: CalendarItem, dateKey: string, today: string, nowTime
       t.status === 'skipped' ||
       (t.status === null && (dateKey < today || (dateKey === today && t.time < nowTime))),
   ).length;
+}
+
+/** #26 详情浮窗：指定时点是否可直接完成（错过 → false 走确认弹窗；不定时/待完成 → true） */
+function itemSlotDone(item: CalendarItem, time?: string): boolean {
+  if (item.untimed || !time) return true;
+  const slot = item.times.find((s) => s.time === time);
+  return !slot || slot.status !== 'missed';
 }
 
 /** 距目标时间（日期+HH:mm，本地）的间隔文案 */
@@ -527,8 +535,13 @@ export function DashboardPage() {
               加载中…
             </div>
           ) : slots.length === 0 ? (
-            <div className="mt-3 rounded-card bg-surface p-8 text-center text-sm text-ink-500 shadow-sm">
-              暂无提醒
+            <div className="mt-3 rounded-card bg-surface p-8 text-center shadow-sm">
+              <div className="mx-auto mb-2 flex justify-center">
+                <BirdMascot size={88} />
+              </div>
+              <p className="text-sm text-ink-500">
+                {selected === today ? '今天还没有提醒，布谷鸟陪你从一个小习惯开始' : '这一天还没有安排提醒'}
+              </p>
               {selected === today && (
                 <button
                   onClick={() => navigate('/reminders/new')}
@@ -727,8 +740,9 @@ export function DashboardPage() {
                     className="flex items-center gap-3 rounded-card border-l-4 border-danger-500/70 bg-danger-500/5 px-4 py-3"
                   >
                     <button
-                      onClick={() => setCompleteConfirm({ item: s.item, time: s.item.untimed ? undefined : s.time })}
+                      onClick={() => setDetailItem(s.item)}
                       className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      aria-label="查看详情"
                     >
                     <span className="w-14 shrink-0 text-right text-sm font-semibold text-danger-700">{s.item.untimed ? '不定时' : s.time}</span>
                     <span className="text-lg opacity-60">
@@ -861,8 +875,32 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* #25：提醒详情抽屉 */}
-      {detailItem && <ReminderDetailSheet item={detailItem} onClose={() => setDetailItem(null)} />}
+      {/* #26：提醒详情浮窗（中央小窗：内容多图滑动 + 时点状态 + 完成/补拍） */}
+      {detailItem && (
+        <ReminderDetailModal
+          item={detailItem}
+          date={selected}
+          onClose={() => setDetailItem(null)}
+          onComplete={(time) => {
+            const missed = !itemSlotDone(detailItem, time);
+            if (missed) {
+              // 错过时点 → 关闭详情走确认弹窗（确认内「查看详情」可再打开）
+              setDetailItem(null);
+              setCompleteConfirm({ item: detailItem, time });
+            } else {
+              void (detailItem.untimed || !time
+                ? untimedAck(detailItem, 'completed')
+                : intervalAck(detailItem, time, 'completed'));
+              showToast('✅ 已完成');
+              setDetailItem(null);
+            }
+          }}
+          onRetake={() => {
+            openCameraFor(detailItem);
+            setDetailItem(null);
+          }}
+        />
+      )}
 
       {/* #26：确认弹窗——已错过点击后确认才修改为已完成（拍照不弹窗，直接形成记录） */}
       {completeConfirm && (

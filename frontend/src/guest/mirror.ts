@@ -15,7 +15,7 @@ import { useGuestStore, type GuestReminder } from './guestStore';
 export async function refreshLocalCache(): Promise<boolean> {
   if (useGuestStore.getState().mirrorOf === null) return false;
   try {
-    const [reminders, medicines, plans, settings, feed, templates, groups, notifications, exercises] =
+    const [reminders, medicines, plans, settings, feed, templates, notifications, exercises] =
       await Promise.allSettled([
         remindersApi.list(),
         medicinesApi.list(),
@@ -23,7 +23,6 @@ export async function refreshLocalCache(): Promise<boolean> {
         authApi.getSettings(),
         socialApi.listPosts(1, 100),
         socialApi.templates(),
-        socialApi.groups(),
         notificationsApi.list(),
         exercisesApi.list(),
       ]);
@@ -54,7 +53,6 @@ export async function refreshLocalCache(): Promise<boolean> {
     if (settings.status === 'fulfilled') patch.settings = settings.value;
     if (feed.status === 'fulfilled') patch.feed = feed.value.items;
     if (templates.status === 'fulfilled') patch.templates = templates.value;
-    if (groups.status === 'fulfilled') patch.groups = groups.value;
     if (exercises.status === 'fulfilled') patch.exercises = exercises.value;
     if (notifications.status === 'fulfilled') {
       patch.notifications = notifications.value.items;

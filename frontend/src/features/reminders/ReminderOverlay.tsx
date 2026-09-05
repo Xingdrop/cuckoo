@@ -3,6 +3,7 @@ import { AlarmClock, Camera, Check, ChevronRight, Image as ImageIcon, X } from '
 import { useRef, useState } from 'react';
 import { filesApi } from '../../services/api/api.files';
 import { LinkedText } from '../../components/LinkedText';
+import { MediaCarousel } from '../../components/MediaCarousel';
 import type { Reminder } from '../../types';
 import type { useReminderScheduler } from './useReminderScheduler';
 
@@ -95,16 +96,16 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
             🔗 打开链接
           </a>
         )}
-        {/* 媒体（#3：图片/视频） */}
+        {/* 媒体（#3：图片/视频；#26 改为滑动轮播——多图跟练可逐张滑动，点击可全屏查看） */}
         {((reminder.content.imageUrls?.length ?? 0) > 0 || reminder.content.videoUrl) && (
-          <div className="mt-4 w-full overflow-hidden rounded-card">
-            {reminder.content.imageUrls?.map((u) => (
-              <img key={u} src={u} alt="提醒图片" className="mx-auto mb-2 max-h-48 w-auto rounded-card" />
-            ))}
-            {reminder.content.videoUrl && (
-              <video src={reminder.content.videoUrl} controls playsInline className="mx-auto max-h-48 w-full rounded-card bg-black/30" />
-            )}
-          </div>
+          <MediaCarousel
+            urls={[
+              ...(reminder.content.imageUrls ?? []),
+              ...(reminder.content.videoUrl ? [reminder.content.videoUrl] : []),
+            ]}
+            aspect="aspect-[3/4]"
+            className="mt-4 w-full"
+          />
         )}
         {reminder.challenge.enabled && (
           <div className="mt-6 w-full">

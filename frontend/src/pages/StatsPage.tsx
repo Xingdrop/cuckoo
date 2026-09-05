@@ -52,8 +52,14 @@ export function StatsPage() {
       const groups: PhotoGroup[] = [];
       for (const r of list) {
         try {
-          const page = await remindersApi.logs(r.id, 1, 200);
-          const photos = page.items
+          // 后端 pageSize 上限 100：分页拉全量（照片记录需要跨天历史）
+          const items: { id: string; photoUrl?: string | null; createdAt?: string }[] = [];
+          for (let page = 1; ; page++) {
+            const p = await remindersApi.logs(r.id, page, 100);
+            items.push(...p.items);
+            if (items.length >= p.total || p.items.length === 0) break;
+          }
+          const photos = items
             .filter((l) => Boolean((l as { photoUrl?: string }).photoUrl))
             .map((l) => ({
               logId: l.id,

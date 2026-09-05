@@ -6,8 +6,8 @@ import { PullToRefresh } from '../components/PullToRefresh';
 import { useAuthStore } from '../stores/authStore';
 import { useConnectionStore } from '../stores/connectionStore';
 import { useGuestStore } from '../guest/guestStore';
-import { errorMessage } from '../services/http';
-import { socialApi, Post, PlanTemplate, Group } from '../services/api/api.social';
+import { absoluteUrl, errorMessage } from '../services/http';
+import { socialApi, Post, PlanTemplate } from '../services/api/api.social';
 import { filesApi } from '../services/api/api.files';
 import { compressMediaFile } from '../utils/media';
 import { MediaGrid } from '../components/MediaGrid';
@@ -28,17 +28,16 @@ function fmtTime(iso: string): string {
 }
 
 /**
- * P-11 社区首页（FR-601~606, FR-609）
- * 帖子流 + 官方计划 + 兴趣小组 + 一键加入
+ * P-11 社区首页（FR-601~604/606~608；兴趣小组已于 2026-09-05 移除）
+ * 帖子流 + 官方计划 + 一键加入
  */
 export function SocialPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const online = useConnectionStore((s) => s.online);
-  const [tab, setTab] = useState<'feed' | 'following' | 'mine' | 'templates' | 'groups'>('feed');
+  const [tab, setTab] = useState<'feed' | 'following' | 'mine' | 'templates'>('feed');
   const [posts, setPosts] = useState<Post[]>([]);
   const [templates, setTemplates] = useState<PlanTemplate[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
   const [unread, setUnread] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [showComposer, setShowComposer] = useState(false);
@@ -107,15 +106,9 @@ export function SocialPage() {
       setNetToast(Date.now());
     }
     try {
-      const [p, t, g, n] = await Promise.all([
-        socialApi.listPosts(),
-        socialApi.templates(),
-        socialApi.groups(),
-        notificationsApi.list(),
-      ]);
+      const [p, t, n] = await Promise.all([socialApi.listPosts(), socialApi.templates(), notificationsApi.list()]);
       setPosts(p.items);
       setTemplates(t);
-      setGroups(g);
       // #26：铃铛角标不计入「每日提醒」类通知（missed）
       setUnread(n.items.filter((x) => x.type !== 'missed' && !x.isRead).length);
       return true;
@@ -199,15 +192,6 @@ export function SocialPage() {
     } catch (e) {
       setError(errorMessage(e));
     }
-  };
-
-  const joinGroup = async (g: Group) => {
-    if (!online) {
-      setError('当前未联网：加入小组需联网后使用');
-      return;
-    }
-    await socialApi.joinGroup(g.id);
-    void load();
   };
 
   const publish = async () => {
@@ -332,7 +316,6 @@ export function SocialPage() {
           ['following', '关注'],
           ['mine', '我的'],
           ['templates', '官方计划'],
-          ['groups', '小组'],
         ] as const).map(([key, label]) => (
           <button
             key={key}
@@ -349,7 +332,7 @@ export function SocialPage() {
         ))}
       </div>
 
-      {/* #25：下拉刷新（广场/官方计划/小组共用） */}
+      {/* #25：下拉刷新（广场/官方计划共用） */}
       <PullToRefresh onRefresh={load}>
       <main className="px-4 pt-4">
         {!online && (
@@ -603,6 +586,20 @@ export function SocialPage() {
           <ul className="space-y-3">
             {templates.map((t) => (
               <li key={t.id} className="rounded-card bg-surface p-4 shadow-sm">
+                {/* 计划封面跟练图（可横滑预览） */}
+                {(t.mediaUrls?.length ?? 0) > 0 && (
+                  <div className="mb-3 flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+                    {t.mediaUrls!.slice(0, 6).map((u) => (
+                      <img
+                        key={u}
+                        src={absoluteUrl(u)}
+                        alt=""
+                        loading="lazy"
+                        className="h-20 w-28 shrink-0 rounded-btn bg-bg object-cover"
+                      />
+                    ))}
+                  </div>
+                )}
                 <button
                   onClick={() => navigate(`/plan-templates/${t.id}`)}
                   className="flex w-full items-center gap-1.5 text-left"
@@ -649,30 +646,6 @@ export function SocialPage() {
           </ul>
         )}
 
-        {tab === 'groups' && (
-          <ul className="space-y-3">
-            {groups.map((g) => (
-              <li key={g.id} className="rounded-card bg-surface p-4 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-50 text-lg">
-                    {g.name.slice(0, 1)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{g.name}</p>
-                    <p className="truncate text-xs text-ink-500">{g.description}</p>
-                  </div>
-                  <span className="text-xs text-ink-500">{g.memberCount} 人</span>
-                  <button
-                    onClick={() => void joinGroup(g)}
-                    className="rounded-full bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-600"
-                  >
-                    加入
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
       </main>
       </PullToRefresh>
 

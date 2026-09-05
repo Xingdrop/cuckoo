@@ -230,7 +230,7 @@ export function ReminderListPage() {
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-base">🏃</span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[13px] font-medium leading-snug">锻炼库</span>
-                <span className="mt-0.5 block text-[10px] leading-snug text-ink-500">50+ 微运动</span>
+                <span className="mt-0.5 block text-[10px] leading-snug text-ink-500">跟练图解微运动</span>
               </span>
             </button>
             <button
@@ -240,7 +240,7 @@ export function ReminderListPage() {
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-50 text-base">🍅</span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[13px] font-medium leading-snug">番茄钟</span>
-                <span className="mt-0.5 block text-[10px] leading-snug text-ink-500">25+5 循环</span>
+                <span className="mt-0.5 block text-[10px] leading-snug text-ink-500">专注休息循环</span>
               </span>
             </button>
           </div>

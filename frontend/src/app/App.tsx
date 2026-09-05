@@ -95,7 +95,7 @@ function SyncOnOnline() {
   if (!msg) return null;
   return (
     <div
-      className={`fixed left-1/2 top-2 z-[70] -translate-x-1/2 rounded-full px-3 py-1 text-[11px] font-medium text-white shadow ${
+      className={`pointer-events-none fixed bottom-32 left-1/2 z-[45] -translate-x-1/2 rounded-full px-3.5 py-1.5 text-[11px] font-medium text-white shadow-lg ${
         msg === 'ok' ? 'bg-primary-500' : 'bg-danger-500'
       }`}
     >

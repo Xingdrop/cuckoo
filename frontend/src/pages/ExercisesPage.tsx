@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { ErrorBanner, EmptyState, LoadingState } from '../components/ui/Feedback';
 import { exercisesApi } from '../services/api/api.exercises';
 import type { Exercise } from '../services/api/api.exercises';
-import { errorMessage } from '../services/http';
+import { absoluteUrl, errorMessage } from '../services/http';
 
 const CATEGORY_LABEL: Record<string, string> = {
   stretch: '拉伸',
@@ -16,7 +16,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 
 /**
- * P-10 微运动库（FR-405）：浏览运动，一键加入提醒计划
+ * P-10 微运动库（FR-405）：浏览运动（配跟练图解），一键加入提醒计划
  */
 export function ExercisesPage() {
   const navigate = useNavigate();
@@ -33,13 +33,14 @@ export function ExercisesPage() {
   }, []);
 
   const addToPlan = (ex: Exercise) => {
-    // 预填内容跳转新建提醒
+    // 预填内容跳转新建提醒（配图一并带入，提醒触发时可看跟练图）
     navigate('/reminders/new', {
       state: {
         preset: {
           category: 'exercise',
           title: ex.name,
           contentText: `${ex.steps}\n（建议时长 ${ex.durationSeconds} 秒）`,
+          contentImage: ex.imageUrl ?? undefined,
         },
       },
     });
@@ -57,7 +58,9 @@ export function ExercisesPage() {
         </button>
         <div>
           <h1 className="text-lg font-semibold">微运动库</h1>
-          <p className="text-xs text-ink-500">30 秒到 5 分钟的小运动，随时可以开始</p>
+          <p className="text-xs text-ink-500">
+            {items.length > 0 ? `${items.length} 个跟练动作` : '30 秒到 5 分钟的小运动'}，随时可以开始
+          </p>
         </div>
       </header>
 
@@ -77,8 +80,16 @@ export function ExercisesPage() {
                   <h2 className="px-1 pb-1.5 pt-2 text-xs font-medium text-ink-500">{label}</h2>
                   <ul className="space-y-2">
                     {group.map((ex) => (
-                      <li key={ex.id} className="rounded-card bg-surface p-4 shadow-sm">
+                      <li key={ex.id} className="rounded-card bg-surface p-3 shadow-sm">
                         <div className="flex items-center gap-3">
+                          {ex.imageUrl && (
+                            <img
+                              src={absoluteUrl(ex.imageUrl)}
+                              alt=""
+                              loading="lazy"
+                              className="h-16 w-16 shrink-0 rounded-card bg-bg object-cover"
+                            />
+                          )}
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-medium">{ex.name}</p>
                             <p className="mt-0.5 line-clamp-2 text-xs text-ink-500">{ex.steps}</p>

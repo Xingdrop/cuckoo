@@ -43,7 +43,7 @@ export function ReminderEditPage() {
   const [searchParams] = useSearchParams();
   /** 从"我的计划"进入时附带 planId（创建提醒归属计划） */
   const planId = searchParams.get('planId');
-  const preset = (location.state as { preset?: { category?: ReminderCategory; title?: string; contentText?: string } } | null)?.preset;
+  const preset = (location.state as { preset?: { category?: ReminderCategory; title?: string; contentText?: string; contentImage?: string } } | null)?.preset;
 
   const pickMedia = async (file: File | undefined) => {
     if (!file) return;
@@ -96,6 +96,7 @@ export function ReminderEditPage() {
     if (preset.category) setCategory(preset.category);
     if (preset.title) setTitle(preset.title);
     if (preset.contentText) setContentText(preset.contentText);
+    if (preset.contentImage) setReminderMedia([preset.contentImage]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

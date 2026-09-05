@@ -30,6 +30,8 @@ export function MedicineLogsPage() {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // AC-306：按日/周/月查看——客户端时间范围过滤（周 = 近 7 天，月 = 近 30 天）
+  const [range, setRange] = useState<'week' | 'month' | 'all'>('all');
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -72,6 +74,25 @@ export function MedicineLogsPage() {
         {error && (
           <p className="mb-3 rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
         )}
+        {items.length > 0 && (
+          <div className="mb-3 flex gap-1.5">
+            {([
+              ['week', '近一周'],
+              ['month', '近一月'],
+              ['all', '全部'],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setRange(key)}
+                className={`rounded-full px-3.5 py-1.5 text-xs transition-colors ${
+                  range === key ? 'bg-primary-500 font-medium text-white' : 'bg-surface text-ink-600 shadow-sm'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         {loading ? (
           <div className="py-16 text-center text-sm text-ink-500">加载中…</div>
         ) : items.length === 0 ? (
@@ -80,7 +101,13 @@ export function MedicineLogsPage() {
           </div>
         ) : (
           <ul className="space-y-2">
-            {items.map((l) => {
+            {items
+              .filter((l) => {
+                if (range === 'all') return true;
+                const ms = Date.now() - new Date(l.scheduledTime).getTime();
+                return ms <= (range === 'week' ? 7 : 30) * 86_400_000;
+              })
+              .map((l) => {
               const meta = STATUS_META[l.status] ?? { label: l.status, cls: 'bg-ink-100 text-ink-500' };
               return (
                 <li key={l.id} className="flex items-center gap-3 rounded-card bg-surface px-4 py-3 shadow-sm">
@@ -100,7 +127,7 @@ export function MedicineLogsPage() {
                   </span>
                 </li>
               );
-            })}
+              })}
           </ul>
         )}
       </main>

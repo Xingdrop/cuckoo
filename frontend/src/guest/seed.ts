@@ -127,7 +127,6 @@ export async function verifyOfflineLogin(
     plans: seed.plans,
     feed: seed.feed,
     templates: seed.templates,
-    groups: seed.groups,
     followings: seed.followings,
     favorites: seed.favorites,
     notifications: seed.notifications,
@@ -137,7 +136,7 @@ export async function verifyOfflineLogin(
 }
 
 /**
- * #19：游客 = 本地账户——进入游客模式后把**公共**社交缓存（广场帖/官方计划/小组/微运动）
+ * #19：游客 = 本地账户——进入游客模式后把**公共**社交缓存（广场帖/官方计划/微运动）
  * 复制到游客数据集（不含个人关注/收藏/通知），使游客界面与离线账户一致。
  */
 export async function seedGuestSocialCache(): Promise<void> {
@@ -149,7 +148,6 @@ export async function seedGuestSocialCache(): Promise<void> {
     // #22：游客不继承账户私有交互态（关注/点赞/收藏/已加入）——已加入按本地我的计划计算
     feed: (seed.feed ?? []).map((f) => ({ ...f, myLiked: false, myFavorited: false, myJoined: false })),
     templates: seed.templates,
-    groups: seed.groups,
     exercises: seed.exercises,
   });
 }

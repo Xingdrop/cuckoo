@@ -187,7 +187,7 @@ export function PostDetailPage() {
                 </button>
               )}
               <span className="ml-auto text-[10px] text-ink-300">
-                {new Date(post.createdAt).toLocaleString('zh-CN', { hour12: false }).slice(0, 16)}
+                {new Date(post.createdAt).toLocaleString('zh-CN', { hour12: false, year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 {post.updatedAt &&
                 new Date(post.updatedAt).getTime() - new Date(post.createdAt).getTime() > 60_000
                   ? ' · 已编辑'
@@ -314,7 +314,7 @@ export function PostDetailPage() {
               <p className="text-[11px] text-primary-600">@{c.author?.username ?? '用户'}</p>
               <p className="mt-0.5 text-sm leading-relaxed">{c.content}</p>
               <p className="mt-1 text-[10px] text-ink-300">
-                {new Date(c.createdAt).toLocaleString('zh-CN', { hour12: false }).slice(0, 16)}
+                {new Date(c.createdAt).toLocaleString('zh-CN', { hour12: false, year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </p>
             </li>
           ))}

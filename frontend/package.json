@@ -1,8 +1,8 @@
 {
     "name": "cuckoo-frontend",
     "private": true,
-    "version": "0.1.0",
-    "description": "甯冭胺 Cuckoo - 鏅鸿兘鎻愰啋涓庡仴搴风鐞?Web PWA 鍓嶇",
+    "version": "0.2.0",
+    "description": "布谷 Cuckoo - 智能提醒与健康管理 Web PWA 前端",
     "type": "module",
     "scripts": {
         "dev": "vite",

@@ -43,6 +43,9 @@ const FollowListPage = lazyPage(() => import('../pages/FollowListPage'), 'Follow
 const PlansPage = lazyPage(() => import('../pages/PlansPage'), 'PlansPage');
 const PlanPreviewPage = lazyPage(() => import('../pages/PlanPreviewPage'), 'PlanPreviewPage');
 const TemplatePreviewPage = lazyPage(() => import('../pages/TemplatePreviewPage'), 'TemplatePreviewPage');
+const FamilyPage = lazyPage(() => import('../pages/FamilyPage'), 'FamilyPage');
+const FamilyPartnerPage = lazyPage(() => import('../pages/FamilyPartnerPage'), 'FamilyPartnerPage');
+const FamilyChatPage = lazyPage(() => import('../pages/FamilyChatPage'), 'FamilyChatPage');
 
 /** 路由 chunk 加载中的全屏骨架 */
 function PageFallback() {
@@ -317,6 +320,30 @@ export function App() {
             element={
               <RequireAuth>
                 <SettingsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/family"
+            element={
+              <RequireAuth>
+                <FamilyPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/family/partner/:id"
+            element={
+              <RequireAuth>
+                <FamilyPartnerPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/family/chat/:id"
+            element={
+              <RequireAuth>
+                <FamilyChatPage />
               </RequireAuth>
             }
           />

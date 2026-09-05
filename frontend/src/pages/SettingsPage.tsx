@@ -1,4 +1,4 @@
-import { Award, BarChart3, Bell, BellRing, ChevronLeft, Database, Download, LogOut, Shield, Trash2 } from 'lucide-react';
+import { Award, BarChart3, Bell, BellRing, ChevronLeft, Database, Download, LogOut, Shield, Trash2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -488,6 +488,26 @@ export function SettingsPage() {
               </button>
             </div>
           </div>
+        </section>
+
+        {/* 亲友（绑定/摘要/聊天/联系人）——在线账户功能 */}
+        <section className="divide-y divide-ink-100 rounded-card bg-surface shadow-sm">
+          <h2 className="px-4 py-3 text-sm font-medium">亲友</h2>
+          <button
+            onClick={() => navigate('/family')}
+            disabled={!online}
+            title={!online ? '该功能需联网' : undefined}
+            className="flex w-full items-center gap-3 px-4 py-3.5 text-left disabled:opacity-40"
+          >
+            <Users size={18} className="shrink-0 text-primary-600" />
+            <div>
+              <p className="text-sm font-medium">亲友与家人</p>
+              <p className="mt-0.5 text-xs text-ink-500">
+                邀请码绑定亲友 · 查看彼此完成情况与照片 · 简易聊天 · 漏服/库存通知联系人
+              </p>
+            </div>
+            {!online && <span className="ml-auto text-[10px] text-ink-400">需联网</span>}
+          </button>
         </section>
 
         {/* #26：高级——局域网服务器地址（APK 连接 PC 开发服务器调试用，仅存本机） */}

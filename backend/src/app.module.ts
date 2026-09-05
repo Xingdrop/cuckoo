@@ -22,6 +22,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { ReportsModule } from './modules/reports/reports.module';
 import { AchievementsModule } from './modules/achievements/achievements.module';
 import { PlansModule } from './modules/plans/plans.module';
+import { FamilyModule } from './modules/family/family.module';
+import { ContactsModule } from './modules/contacts/contacts.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { User } from './modules/users/user.entity';
 import { UserSetting } from './modules/users/user-setting.entity';
@@ -40,6 +42,9 @@ import { Exercise } from './modules/exercises/exercise.entity';
 import { SensitiveWord } from './modules/social/sensitive-word.entity';
 import { Group, GroupMember, GroupPost } from './modules/social/group.entity';
 import { Follow } from './modules/social/follow.entity';
+import { FamilyBinding } from './modules/family/family-binding.entity';
+import { FamilyInvite } from './modules/family/family-invite.entity';
+import { ChatMessage } from './modules/family/chat-message.entity';
 import { AuditLog } from './modules/audit/audit-log.entity';
 import { Report } from './modules/reports/report.entity';
 import { Achievement, AchievementRule } from './modules/achievements/achievement.entity';
@@ -97,6 +102,9 @@ import { SeedModule } from './seed/seed.module';
           GroupMember,
           GroupPost,
           Follow,
+          FamilyBinding,
+          FamilyInvite,
+          ChatMessage,
           AuditLog,
           Report,
           Achievement,
@@ -124,6 +132,8 @@ import { SeedModule } from './seed/seed.module';
     NotificationsModule,
     ReportsModule,
     PlansModule,
+    FamilyModule,
+    ContactsModule,
     AuditModule,
     AchievementsModule,
   ],

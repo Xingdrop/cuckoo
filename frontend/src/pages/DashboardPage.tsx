@@ -954,7 +954,7 @@ export function DashboardPage() {
         }}
       />
       {toast && (
-        <div className="fixed inset-x-0 bottom-20 z-[60] flex justify-center px-6">
+        <div className="pointer-events-none fixed inset-x-0 bottom-32 z-[45] flex justify-center px-6">
           <p className="max-w-full truncate rounded-full bg-ink-900/90 px-4 py-2 text-xs text-white shadow-lg">
             {toast}
           </p>

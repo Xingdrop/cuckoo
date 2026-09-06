@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3V0aWxzL29mZmxpbmUtcXVldWUudHN8MjAyNi0wOXw4ZTdjNDk4NDAz */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3V0aWxzL29mZmxpbmUtcXVldWUudHN8MjAyNi0wOXw4MGVlNDUyZDli */
 /**
  * 离线同步队列（技术方案 §2.2「本地优先 + 云同步」的承诺落地项）。
  * 提醒执行操作（ack/delay）失败时入队，网络恢复/页面重载后重放。
@@ -11,8 +11,8 @@ export interface PendingOp {
   reminderId: string;
   /** ack：scheduledTime（幂等键）；delay：原计划时间 */
   scheduledTime: string;
-  /** ack 状态（completed/skipped/challenge_completed/photo） */
-  status?: 'completed' | 'skipped' | 'challenge_completed' | 'photo';
+  /** ack 状态（completed/skipped/challenge_completed/photo/missed） */
+  status?: 'completed' | 'skipped' | 'challenge_completed' | 'photo' | 'missed';
   /** delay 分钟数 */
   minutes?: number;
   photoUrl?: string;

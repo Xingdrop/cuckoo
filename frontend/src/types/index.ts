@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3R5cGVzL2luZGV4LnRzfDIwMjYtMDl8ODBmOTUwY2NkNw== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3R5cGVzL2luZGV4LnRzfDIwMjYtMDl8YmRlMDYzYmY2Mw== */
 /**
  * 全局类型定义（与后端 DTO/实体字段一一对齐，见 docs/技术方案设计.md §6）
  * 后端字段变更时必须同步本文件。
@@ -165,7 +165,7 @@ export interface CalendarItem {
   categoryLabel: string | null;
   categoryIcon: string | null;
   content: ReminderContent;
-  times: { time: string; status: ReminderLogStatus | null }[];
+  times: { time: string; status: ReminderLogStatus | null; delayMinutes?: number }[];
   todayTotal: number;
   /** 不定时每日提醒：不显示具体时间（2026-08） */
   untimed?: boolean;

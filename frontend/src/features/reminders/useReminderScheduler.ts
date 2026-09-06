@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2ZlYXR1cmVzL3JlbWluZGVycy91c2VSZW1pbmRlclNjaGVkdWxlci50c3wyMDI2LTA5fDkwYjA2ZDA1OTE= */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL2ZlYXR1cmVzL3JlbWluZGVycy91c2VSZW1pbmRlclNjaGVkdWxlci50c3wyMDI2LTA5fGM4MjdmZDU0ZjI= */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { remindersApi } from '../../services/api/api.reminders';
@@ -38,6 +38,8 @@ export function useReminderScheduler() {
     try {
       const list = await remindersApi.list();
       setReminders(list);
+      // #6：APK 后台也弹——把未来 24h 触发点排程为系统本地通知（内容指纹去重，幂等）
+      void import('../../utils/nativeReminders').then((m) => m.syncNativeSchedule(list));
       // #25：补弹——回到前台时若提醒刚错过（≤3 分钟且本会话未弹过）立即全屏展示，避免"直接变已错过"
       if (!activeRef.current) {
         const now = Date.now();
@@ -137,9 +139,9 @@ export function useReminderScheduler() {
     };
   }, [reminders, user]);
 
-  /** 弹窗操作：完成/延迟/跳过/拍照完成/拍照记录 → ack（幂等）→ 关闭 → 重载 */
+  /** 弹窗操作：完成/延迟/放弃/拍照完成/拍照记录/3分钟自动判错过 → ack（幂等）→ 重载 */
   const handleAction = async (
-    status: 'completed' | 'delayed' | 'skipped' | 'challenge_completed' | 'photo',
+    status: 'completed' | 'delayed' | 'skipped' | 'missed' | 'challenge_completed' | 'photo',
     minutes?: number,
     photoUrl?: string,
     note?: string,
@@ -177,7 +179,8 @@ export function useReminderScheduler() {
             },
       );
     } finally {
-      setActive(null);
+      // missed：仅记录并刷新列表，弹窗保留（用户仍可补完成/延迟/放弃）
+      if (status !== 'missed') setActive(null);
       void load(true);
     }
   };

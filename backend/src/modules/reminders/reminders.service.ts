@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
-import { Between, DataSource, Repository } from 'typeorm';
+import { Between, DataSource, EntityManager, Repository } from 'typeorm';
 import {
   computeFollowingTrigger,
   computeNextTrigger,
@@ -179,7 +179,7 @@ export class RemindersService {
       content: ReminderContent;
       /** #26 详情浮窗：重复规则（前端生成人话描述） */
       repeatRule: RepeatRule;
-      times: { time: string; status: string | null }[];
+      times: { time: string; status: string | null; delayMinutes: number }[];
       todayTotal: number;
       untimed: boolean;
       /** #20：是否计入完成率（今日完成率方框可逐条勾选） */
@@ -269,7 +269,8 @@ export class RemindersService {
           const log = dayLogs.find((l) => Math.abs(l.scheduledTime.getTime() - slot.getTime()) < 60_000);
           // 不定时提醒：不显示"错过"（无固定时间点，不存在超时漏服；#12）
           const status = untimed && log?.status === ReminderLogStatus.MISSED ? null : (log?.status ?? null);
-          return { time: t, status };
+          // #8：延迟中的槽位带上累计延迟分钟数（前端据此显示新时间）
+          return { time: t, status, delayMinutes: log?.delayMinutes ?? 0 };
         }),
         todayTotal: times.length,
         untimed,
@@ -393,12 +394,57 @@ export class RemindersService {
     return this.findOne(userId, id);
   }
 
+  /** M2 库存扣减 + 预警（事务内；ack 新建日志/延迟落地/错过补完成共用）。会原地回填 log 快照字段 */
+  private async settleStock(
+    manager: EntityManager,
+    reminder: Reminder,
+    log: ReminderLog,
+    userId: string,
+    isCompleted: boolean,
+  ): Promise<void> {
+    if (!reminder.medicineId) return;
+    const medicine = await manager.getRepository(Medicine).findOne({
+      where: { id: reminder.medicineId, userId },
+    });
+    if (!medicine) return;
+    log.medicineNameSnapshot = medicine.name;
+    if (isCompleted && medicine.deductionPerUse > 0) {
+      if (medicine.stock < medicine.deductionPerUse) {
+        throw new BadRequestException({
+          code: 'STOCK_EXCEEDED',
+          message: `${medicine.name} 库存不足：当前仅剩 ${medicine.stock} ${medicine.dosage ?? '份'}`,
+        });
+      }
+      const newStock = medicine.stock - medicine.deductionPerUse;
+      await manager.getRepository(Medicine).update(
+        { id: medicine.id, userId },
+        { stock: newStock },
+      );
+      log.stockDeducted = medicine.deductionPerUse;
+      // 库存预警：扣减后 ≤ 阈值 → 站内通知
+      if (medicine.notifyOnLowStock && newStock <= medicine.threshold && medicine.threshold > 0) {
+        await manager.getRepository(Notification).save(
+          manager.getRepository(Notification).create({
+            id: randomUUID(),
+            userId,
+            type: NotificationType.LOW_STOCK,
+            title: '库存预警',
+            content: `${medicine.name} 库存仅剩 ${newStock} ${medicine.dosage ?? '份'}，请及时补充`,
+            linkUrl: '/medicines',
+          }),
+        );
+      }
+    }
+  }
+
   /**
    * 执行上报（FR-204~207）：幂等（UNIQUE reminderId+scheduledTime）。
    * 状态机：
    *  - completed / challenge_completed → 写日志 + 重排下一次 + （M2）扣库存
    *  - delayed → 写日志 + nextTriggerAt = 上报时间 + delayMinutes
    *  - skipped → 写日志 + 重排下一次
+   *  #8：延迟后到期再操作 → 落回原计划时刻的 delayed 日志（当日列表按原时刻归槽显示新状态）；
+   *     弹窗 3 分钟自动判错过（或漏服扫描）后补完成/放弃 → 原槽 missed 日志直接升级
    */
   async ack(userId: string, id: string, dto: AckReminderDto) {
     const reminder = await this.findOne(userId, id);
@@ -409,7 +455,12 @@ export class RemindersService {
       const logRepo = manager.getRepository(ReminderLog);
       const reminderRepo = manager.getRepository(Reminder);
 
-      // 幂等：同一时刻已记录则直接返回（不重复扣库存/重排）
+      const isCompleted =
+        dto.status === ReminderLogStatus.COMPLETED ||
+        dto.status === ReminderLogStatus.CHALLENGE_COMPLETED;
+      const isTerminal = isCompleted || dto.status === ReminderLogStatus.SKIPPED;
+
+      // 幂等：同一时刻已记录则按语义处理（不重复扣库存/重排）
       const existing = await logRepo.findOne({ where: { reminderId: id, scheduledTime } });
       if (existing) {
         // #26：拍照记录重复上报 = 替换照片（更新 photoUrl 与时间，不改状态）；文字记录随报随更
@@ -420,15 +471,83 @@ export class RemindersService {
           );
           return { ok: true, log: { ...existing, photoUrl: dto.photoUrl, actualTime: new Date() }, duplicate: true, replaced: true };
         }
+
+        // #8：延迟后到期完成/放弃 → 落到原计划时刻的 delayed 日志（同槽一条记录）
+        const delayedLanded =
+          existing.status === ReminderLogStatus.DELAYED &&
+          isTerminal &&
+          Math.abs(
+            existing.scheduledTime.getTime() + (existing.delayMinutes ?? 0) * 60_000 - scheduledTime.getTime(),
+          ) < 60_000;
+        // 错过（3 分钟弹窗过期/漏服扫描）后补完成/放弃 → 原槽升级
+        const missedUpgrade = existing.status === ReminderLogStatus.MISSED && isTerminal;
+
+        if (delayedLanded || missedUpgrade) {
+          const basis = existing.scheduledTime;
+          const patch: Partial<ReminderLog> = {
+            status: dto.status,
+            actualTime: new Date(),
+            photoUrl: dto.photoUrl ?? existing.photoUrl,
+            note: dto.note ?? existing.note,
+          };
+          const log = { ...existing, ...patch } as ReminderLog;
+          await this.settleStock(manager, reminder, log, userId, isCompleted);
+          await logRepo.update({ id: existing.id }, {
+            ...patch,
+            medicineNameSnapshot: log.medicineNameSnapshot,
+            stockDeducted: log.stockDeducted,
+          });
+          // 以原计划时刻为基准重排
+          if (reminder.repeatRule.type === RepeatType.ONCE) {
+            await reminderRepo.update({ id, userId }, { nextTriggerAt: null });
+          } else {
+            await reminderRepo.update(
+              { id, userId },
+              {
+                nextTriggerAt: computeFollowingTrigger(
+                  reminder.repeatRule,
+                  basis,
+                  reminder.startDate,
+                  reminder.endDate,
+                  timezone,
+                  reminder.times,
+                ),
+              },
+            );
+          }
+          return { ok: true, log, duplicate: false, upgraded: true };
+        }
+
+        // #8：同一槽二次延迟（或错过后再延迟）→ 以原时刻为基准累计延迟分钟并顺延
+        if (
+          dto.status === ReminderLogStatus.DELAYED &&
+          (existing.status === ReminderLogStatus.DELAYED || existing.status === ReminderLogStatus.MISSED)
+        ) {
+          const totalDelayMin = Math.max(
+            Math.round((Date.now() + (dto.delayMinutes ?? 0) * 60_000 - existing.scheduledTime.getTime()) / 60_000),
+            existing.delayMinutes ?? 0,
+          );
+          await logRepo.update(
+            { id: existing.id },
+            {
+              status: ReminderLogStatus.DELAYED,
+              delayMinutes: totalDelayMin,
+              actualTime: new Date(),
+              note: dto.note ?? existing.note,
+            },
+          );
+          await reminderRepo.update(
+            { id, userId },
+            { nextTriggerAt: new Date(Date.now() + (dto.delayMinutes ?? 0) * 60_000) },
+          );
+          return { ok: true, log: { ...existing, status: ReminderLogStatus.DELAYED, delayMinutes: totalDelayMin }, duplicate: true, delayed: true };
+        }
+
         if (dto.note) {
           await logRepo.update({ id: existing.id }, { note: dto.note });
         }
         return { ok: true, log: existing, duplicate: true };
       }
-
-      const isCompleted =
-        dto.status === ReminderLogStatus.COMPLETED ||
-        dto.status === ReminderLogStatus.CHALLENGE_COMPLETED;
 
       const log = logRepo.create({
         id: randomUUID(),
@@ -450,42 +569,7 @@ export class RemindersService {
         stockDeducted: 0,
       });
 
-      if (reminder.medicineId) {
-        const medicine = await manager.getRepository(Medicine).findOne({
-          where: { id: reminder.medicineId, userId },
-        });
-        if (medicine) {
-          log.medicineNameSnapshot = medicine.name;
-          // M2 库存扣减（事务内）：确认服药 → 扣减 → 预警 → 站内通知
-          if (isCompleted && medicine.deductionPerUse > 0) {
-            if (medicine.stock < medicine.deductionPerUse) {
-              throw new BadRequestException({
-                code: 'STOCK_EXCEEDED',
-                message: `${medicine.name} 库存不足：当前仅剩 ${medicine.stock} ${medicine.dosage ?? '份'}`,
-              });
-            }
-            const newStock = medicine.stock - medicine.deductionPerUse;
-            await manager.getRepository(Medicine).update(
-              { id: medicine.id, userId },
-              { stock: newStock },
-            );
-            log.stockDeducted = medicine.deductionPerUse;
-            // 库存预警：扣减后 ≤ 阈值 → 站内通知
-            if (medicine.notifyOnLowStock && newStock <= medicine.threshold && medicine.threshold > 0) {
-              await manager.getRepository(Notification).save(
-                manager.getRepository(Notification).create({
-                  id: randomUUID(),
-                  userId,
-                  type: NotificationType.LOW_STOCK,
-                  title: '库存预警',
-                  content: `${medicine.name} 库存仅剩 ${newStock} ${medicine.dosage ?? '份'}，请及时补充`,
-                  linkUrl: '/medicines',
-                }),
-              );
-            }
-          }
-        }
-      }
+      await this.settleStock(manager, reminder, log, userId, isCompleted);
 
       await logRepo.save(log);
 
@@ -576,9 +660,14 @@ export class RemindersService {
     if (!Number.isInteger(minutes) || minutes <= 0 || minutes > 1440) {
       throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '延迟分钟数须为 1~1440 的整数' });
     }
+    // #8：以当前待触发时刻（原计划槽）为基准记录 delayed——当日列表才能按原时刻归槽并显示新时间
+    const reminder = await this.findOne(userId, id);
+    if (!reminder.nextTriggerAt) {
+      throw new BadRequestException({ code: 'NOT_SCHEDULED', message: '当前没有待触发的提醒' });
+    }
     return this.ack(userId, id, {
       status: ReminderLogStatus.DELAYED,
-      scheduledTime: new Date().toISOString(),
+      scheduledTime: new Date(reminder.nextTriggerAt).toISOString(),
       delayMinutes: minutes,
     });
   }

@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2NvbXBvbmVudHMvUmVtaW5kZXJEZXRhaWxNb2RhbC50c3h8MjAyNi0wOXw0ZWM0YmRkNDQ5 */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL2NvbXBvbmVudHMvUmVtaW5kZXJEZXRhaWxNb2RhbC50c3h8MjAyNi0wOXw1Njk0OGZjOWZk */
 import { Camera, CheckCircle2, ChevronRight, FileText, Link as LinkIcon, Repeat, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { remindersApi } from '../services/api/api.reminders';
@@ -12,6 +12,19 @@ interface DayLog {
   scheduledTime: string;
   status: ReminderLogStatus;
   photoUrl?: string | null;
+  /** 2026-09-06：随手记文字 */
+  note?: string | null;
+  /** #8：累计延迟分钟（原时刻 + N = 新触发时刻） */
+  delayMinutes?: number;
+  actualTime?: string | null;
+}
+
+/** #8：延迟中的槽位新时间（原时刻 + 累计延迟分钟，跨小时进位） */
+function delayedTime(time: string, delayMinutes?: number): string | null {
+  if (!delayMinutes) return null;
+  const [h, m] = time.split(':').map(Number);
+  const total = h * 60 + m + delayMinutes;
+  return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -94,6 +107,9 @@ export function ReminderDetailModal({
             scheduledTime: l.scheduledTime,
             status: l.status as ReminderLogStatus,
             photoUrl: (l as { photoUrl?: string | null }).photoUrl ?? null,
+            note: (l as { note?: string | null }).note ?? null,
+            delayMinutes: (l as { delayMinutes?: number }).delayMinutes ?? 0,
+            actualTime: (l as { actualTime?: string | null }).actualTime ?? null,
           }))
           .filter((l) => {
             const d = new Date(l.scheduledTime);
@@ -182,7 +198,14 @@ export function ReminderDetailModal({
                   const chip = statusChip(s.status);
                   return (
                     <li key={s.time} className="flex items-center gap-2 px-3 py-2.5">
-                      <span className="w-12 shrink-0 font-mono text-sm text-ink-700">{s.time}</span>
+                      <span className="w-12 shrink-0 font-mono text-sm text-ink-700">
+                        {s.time}
+                        {s.delayMinutes ? (
+                          <span className="block font-sans text-[9px] text-warning-700">
+                            → {delayedTime(s.time, s.delayMinutes)}
+                          </span>
+                        ) : null}
+                      </span>
                       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${chip.cls}`}>
                         {chip.text}
                       </span>
@@ -269,6 +292,35 @@ export function ReminderDetailModal({
                   ))}
                 </div>
               )}
+            </section>
+          )}
+
+          {/* #4/#8：当日文字记录（随手记）+ 延迟轨迹 */}
+          {(logs ?? []).some((l) => l.note) && (
+            <section>
+              <p className="text-xs font-medium text-ink-500">📝 当日记录</p>
+              <ul className="mt-2 space-y-1.5">
+                {(logs ?? [])
+                  .filter((l) => l.note)
+                  .map((l) => {
+                    const d = new Date(l.scheduledTime);
+                    const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                    const nt = l.actualTime ? new Date(l.actualTime) : null;
+                    const ntStr = nt ? `${String(nt.getHours()).padStart(2, '0')}:${String(nt.getMinutes()).padStart(2, '0')}` : null;
+                    return (
+                      <li key={l.id} className="rounded-card bg-bg px-3 py-2">
+                        <p className="text-[11px] text-ink-400">
+                          {hhmm}
+                          {l.delayMinutes ? ` → 延迟 ${l.delayMinutes} 分钟${ntStr ? `（${ntStr} 操作）` : ''}` : ''}
+                          {ntStr && !l.delayMinutes ? ` · ${ntStr} ` : ''}
+                          {' · '}
+                          {STATUS_CHIP[l.status]?.text ?? l.status}
+                        </p>
+                        <p className="mt-0.5 whitespace-pre-wrap text-sm text-ink-700">{l.note}</p>
+                      </li>
+                    );
+                  })}
+              </ul>
             </section>
           )}
 

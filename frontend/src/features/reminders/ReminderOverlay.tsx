@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2ZlYXR1cmVzL3JlbWluZGVycy9SZW1pbmRlck92ZXJsYXkudHN4fDIwMjYtMDl8NTBkMTgzNzBkMQ== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL2ZlYXR1cmVzL3JlbWluZGVycy9SZW1pbmRlck92ZXJsYXkudHN4fDIwMjYtMDl8YTYyMjJjMGFkMA== */
 import { createPortal } from 'react-dom';
 import { AlarmClock, Camera, Check, ChevronRight, Image as ImageIcon, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -41,20 +41,32 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const galleryRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
+  /** #4：3 分钟后自动停止响铃/震动并标记已错过（弹窗保留，仍可补操作） */
+  const [missed, setMissed] = useState(false);
+  const stopsRef = useRef<(() => void)[]>([]);
 
-  /** 震动 + 响铃（2026-09-06）：按设置页偏好开关，弹窗卸载即停 */
+  /** 震动 + 响铃（2026-09-06）：按设置页偏好开关；3 分钟后或弹窗卸载时停止 */
   useEffect(() => {
     let cancelled = false;
-    const stops: (() => void)[] = [];
     void loadFeedbackPrefs().then((p) => {
       if (cancelled) return;
-      if (p.vibrate) stops.push(startVibrateLoop());
-      if (p.sound) stops.push(startRingLoop());
+      if (p.vibrate) stopsRef.current.push(startVibrateLoop());
+      if (p.sound) stopsRef.current.push(startRingLoop());
     });
+    // #4：3 分钟自动停止 + 提示已错过（记录 missed 日志，当日列表立即归入已错过）
+    const missedTimer = setTimeout(() => {
+      setMissed(true);
+      stopsRef.current.forEach((s) => s());
+      stopsRef.current = [];
+      void onAction('missed');
+    }, 180_000);
     return () => {
       cancelled = true;
-      stops.forEach((s) => s());
+      clearTimeout(missedTimer);
+      stopsRef.current.forEach((s) => s());
+      stopsRef.current = [];
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const act = async (
@@ -96,6 +108,13 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
         </span>
         <span className="text-2xl">{CATEGORY_EMOJI[reminder.category] ?? '📌'}</span>
       </div>
+
+      {/* #4：3 分钟无操作 → 自动停止提示并标记已错过（仍可补完成/延迟/放弃） */}
+      {missed && (
+        <div className="mx-6 mt-4 rounded-card bg-danger-500/20 px-4 py-2.5 text-center text-sm font-medium text-danger-300">
+          ⏰ 已超过 3 分钟，已记为「已错过」——仍可补完成或放弃
+        </div>
+      )}
 
       {/* 内容：#2 通知不通报提醒内容说明——仅标题；详情可到今日页点击查看 */}
       <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-8 py-4 text-center">
@@ -272,9 +291,9 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
               <button
                 disabled={busy}
                 onClick={() => act('skipped')}
-                className="flex flex-1 items-center justify-center gap-1 rounded-card bg-white/10 py-3.5 text-base transition-colors hover:bg-white/20"
+                className="flex flex-1 items-center justify-center gap-1 rounded-card bg-danger-500/20 py-3.5 text-base text-danger-300 transition-colors hover:bg-danger-500/30"
               >
-                <X size={18} /> 跳过
+                <X size={18} /> 放弃
               </button>
             </div>
             {/* 2026-09-06：非挑战提醒也提供随手拍照记录（photo 日志，不影响完成状态） */}

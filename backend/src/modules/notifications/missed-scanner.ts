@@ -3,11 +3,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
-import { In, LessThan, Repository } from 'typeorm';
+import { DataSource, In, LessThan, Repository } from 'typeorm';
 import { Interval } from '@nestjs/schedule';
+import { computeFollowingTrigger } from '../../common/reminder-schedule';
 import { ReminderLog, ReminderLogStatus } from '../reminders/reminder-log.entity';
 import { Reminder } from '../reminders/reminder.entity';
 import { EmergencyContact } from '../contacts/emergency-contact.entity';
+import { User } from '../users/user.entity';
 import { UserSetting } from '../users/user-setting.entity';
 import { Notification, NotificationType } from './notification.entity';
 import { NotificationLog, NotificationChannel, NotificationStatus } from './notification-log.entity';
@@ -36,6 +38,7 @@ export class MissedScanner {
     private readonly contactRepo: Repository<EmergencyContact>,
     @InjectRepository(UserSetting)
     private readonly settingRepo: Repository<UserSetting>,
+    private readonly dataSource: DataSource,
     private readonly push: PushService,
     private readonly config: ConfigService,
   ) {}
@@ -99,6 +102,27 @@ export class MissedScanner {
             stockDeducted: 0,
           }),
         );
+
+        // #8：推进调度——否则 nextTriggerAt 永远停在过去，循环提醒错过一次后将不再触发
+        try {
+          const user = await this.dataSource.getRepository(User).findOne({
+            where: { id: reminder.userId },
+          });
+          const nextTriggerAt =
+            reminder.repeatRule.type === 'once'
+              ? null
+              : computeFollowingTrigger(
+                  reminder.repeatRule,
+                  next,
+                  reminder.startDate,
+                  reminder.endDate,
+                  user?.timezone ?? 'Asia/Shanghai',
+                  reminder.times,
+                );
+          await this.reminderRepo.update({ id: reminder.id }, { nextTriggerAt });
+        } catch (e) {
+          this.logger.warn(`漏服后推进调度失败: ${reminder.title} ${String(e)}`);
+        }
 
         // 通知本人（站内）
         await this.notifRepo.save(

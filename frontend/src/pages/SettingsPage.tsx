@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL1NldHRpbmdzUGFnZS50c3h8MjAyNi0wOXwxMGVlM2RkNWJj */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3BhZ2VzL1NldHRpbmdzUGFnZS50c3h8MjAyNi0wOXwwN2RmZjViYTJl */
 import { Award, BarChart3, Bell, BellRing, ChevronLeft, Database, Download, LogOut, Shield, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -9,7 +9,7 @@ import { authApi } from '../services/api/api.auth';
 import { usersApi } from '../services/api/api.users';
 import { appApi, type AppApkInfo } from '../services/api/api.app';
 import { loadAiConfig, saveAiConfig } from '../assistant/assistant';
-import { refreshApiBase } from '../services/http';
+import { absoluteUrl, refreshApiBase } from '../services/http';
 import { errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
 import { useConnectionStore } from '../stores/connectionStore';
@@ -177,20 +177,22 @@ export function SettingsPage() {
       const fileName = `cuckoo-data-${new Date().toISOString().slice(0, 10)}.json`;
       const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
       if (cap?.isNativePlatform?.()) {
-        // APK：写入「文档」目录；失败回退「缓存」目录（文件系统权限受限场景）
-        const { Filesystem, Directory } = await import('@capacitor/filesystem');
-        let dir = Directory.Documents;
+        // APK：优先系统分享面板（用户可另存到任意位置——Documents 属 app 专属目录，文件管理器看不到，是「导出找不到文件」的根因）
         try {
-          await Filesystem.writeFile({ path: fileName, data: json, directory: dir, recursive: true });
-        } catch {
-          dir = Directory.Cache;
-          await Filesystem.writeFile({ path: fileName, data: json, directory: dir, recursive: true });
+          const file = new File([json], fileName, { type: 'application/json' });
+          if (navigator.canShare?.({ files: [file] })) {
+            await navigator.share({ files: [file], title: '布谷数据导出' });
+            setNotice('已调起系统分享：可选择「保存到本地」或直接发送给好友');
+            return;
+          }
+        } catch (se) {
+          // 用户取消分享（AbortError）→ 静默返回；其他错误走写盘回退
+          if (se instanceof DOMException && se.name === 'AbortError') return;
         }
-        setNotice(
-          dir === Directory.Documents
-            ? `已导出到本机「文档」目录：${fileName}`
-            : `已导出到应用缓存目录（离线保存）：${fileName}`,
-        );
+        // 回退：写应用缓存目录（USB 连接电脑可访问）
+        const { Filesystem, Directory } = await import('@capacitor/filesystem');
+        await Filesystem.writeFile({ path: fileName, data: json, directory: Directory.Cache, recursive: true });
+        setNotice(`已导出到应用缓存目录（USB 连接电脑可访问）：${fileName}`);
       } else {
         const blob = new Blob([json], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -264,7 +266,7 @@ export function SettingsPage() {
             <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-primary-50 text-lg font-semibold text-primary-600">
               {user ? (
                 user.avatarUrl ? (
-                  <img src={user.avatarUrl} alt="头像" className="h-full w-full object-cover" />
+                  <img src={absoluteUrl(user.avatarUrl)} alt="头像" className="h-full w-full object-cover" />
                 ) : (
                   user.username.slice(0, 1).toUpperCase()
                 )
@@ -420,13 +422,13 @@ export function SettingsPage() {
               disabled={!ai.apiKey || busy}
               onClick={async () => {
                 setBusy(true);
-                setError(null);
                 try {
                   const { runAssistant } = await import('../assistant/assistant');
                   const r = await runAssistant('你好，简单介绍你可以帮忙做什么设置');
-                  setNotice(r.error || r.reply);
+                  // 2026-09-07（#9）：成功/失败都用屏幕正中弹窗展示（不再走顶部提示）
+                  setAiTestResult(r.error ? `❌ 连接失败：${r.error}` : `✅ 连接成功\n\n${r.reply}`);
                 } catch (e) {
-                  setError(errorMessage(e));
+                  setAiTestResult(`❌ 连接失败：${errorMessage(e)}`);
                 } finally {
                   setBusy(false);
                 }

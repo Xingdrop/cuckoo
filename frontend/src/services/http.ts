@@ -1,6 +1,8 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3NlcnZpY2VzL2h0dHAudHN8MjAyNi0wOXwwOGZmMDZhZjdj */
 import axios, { AxiosError } from 'axios';
 import { guideSrc } from '../utils/guideMedia';
+import { Capacitor } from '@capacitor/core';
+import { DEFAULT_NATIVE_API_BASE } from '../config/defaultApiBase';
 
 /** 统一 API 错误体（与后端 AllExceptionsFilter 对齐，见 docs/技术方案设计.md §6.2） */
 export interface ApiErrorBody {
@@ -16,7 +18,12 @@ export interface ApiErrorBody {
  * - #26：APK 可配置局域网服务器地址（设置 → 高级 → 服务器地址，仅存本机） */
 export function apiBase(): string {
   const custom = localStorage.getItem('cuckoo_api_base') ?? '';
-  return custom ? `${custom.replace(/\/$/, '')}/api/v1` : '/api/v1';
+  if (custom) return `${custom.replace(/\/$/, '')}/api/v1`;
+  // APK 兜底：构建时注入的局域网后端地址（用户未手动配置时开箱即用）
+  if (Capacitor.isNativePlatform() && DEFAULT_NATIVE_API_BASE) {
+    return `${DEFAULT_NATIVE_API_BASE.replace(/\/$/, '')}/api/v1`;
+  }
+  return '/api/v1';
 }
 
 export const http = axios.create({

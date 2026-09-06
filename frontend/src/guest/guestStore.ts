@@ -368,14 +368,39 @@ export const useGuestStore = create<GuestState>()(
         },
 
         seedDataset: (d, userId) => {
+          // 先读取该账户既有存档（2026-09-06 修复：老用户每次离线登录都被种子覆盖，
+          // 导致删除过的提醒"复活"——改为按 id 并集补齐：本地删除保持删除、用户新增保留）
+          const prevKey = archiveKey({ mode: 'seed', userId });
+          const prev = prevKey ? loadArchive(prevKey) : {};
+          const hasPrev =
+            (prev.reminders?.length ?? 0) > 0 ||
+            (prev.medicines?.length ?? 0) > 0 ||
+            (prev.plans?.length ?? 0) > 0 ||
+            (prev.logs?.length ?? 0) > 0;
+
           persistNow();
           adopt({ mode: 'seed', userId }, false, `seed:${userId}`);
-          const s = get();
           const patch: Partial<GuestState> = {};
-          if (d.reminders?.length) patch.reminders = d.reminders;
-          if (d.logs?.length) patch.logs = d.logs;
-          if (d.medicines?.length) patch.medicines = d.medicines;
-          if (d.plans?.length) patch.plans = d.plans;
+
+          // 并集工具：以「已有存档 + 种子缺失项」合成（用户删除的 id 不在存档 → 不复活）
+          const unionById = <T extends { id: string }>(existing: T[] | undefined, seed: T[] | undefined): T[] => {
+            const map = new Map<string, T>();
+            for (const item of existing ?? []) map.set(item.id, item);
+            for (const item of seed ?? []) if (!map.has(item.id)) map.set(item.id, item);
+            return [...map.values()];
+          };
+
+          if (hasPrev) {
+            patch.reminders = unionById(prev.reminders as { id: string }[] | undefined, d.reminders) as never;
+            patch.medicines = unionById(prev.medicines as { id: string }[] | undefined, d.medicines) as never;
+            patch.plans = unionById(prev.plans as { id: string }[] | undefined, d.plans) as never;
+            patch.logs = unionById(prev.logs as { id: string }[] | undefined, d.logs) as never;
+          } else {
+            if (d.reminders?.length) patch.reminders = d.reminders;
+            if (d.logs?.length) patch.logs = d.logs;
+            if (d.medicines?.length) patch.medicines = d.medicines;
+            if (d.plans?.length) patch.plans = d.plans;
+          }
           if (d.settings) patch.settings = { ...DEFAULT_SETTINGS, ...d.settings };
           patch.feed = d.feed ?? [];
           patch.templates = d.templates ?? [];
@@ -385,7 +410,6 @@ export const useGuestStore = create<GuestState>()(
           patch.notifications = d.notifications ?? [];
           set(patch);
           persistNow();
-          void s;
         },
 
         saveNow: () => persistNow(),

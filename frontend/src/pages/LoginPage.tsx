@@ -4,6 +4,7 @@ import { ChevronRight, WifiOff } from 'lucide-react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { errorMessage, refreshApiBase, tokenStore } from '../services/http';
 import { Capacitor } from '@capacitor/core';
+import { DEFAULT_NATIVE_API_BASE } from '../config/defaultApiBase';
 import { useAuthStore } from '../stores/authStore';
 import { useGuestStore } from '../guest/guestStore';
 import { useConnectionStore } from '../stores/connectionStore';
@@ -23,7 +24,8 @@ export function LoginPage() {
   /** APK 首次使用：服务器地址未配置时在登录页直接填写（否则所有请求打到 WebView 本地源） */
   const isNative = Capacitor.isNativePlatform();
   const [apiBaseInput, setApiBaseInput] = useState(() => localStorage.getItem('cuckoo_api_base') ?? '');
-  const needServerSetup = isNative && !apiBaseInput.trim();
+  const hasDefault = Boolean(DEFAULT_NATIVE_API_BASE);
+  const needServerSetup = isNative && !apiBaseInput.trim() && !hasDefault;
   const { user, login, register } = useAuthStore();
   const online = useConnectionStore((s) => s.online);
   const navigate = useNavigate();
@@ -163,7 +165,7 @@ export function LoginPage() {
             <input
               value={apiBaseInput}
               onChange={(e) => setApiBaseInput(e.target.value)}
-              placeholder="http://电脑IP:3000"
+              placeholder={DEFAULT_NATIVE_API_BASE || "http://电脑IP:3000"}
               inputMode="url"
               autoCapitalize="off"
               autoCorrect="off"
@@ -181,11 +183,11 @@ export function LoginPage() {
               保存
             </button>
           </div>
-          {needServerSetup && (
-            <p className="mt-1.5 text-[11px] leading-relaxed text-ink-500">
-              与电脑同一 WiFi：填写电脑后端地址后即可登录/注册；游客模式与离线账户无需联网
-            </p>
-          )}
+          <p className="mt-1.5 text-[11px] leading-relaxed text-ink-500">
+            {hasDefault
+              ? '已内置默认服务器地址（与开发者电脑同一 WiFi 时自动可用）；如有改动可在此覆盖'
+              : '与电脑同一 WiFi：填写电脑后端地址后即可登录/注册；游客模式与离线账户无需联网'}
+          </p>
         </div>
       )}
       {error && (

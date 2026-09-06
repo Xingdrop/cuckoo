@@ -110,6 +110,8 @@ export function SettingsPage() {
   const [confirmClearGuest, setConfirmClearGuest] = useState(false);
   /** #26：AI 助手配置（本地保密存储） */
   const [ai, setAi] = useState(() => loadAiConfig());
+  /** AI 测试连接结果（居中弹窗展示，不用顶部提示） */
+  const [aiTestResult, setAiTestResult] = useState<string | null>(null);
   /** #26：服务器地址输入 */
   const [apiBaseInput, setApiBaseInput] = useState(() => localStorage.getItem('cuckoo_api_base') ?? '');
   /** APK 下载入口信息（APK 内已安装 → 隐藏） */
@@ -621,6 +623,27 @@ export function SettingsPage() {
             setShowTest(false);
           }}
         />
+      )}
+
+      {/* AI 测试连接结果（居中弹窗） */}
+      {aiTestResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-8" onClick={() => setAiTestResult(null)}>
+          <div
+            className="w-full max-w-sm rounded-card bg-surface p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold">AI 连接测试</h3>
+            <p className="mt-3 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-btn bg-bg px-3.5 py-3 text-sm leading-relaxed text-ink-700">
+              {aiTestResult}
+            </p>
+            <button
+              onClick={() => setAiTestResult(null)}
+              className="mt-4 w-full rounded-btn bg-primary-500 py-2.5 text-sm font-medium text-white"
+            >
+              知道了
+            </button>
+          </div>
+        </div>
       )}
 
       {/* #26：合并游客数据——预览确认 */}

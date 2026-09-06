@@ -6,6 +6,7 @@ import { BottomNav } from '../components/BottomNav';
 import { CollapsibleSection } from '../components/CollapsibleSection';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { errorMessage } from '../services/http';
+import { useConnectionStore } from '../stores/connectionStore';
 import { remindersApi } from '../services/api/api.reminders';
 import { plansApi } from '../services/api/api.plans';
 import type { Plan } from '../services/api/api.plans';
@@ -75,6 +76,7 @@ export function ReminderListPage() {
   /** 一键清空全部提醒（二次确认） */
   const [confirmClearAll, setConfirmClearAll] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const offline = !useConnectionStore((st) => st.online);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Reminder | null>(null);
@@ -272,6 +274,7 @@ export function ReminderListPage() {
           icon="📌"
           title="全部提醒"
           badge={`（${items.length}）`}
+          headerActionSide="right"
           headerAction={
             <button
               onClick={() => setConfirmClearAll(true)}
@@ -406,7 +409,7 @@ export function ReminderListPage() {
       <ConfirmModal
         open={confirmClearAll}
         title="一键清空全部提醒？"
-        message={`将删除全部 ${items.length} 条提醒（含计划外提醒），历史记录保留但提醒不再触发，且无法恢复。`}
+        message={`将删除全部 ${items.length} 条提醒（含计划外提醒），历史记录保留但提醒不再触发，且无法恢复。${offline ? " ⚠ 当前未联网：仅删除本机数据，服务器上的提醒在联网登录后仍会显示——建议联网后再清空。" : ""}`}
         confirmText={clearing ? '清空中…' : '确认清空'}
         cancelText="取消"
         onConfirm={async () => {

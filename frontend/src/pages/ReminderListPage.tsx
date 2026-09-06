@@ -1,5 +1,5 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL1JlbWluZGVyTGlzdFBhZ2UudHN4fDIwMjYtMDl8OWE5OGY3ZDdhZA== */
-import { ChevronRight, Pencil, Plus, Power, Settings2, Trash2 } from 'lucide-react';
+import { ChevronRight, Eraser, Pencil, Plus, Power, Settings2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -72,6 +72,9 @@ function formatFullTime(iso: string | null): string {
 export function ReminderListPage() {
   const [items, setItems] = useState<Reminder[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  /** 一键清空全部提醒（二次确认） */
+  const [confirmClearAll, setConfirmClearAll] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Reminder | null>(null);
@@ -261,6 +264,22 @@ export function ReminderListPage() {
             </span>
             <ChevronRight size={16} className="shrink-0 text-ink-300" />
           </button>
+          {/* 一键清空全部提醒（二次确认） */}
+          <button
+            onClick={() => setConfirmClearAll(true)}
+            disabled={items.length === 0 || clearing}
+            className="mt-2 flex w-full items-center gap-3 rounded-card bg-surface px-4 py-3.5 text-left shadow-sm disabled:opacity-40"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-danger-500/10">
+              <Eraser size={18} className="text-danger-600" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium text-danger-700">一键清空提醒</span>
+              <span className="block text-[11px] text-ink-500">
+                {items.length > 0 ? `删除全部 ${items.length} 条提醒（二次确认）` : '暂无可清空的提醒'}
+              </span>
+            </span>
+          </button>
         </CollapsibleSection>
 
         {/* 通用折叠分区：全部提醒 */}
@@ -382,6 +401,30 @@ export function ReminderListPage() {
         )}
         </CollapsibleSection>
       </main>
+
+      {/* 一键清空：二次确认 */}
+      <ConfirmModal
+        open={confirmClearAll}
+        title="一键清空全部提醒？"
+        message={`将删除全部 ${items.length} 条提醒（含计划外提醒），历史记录保留但提醒不再触发，且无法恢复。`}
+        confirmText={clearing ? '清空中…' : '确认清空'}
+        cancelText="取消"
+        onConfirm={async () => {
+          setClearing(true);
+          try {
+            for (const r of items) {
+              await remindersApi.remove(r.id).catch(() => undefined);
+            }
+            setConfirmClearAll(false);
+            await load();
+          } catch (e) {
+            setError(errorMessage(e));
+          } finally {
+            setClearing(false);
+          }
+        }}
+        onCancel={() => setConfirmClearAll(false)}
+      />
 
       {/* 删除确认弹窗 */}
       <ConfirmModal

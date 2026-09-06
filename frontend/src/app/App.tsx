@@ -142,7 +142,13 @@ export function App() {
   useEffect(() => {
     const s = useConnectionStore.getState();
     if (s.online && tokenStore.get() && useAuthStore.getState().user) {
-      void import('../guest/mirror').then((m) => m.refreshLocalCache());
+      // 离线数据保护：有本地镜像先回灌云端（合并），无镜像才直接刷新
+      const g = useGuestStore.getState();
+      void import('../guest/mirror').then((m) =>
+        g.mirrorOf !== null ? m.syncMirrorToCloud().catch(() => false) : m.refreshLocalCache(),
+      );
+      // 引导插画本地缓存校验（在线时补齐，离线直读本机）
+      void import('../utils/guideMedia').then((m) => m.cacheGuideMedia());
     }
   }, [online]);
 

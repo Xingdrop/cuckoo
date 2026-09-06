@@ -1,5 +1,6 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3NlcnZpY2VzL2h0dHAudHN8MjAyNi0wOXwwOGZmMDZhZjdj */
 import axios, { AxiosError } from 'axios';
+import { guideSrc } from '../utils/guideMedia';
 
 /** 统一 API 错误体（与后端 AllExceptionsFilter 对齐，见 docs/技术方案设计.md §6.2） */
 export interface ApiErrorBody {
@@ -32,6 +33,8 @@ export function refreshApiBase() {
 export function absoluteUrl(u?: string | null): string {
   if (!u) return '';
   if (/^https?:\/\//i.test(u) || u.startsWith('data:')) return u;
+  // guide 插画：优先本地缓存（登录时校验缓存，离线/APK 直读本机）
+  if (u.includes('/uploads/guide/')) return guideSrc(u);
   const custom = localStorage.getItem('cuckoo_api_base');
   return custom ? `${custom.replace(/\/$/, '')}${u}` : u;
 }

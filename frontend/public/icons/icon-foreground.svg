@@ -1,21 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 432">
   <!-- 自适应前景：鸟表融合体（透明底；背景色由 ic_launcher_background 提供） -->
   <g transform="translate(54,44) scale(0.634)">
-    <circle cx="256" cy="272" r="136" fill="#FFFDF8"/>
-    <path d="M138 356 Q100 368 88 404 Q128 410 158 386 Z" fill="#FFFFFF"/>
-    <path d="M158 384 Q132 398 124 424 Q156 426 176 404 Z" fill="#FFE1CE"/>
-    <path d="M372 196 L442 214 L382 250 Z" fill="#FFFFFF"/>
-    <path d="M236 130 Q228 102 250 94 Q258 114 248 128 Z" fill="#FFFFFF"/>
-    <path d="M266 128 Q270 100 294 96 Q288 118 274 128 Z" fill="#FFE1CE"/>
-    <path d="M256 272 L256 192" stroke="#F2764A" stroke-width="22" stroke-linecap="round"/>
-    <path d="M256 272 L318 308" stroke="#F2764A" stroke-width="22" stroke-linecap="round"/>
-    <circle cx="256" cy="272" r="19" fill="#F2764A"/>
-    <circle cx="256" cy="272" r="7" fill="#D95F33"/>
-    <circle cx="256" cy="170" r="11" fill="#F2764A" opacity=".35"/>
-    <circle cx="358" cy="272" r="11" fill="#F2764A" opacity=".35"/>
-    <circle cx="256" cy="374" r="11" fill="#F2764A" opacity=".35"/>
-    <circle cx="154" cy="272" r="11" fill="#F2764A" opacity=".35"/>
-    <circle cx="322" cy="212" r="13" fill="#40312A"/>
-    <circle cx="326" cy="208" r="4.5" fill="#FFFFFF"/>
+    <circle cx="255.9" cy="272" r="136" fill="#FFFDF8"/>
+    <path d="M 373.9 356 Q 411.9 368 423.9 404 Q 383.9 410 353.9 386 Z" fill="#FFFFFF"/>
+    <path d="M 353.9 384 Q 379.9 398 387.9 424 Q 355.9 426 335.9 404 Z" fill="#FFE1CE"/>
+    <path d="M 139.9 196 L 69.9 214 L 129.9 250 Z" fill="#FFFFFF"/>
+    <path d="M 275.9 130 Q 283.9 102 261.9 94 Q 253.9 114 263.9 128 Z" fill="#FFFFFF"/>
+    <path d="M 245.9 128 Q 241.9 100 217.9 96 Q 223.9 118 237.9 128 Z" fill="#FFE1CE"/>
+    <path d="M 255.9 272 L 255.9 192" stroke="#F2764A" stroke-width="22" stroke-linecap="round"/>
+    <path d="M 255.9 272 L 193.9 308" stroke="#F2764A" stroke-width="22" stroke-linecap="round"/>
+    <circle cx="255.9" cy="272" r="19" fill="#F2764A"/>
+    <circle cx="255.9" cy="272" r="7" fill="#D95F33"/>
+    <circle cx="255.9" cy="170" r="11" fill="#F2764A" opacity=".35"/>
+    <circle cx="153.9" cy="272" r="11" fill="#F2764A" opacity=".35"/>
+    <circle cx="255.9" cy="374" r="11" fill="#F2764A" opacity=".35"/>
+    <circle cx="357.9" cy="272" r="11" fill="#F2764A" opacity=".35"/>
+    <circle cx="189.9" cy="212" r="13" fill="#40312A"/>
+    <circle cx="185.9" cy="208" r="4.5" fill="#FFFFFF"/>
   </g>
 </svg>

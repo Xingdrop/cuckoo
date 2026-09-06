@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2ZlYXR1cmVzL3ZvaWNlL1ZvaWNlQXNzaXN0YW50LnRzeHwyMDI2LTA5fDIwZWY2MmQxZTc= */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL2ZlYXR1cmVzL3ZvaWNlL1ZvaWNlQXNzaXN0YW50LnRzeHwyMDI2LTA5fDQ3NzQ4MDBlZDY= */
 import { Mic, MicOff, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { loadAiConfig, runAssistant, type AssistantOutcome } from '../../assistant/assistant';
@@ -67,6 +67,11 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
           onToast(msg);
         },
       }).then((h) => {
+        if (!pressingRef.current) {
+          // 2026-09-07：识别就绪前已松手（异步启动竞态）→ 直接结束，避免卡在「松手结束」
+          void h.stop();
+          return;
+        }
         recRef.current = h;
         setLive('');
         setRecording(true);
@@ -131,6 +136,7 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
         aria-label="语音助手（长按说话）"
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
         onPointerLeave={() => {
           if (recording) onPointerUp();
         }}

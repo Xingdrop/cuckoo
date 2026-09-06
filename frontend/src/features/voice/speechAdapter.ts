@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2ZlYXR1cmVzL3ZvaWNlL3NwZWVjaEFkYXB0ZXIudHN8MjAyNi0wOXw2ZWQzY2RjODBl */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL2ZlYXR1cmVzL3ZvaWNlL3NwZWVjaEFkYXB0ZXIudHN8MjAyNi0wOXxhZmRlOGQ1MDFi */
 import { Capacitor } from '@capacitor/core';
 
 /**
@@ -26,6 +26,18 @@ export async function nativeSpeechAvailable(): Promise<boolean> {
   }
 }
 
+/** 原生识别错误码 → 用户可读提示（2026-09-07：避免英文原文/数字码直接弹出） */
+function friendlySrError(raw: string): string {
+  const s = raw.toLowerCase();
+  if (s.includes('no match')) return '没有听清，请靠近手机、说完再松手';
+  if (s.includes('timeout')) return '没检测到语音：请按住按钮后再说话';
+  if (s.includes('network')) return '语音识别需要联网，请检查网络后重试';
+  if (s.includes('busy')) return '识别服务忙，请等 1 秒再按住重试';
+  if (s.includes('permission')) return '麦克风/语音识别权限被拒绝，请在系统设置中开启';
+  if (s.includes('audio')) return '麦克风被占用，请关闭其他录音应用后重试';
+  return `识别失败：${raw.slice(0, 40)}`;
+}
+
 /** 启动听写：onPartial 实时字幕；onFinal 最终文本（松手或静音结束后调用一次） */
 export async function startDictation(handlers: {
   onPartial: (text: string) => void;
@@ -44,6 +56,15 @@ export async function startDictation(handlers: {
       }
     }
     let last = '';
+    // 2026-09-07（#9）：onFinal 必须恰好回调一次（含空文本）——此前松手时若无识别文本
+    // onFinal 永不触发，上层 recording 状态卡死（按钮一直显示「松手结束」）
+    let finished = false;
+    let failed = false;
+    const emitFinal = (t: string) => {
+      if (finished || failed) return;
+      finished = true;
+      handlers.onFinal(t);
+    };
     const handle = await SpeechRecognition.addListener('partialResults', (data: { matches: string[] }) => {
       const m = data.matches?.[0] ?? '';
       if (m && m !== last) {
@@ -56,19 +77,29 @@ export async function startDictation(handlers: {
       maxResults: 1,
       partialResults: true,
       popup: false, // false 才有 partialResults（且不遮挡手势层）
-    }).catch((e) => handlers.onError?.(String(e).slice(0, 60)));
+    }).catch((e) => {
+      if (finished) return; // 松手后的正常结束不当年错误
+      failed = true;
+      handlers.onError?.(friendlySrError(String(e)));
+    });
 
     return {
       stop: async () => {
+        // 2026-09-07（真机修复「一说话就中断提示未识别到语音」）：
+        // 原生识别器的最终 matches 在 stopListening() 之后才经 onResults→partialResults 事件送达，
+        // 必须先调 stop() 并留出短暂窗口接住最终结果，再移除监听；否则 last 恒为空 → 误报「未识别到语音」
+        try {
+          await SpeechRecognition.stop();
+        } catch {
+          /* 部分机型已自动结束 */
+        }
+        await new Promise((r) => setTimeout(r, 600));
         try {
           await handle.remove();
-          await SpeechRecognition.stop();
-          if (last) handlers.onFinal(last);
-        } catch (e) {
-          // 部分机型 stop 已自动结束：兜底用已积累的 partial
-          if (last) handlers.onFinal(last);
-          else handlers.onError?.(String(e).slice(0, 60));
+        } catch {
+          /* 已移除 */
         }
+        emitFinal(last);
       },
     };
   }
@@ -89,6 +120,15 @@ export async function startDictation(handlers: {
   rec.continuous = false;
   let finalText = '';
   let stopped = false;
+  // 2026-09-07（#9）：onFinal 恰好一次（含空文本）——松手无文本时也必须结束 recording，
+  // 否则按钮卡在「松手结束」；onerror 后不再 emitFinal（错误路径已结束状态）
+  let finished = false;
+  let failed = false;
+  const emitFinal = (t: string) => {
+    if (finished || failed) return;
+    finished = true;
+    handlers.onFinal(t);
+  };
   rec.onresult = (e) => {
     let interim = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -100,16 +140,19 @@ export async function startDictation(handlers: {
     if (live) handlers.onPartial(live);
   };
   rec.onerror = (e) => {
-    if (!stopped) handlers.onError?.(`识别错误：${e.error}`);
+    if (!stopped) {
+      failed = true;
+      handlers.onError?.(`识别错误：${e.error}`);
+    }
   };
   rec.onend = () => {
     if (stopped) return;
-    const t = finalText.trim();
-    if (t) handlers.onFinal(t);
+    emitFinal(finalText.trim());
   };
   try {
     rec.start();
   } catch (e) {
+    failed = true;
     handlers.onError?.(String(e).slice(0, 60));
   }
   return {
@@ -120,11 +163,8 @@ export async function startDictation(handlers: {
       } catch {
         /* 已结束 */
       }
-      // onend 兜底 onFinal；若迟迟不触发则直接给已有文本
-      setTimeout(() => {
-        const t = finalText.trim();
-        if (t) handlers.onFinal(t);
-      }, 400);
+      // onend 兜底 onFinal；若迟迟不触发则直接给已有文本（含空文本——保证终态）
+      setTimeout(() => emitFinal(finalText.trim()), 400);
     },
   };
 }

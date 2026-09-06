@@ -1,6 +1,6 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL2NvbXBvbmVudHMvUmVtaW5kZXJEZXRhaWxNb2RhbC50c3h8MjAyNi0wOXw1Njk0OGZjOWZk */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2NvbXBvbmVudHMvUmVtaW5kZXJEZXRhaWxNb2RhbC50c3h8MjAyNi0wOXw0ZWM0YmRkNDQ5 */
 import { Camera, CheckCircle2, ChevronRight, FileText, Link as LinkIcon, Repeat, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { remindersApi } from '../services/api/api.reminders';
 import { absoluteUrl } from '../services/http';
 import type { CalendarItem, ReminderLogStatus } from '../types';
@@ -187,7 +187,19 @@ export function ReminderDetailModal({
               />
             ) : slots.length === 1 ? (
               <SlotRow
-                label={`${slots[0].time}`}
+                label={
+                  slots[0].delayMinutes ? (
+                    <span className="font-mono text-sm text-ink-700">
+                      {slots[0].time}
+                      <span className="font-sans text-[9px] text-warning-700">
+                        {' '}
+                        → {delayedTime(slots[0].time, slots[0].delayMinutes)}（已延迟 {slots[0].delayMinutes} 分钟）
+                      </span>
+                    </span>
+                  ) : (
+                    slots[0].time
+                  )
+                }
                 status={slots[0].status}
                 onDone={() => onComplete(slots[0].time)}
                 doneText={slots[0].status === 'missed' ? '修改为已完成' : '标记完成'}
@@ -202,7 +214,7 @@ export function ReminderDetailModal({
                         {s.time}
                         {s.delayMinutes ? (
                           <span className="block font-sans text-[9px] text-warning-700">
-                            → {delayedTime(s.time, s.delayMinutes)}
+                            → {delayedTime(s.time, s.delayMinutes)}（已延迟 {s.delayMinutes} 分钟）
                           </span>
                         ) : null}
                       </span>
@@ -362,7 +374,7 @@ function SlotRow({
   onDone,
   doneText,
 }: {
-  label: string;
+  label: ReactNode;
   status: ReminderLogStatus | null;
   onDone: () => void;
   doneText: string;

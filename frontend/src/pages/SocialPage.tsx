@@ -66,8 +66,6 @@ export function SocialPage() {
   const [tabOrder, setTabOrder] = useState<TabKey[]>(() => loadTabOrder(useAuthStore.getState().user?.id ?? 'guest'));
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const pressTimer = useRef<number | null>(null);
-  const pressPos = useRef({ x: 0, y: 0 });
-  const dragMoved = useRef(false);
   const suppressClick = useRef(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [templates, setTemplates] = useState<PlanTemplate[]>([]);
@@ -112,19 +110,6 @@ export function SocialPage() {
     setTabOrder(loadTabOrder(user?.id ?? 'guest'));
   }, [user?.id]);
 
-  // #14：拖动换位并按账户持久化
-  const saveTabOrder = useCallback(
-    (order: TabKey[]) => {
-      setTabOrder(order);
-      try {
-        localStorage.setItem(`${TAB_ORDER_KEY}.${user?.id ?? 'guest'}`, JSON.stringify(order));
-      } catch {
-        /* 存储不可用时忽略（仅本次会话生效） */
-      }
-    },
-    [user?.id],
-  );
-
   const clearPress = useCallback(() => {
     if (pressTimer.current !== null) {
       clearTimeout(pressTimer.current);
@@ -132,64 +117,62 @@ export function SocialPage() {
     }
   }, []);
 
-  /** #14：结束拖动（短按不触发；长按未移动也不切换 tab） */
-  const endDrag = useCallback(() => {
-    clearPress();
-    document.removeEventListener('touchmove', preventTouchMove);
-    if (dragMoved.current) {
-      suppressClick.current = true;
-      dragMoved.current = false;
-    }
-    setDragIdx(null);
-  }, [clearPress]);
-
-  // #14：拖动中松手可能发生在容器外（鼠标），全局兜底结束
+  // #14（真机修复「长按有提示但滑不动」）：连续 pointermove 间 React 渲染未提交时闭包里的
+  // tabOrder/dragIdx 是旧值 → 换位被来回抵消。改为 orderRef/dragIdxRef 作权威值，
+  // 监听器挂 document（长按后动态挂载，松手即卸载），不依赖组件重渲染。
+  const orderRef = useRef<TabKey[]>(tabOrder);
+  const dragIdxRef = useRef<number | null>(null);
   useEffect(() => {
-    const up = () => endDrag();
-    window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', up);
-    return () => {
-      window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', up);
-    };
-  }, [endDrag]);
+    orderRef.current = tabOrder;
+  }, [tabOrder]);
 
   // #14：tab 长按开始（350ms 震动进入拖动态）
   const onTabPointerDown = (e: React.PointerEvent, idx: number) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    pressPos.current = { x: e.clientX, y: e.clientY };
-    dragMoved.current = false;
     clearPress();
     pressTimer.current = window.setTimeout(() => {
       pressTimer.current = null;
+      dragIdxRef.current = idx;
       setDragIdx(idx);
       navigator.vibrate?.(30);
       document.addEventListener('touchmove', preventTouchMove, { passive: false });
-    }, 350);
-  };
 
-  /** #14：拖动中手指划过其它 tab → 实时换位 */
-  const onTabPointerMove = (e: React.PointerEvent) => {
-    if (dragIdx === null) {
-      // 未进入拖动态：位移超过 10px 视为滚动/滑动意图，取消长按
-      if (pressTimer.current !== null) {
-        const dx = e.clientX - pressPos.current.x;
-        const dy = e.clientY - pressPos.current.y;
-        if (Math.hypot(dx, dy) > 10) clearPress();
-      }
-      return;
-    }
-    if (Math.hypot(e.clientX - pressPos.current.x, e.clientY - pressPos.current.y) > 6) dragMoved.current = true;
-    const hit = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-tab-idx]') as HTMLElement | null;
-    const target = hit ? Number(hit.dataset.tabIdx) : NaN;
-    if (!Number.isNaN(target) && target !== dragIdx) {
-      const order = [...tabOrder];
-      const [moved] = order.splice(dragIdx, 1);
-      order.splice(target, 0, moved);
-      saveTabOrder(order);
-      setDragIdx(target);
-      pressPos.current = { x: e.clientX, y: e.clientY };
-    }
+      const onMove = (ev: PointerEvent) => {
+        const from = dragIdxRef.current;
+        if (from === null) return;
+        const hit = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-tab-idx]') as HTMLElement | null;
+        if (!hit || hit.dataset.tabIdx === undefined) return;
+        const target = Number(hit.dataset.tabIdx);
+        if (Number.isNaN(target) || target === from) return;
+        const order = [...orderRef.current];
+        const [moved] = order.splice(from, 1);
+        order.splice(target, 0, moved);
+        orderRef.current = order;
+        dragIdxRef.current = target;
+        setTabOrder(order);
+        setDragIdx(target);
+        try {
+          localStorage.setItem(`${TAB_ORDER_KEY}.${user?.id ?? 'guest'}`, JSON.stringify(order));
+        } catch {
+          /* 存储不可用时忽略 */
+        }
+      };
+      const onUp = () => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
+        document.removeEventListener('touchmove', preventTouchMove);
+        if (dragIdxRef.current !== null) {
+          // 长按进入过拖动态：本次点击不触发 tab 切换
+          suppressClick.current = true;
+          dragIdxRef.current = null;
+          setDragIdx(null);
+        }
+      };
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
+    }, 350);
   };
 
   // #6 关注 tab 数据 + #5 关注按钮
@@ -437,9 +420,6 @@ export function SocialPage() {
       {/* 分类 tab（#3：随内容滚动；#14：长按 350ms 可拖动排序，顺序按账户记忆） */}
       <div
         className="mt-2 flex touch-pan-x select-none gap-1 overflow-x-auto px-4 py-1.5"
-        onPointerMove={onTabPointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
         onContextMenu={(e) => dragIdx !== null && e.preventDefault()}
       >
         {tabOrder.map((key, i) => (

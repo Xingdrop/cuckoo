@@ -1,4 +1,4 @@
-// @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL21haW4udHN4fDIwMjYtMDh8M2Q2ODNmODk5MQ==
+// @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL21haW4udHN4fDIwMjYtMDl8MTIyZjkzNDdjZg==
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app/App';

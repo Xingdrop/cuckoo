@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvZTJlL2FjY291bnQuc3BlYy50c3wyMDI2LTA5fDZjOGVmMjk4ODY= */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZTJlL2FjY291bnQuc3BlYy50c3wyMDI2LTA5fGM4YjYwYmJkMDU= */
 import { expect, test } from '@playwright/test';
 
 const uniq = () => `e2e${Date.now() % 100000000}`;

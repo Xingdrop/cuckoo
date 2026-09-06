@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3NlcnZpY2VzL2FwaS9hcGkudXNlcnMudHN8MjAyNi0wOXw3ZGQxZjM3NzU4 */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3NlcnZpY2VzL2FwaS9hcGkudXNlcnMudHN8MjAyNi0wOXxkNWI4MWY3YWIy */
 import { http } from '../http';
 
 /** 用户账号（FR-105：导出/注销） */

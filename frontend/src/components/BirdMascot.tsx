@@ -1,4 +1,4 @@
-// @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2NvbXBvbmVudHMvQmlyZE1hc2NvdC50c3h8MjAyNi0wOXw5ODE1NzEwMzM4
+// @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL2NvbXBvbmVudHMvQmlyZE1hc2NvdC50c3h8MjAyNi0wOXxlMmM2NzIzNjA3
 /**
  * 布谷鸟吉祥物（极简几何鸟，与图标同源语言）：
  * 颜色走 CSS 变量——跟随主题（蜜桃/青翠/冰岛）自动换色；描边风格与插画体系统一。

@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3V0aWxzL2NhbGVuZGFyLnRzfDIwMjYtMDl8OTA0MGEwYjY3NQ== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3V0aWxzL2NhbGVuZGFyLnRzfDIwMjYtMDl8MzUxODViYWYxZA== */
 import { Solar } from 'lunar-javascript';
 
 /**

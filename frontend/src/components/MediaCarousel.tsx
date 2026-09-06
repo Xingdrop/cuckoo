@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2NvbXBvbmVudHMvTWVkaWFDYXJvdXNlbC50c3h8MjAyNi0wOXwzMWZiOGFhODIx */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL2NvbXBvbmVudHMvTWVkaWFDYXJvdXNlbC50c3h8MjAyNi0wOXw4ZTAxMDFlZDgz */
 import { ChevronLeft, ChevronRight, Play, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { absoluteUrl } from '../services/http';

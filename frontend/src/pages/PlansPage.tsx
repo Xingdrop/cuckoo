@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL1BsYW5zUGFnZS50c3h8MjAyNi0wOXw4ZDkwNTFkOTFi */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3BhZ2VzL1BsYW5zUGFnZS50c3h8MjAyNi0wOXw0YjE0ODFmNzE2 */
 import { ChevronDown, ChevronLeft, GripVertical, Pencil, Plus, Send, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';

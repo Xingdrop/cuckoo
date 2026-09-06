@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3NlcnZpY2VzL2FwaS9hcGkuYXBwLnRzfDIwMjYtMDl8YjVlNDVkOWU0NA== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3NlcnZpY2VzL2FwaS9hcGkuYXBwLnRzfDIwMjYtMDl8MzcxZTA1N2RlYg== */
 import { apiBase, http } from '../http';
 
 export interface AppApkInfo {

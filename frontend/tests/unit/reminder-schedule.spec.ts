@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvdGVzdHMvdW5pdC9yZW1pbmRlci1zY2hlZHVsZS5zcGVjLnRzfDIwMjYtMDl8MDdiMTVkNzI4OA== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8dGVzdHMvdW5pdC9yZW1pbmRlci1zY2hlZHVsZS5zcGVjLnRzfDIwMjYtMDl8NThmMzFhZWRmYg== */
 import { describe, expect, it } from 'vitest';
 import { computeNextTrigger, toLocal } from '../../src/utils/reminder-schedule';
 import type { Reminder } from '../../src/types';

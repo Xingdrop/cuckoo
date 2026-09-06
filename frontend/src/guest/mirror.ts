@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2d1ZXN0L21pcnJvci50c3wyMDI2LTA5fDQ1OTRkNjQ5YmM= */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL2d1ZXN0L21pcnJvci50c3wyMDI2LTA5fGY0ZDAyZTYzNTQ= */
 import { remindersApi } from '../services/api/api.reminders';
 import { medicinesApi } from '../services/api/api.medicines';
 import { plansApi } from '../services/api/api.plans';

@@ -25,7 +25,7 @@ const PALETTES = {
 type PaletteKey = keyof typeof PALETTES;
 
 interface FigureOpts {
-  pose: 'stand' | 'armsUp' | 'armsF' | 'sit' | 'squat' | 'tiltL' | 'tiltR' | 'walk';
+  pose: 'stand' | 'armsUp' | 'armsF' | 'sit' | 'squat' | 'tiltL' | 'tiltR' | 'walk' | 'bendL' | 'shoulderCircle';
   pal: PaletteKey;
   hair?: 'short' | 'bob' | 'bun' | 'curly';
   /** 头部水平偏移（颈部前倾/后缩用） */
@@ -75,6 +75,10 @@ function figure(o: FigureOpts) {
     sit: [`M ${L.shL.x} ${L.shL.y} L 274 314`, `M ${L.shR.x} ${L.shR.y} L 366 314`],
     squat: [`M ${L.shL.x} ${L.shL.y} L 276 316`, `M ${L.shR.x} ${L.shR.y} L 364 316`],
     walk: [`M ${L.shL.x} ${L.shL.y} L 276 320`, `M ${L.shR.x} ${L.shR.y} L 366 316`],
+    // 2026-09-07 v2.2：体侧拉伸——双臂并拢过顶、随身体向左大弯（C 形）
+    bendL: [`M ${L.shL.x} ${L.shL.y} Q 240 240 232 206`, `M ${L.shR.x} ${L.shR.y} Q 252 236 244 204`],
+    // 2026-09-07 v2.2：肩部环绕——双手指尖搭肩、肘外展（环绕箭头画在肘外侧）
+    shoulderCircle: [`M 294 258 L 240 244 L 288 250`, `M 346 258 L 400 244 L 352 250`],
   };
   const [armL, armR] = arms[pose] ?? arms.stand;
   const feetY = tiptoe ? 402 : 414;
@@ -87,15 +91,19 @@ function figure(o: FigureOpts) {
           ? `<path d="M ${L.hipL.x} ${L.hipL.y} L 282 ${feetY - 4}" ${S}/><path d="M ${L.hipR.x} ${L.hipR.y} L 356 384 L 372 ${feetY - 14}" ${S}/>`
           : `<path d="M ${L.hipL.x} ${L.hipL.y} L 304 ${feetY}" ${S}/><path d="M ${L.hipR.x} ${L.hipR.y} L 336 ${feetY}" ${S}/>`;
   // 躯干（淡彩+描边）盖在四肢之上：四肢从「身后」伸出
-  const tiltAttr = pose === 'tiltL' ? ' transform="rotate(-14 320 300)"' : pose === 'tiltR' ? ' transform="rotate(14 320 300)"' : '';
+  // bendL：仅躯干+手臂+头侧弯（腿保持直立踩地、头随躯干入组），2026-09-07 v2.2
+  const tiltAttr = pose === 'tiltL' ? ' transform="rotate(-14 320 300)"' : pose === 'tiltR' ? ' transform="rotate(14 320 300)"' : pose === 'bendL' ? ' transform="rotate(-18 320 336)"' : '';
+  const bend = pose === 'bendL';
   return `
+    ${bend ? legs : ''}
     <g${tiltAttr}>
       <path d="${armL}" ${S}/>
       <path d="${armR}" ${S}/>
-      ${legs}
+      ${bend ? '' : legs}
       <rect x="292" y="246" width="56" height="92" rx="26" fill="${p.fill}" stroke="${LINE}" stroke-width="7"/>
+      ${bend ? headG : ''}
     </g>
-    ${headG}
+    ${bend ? '' : headG}
   `;
 }
 
@@ -143,39 +151,117 @@ export function guideIllustrations(): Record<string, string> {
       `${bg()}${ground()}<g transform="rotate(-14 250 300)"><rect x="200" y="280" width="96" height="44" rx="22" fill="#F2825C" stroke="${LINE}" stroke-width="6"/></g>${cup(0.55, '#8FC9E8')}`,
     ),
 
-    // ===== 动作组图（姿势与文字对应） =====
+    // ===== 动作组图（姿势与文字对应；2026-09-07 v2.2 重画） =====
     // 颈部左右拉伸：头向左倾 / 向右倾（头部整体侧倾）
     'neck-1': frame(`${step(1)}${figure({ pose: 'stand', pal: 'coral', headTilt: -18 })}`),
     'neck-2': frame(`${step(2)}${figure({ pose: 'stand', pal: 'coral', headTilt: 18 })}`),
-    // 肩部环绕：双臂前平举（向后画圈起点）/ 双臂上举（画圈至顶）+ 环绕箭头
-    'shoulder-1': frame(`${step(1)}${figure({ pose: 'armsF', pal: 'teal', hair: 'bob' })}${arcArrow('M 220 250 Q 320 196 420 250', '#3FAE9E')}`),
-    'shoulder-2': frame(`${step(2)}${figure({ pose: 'armsUp', pal: 'teal', hair: 'bob' })}${arcArrow('M 236 226 Q 320 150 404 226', '#3FAE9E')}`),
-    // 手腕放松：双臂前伸 + 手部圆圈
-    'wrist-1': frame(`${step(1)}${figure({ pose: 'armsF', pal: 'lake', hair: 'curly' })}<circle cx="222" cy="292" r="17" stroke="${LINE}" stroke-width="6" fill="none"/>`),
-    // 体侧拉伸：双臂上举 / 上举+身体向左大弯（15°）+ 左臂过顶
+    // 肩部环绕 v2.2：双手指尖搭肩、肘外展——环绕箭头绕肘画圆（向后画圈）
+    'shoulder-1': frame(
+      `${step(1)}${figure({ pose: 'shoulderCircle', pal: 'teal', hair: 'bob' })}${arcArrow('M 206 288 A 46 46 0 1 1 252 196', '#3FAE9E')}`,
+    ),
+    'shoulder-2': frame(
+      `${step(2)}${figure({ pose: 'shoulderCircle', pal: 'teal', hair: 'bob' })}${arcArrow('M 434 196 A 46 46 0 1 1 480 288', '#3FAE9E')}`,
+    ),
+    // 手腕放松 v2.2：不画人——双手前伸十指交叉 + 向外翻转推箭头（按文字描述绘图）
+    'wrist-1': frame(
+      `${step(1)}
+       <path d="M 138 404 L 262 330" stroke="${LINE}" stroke-width="17" stroke-linecap="round" fill="none"/>
+       <path d="M 502 404 L 378 330" stroke="${LINE}" stroke-width="17" stroke-linecap="round" fill="none"/>
+       <ellipse cx="288" cy="312" rx="46" ry="38" fill="#FFF" stroke="${LINE}" stroke-width="7"/>
+       <ellipse cx="352" cy="312" rx="46" ry="38" fill="#E3EEF8" stroke="${LINE}" stroke-width="7"/>
+       <path d="M 270 280 L 254 232 M 292 274 L 283 224" stroke="${LINE}" stroke-width="10" stroke-linecap="round" fill="none"/>
+       <path d="M 370 280 L 386 232 M 348 274 L 357 224" stroke="#5B94C9" stroke-width="10" stroke-linecap="round" fill="none"/>
+       <path d="M 246 300 Q 226 292 222 272" stroke="${LINE}" stroke-width="10" stroke-linecap="round" fill="none"/>
+       <path d="M 394 300 Q 414 292 418 272" stroke="#5B94C9" stroke-width="10" stroke-linecap="round" fill="none"/>
+       <path d="M 320 236 L 320 178 M 300 198 L 320 178 L 340 198" stroke="#C77E3C" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+       <path d="M 236 236 Q 210 260 214 296" stroke="#C77E3C" stroke-width="7" stroke-linecap="round" fill="none" opacity=".6"/>
+       <path d="M 404 236 Q 430 260 426 296" stroke="#C77E3C" stroke-width="7" stroke-linecap="round" fill="none" opacity=".6"/>`,
+    ),
+    // 体侧拉伸 v2.2：双臂并拢过顶站立 / 双臂过顶随身体向左大弯（C 形）+ 侧向箭头
     'stretch-1': frame(`${step(1)}${figure({ pose: 'armsUp', pal: 'plum', hair: 'bun' })}`),
-    'stretch-2': frame(`${step(2)}${figure({ pose: 'tiltL', pal: 'plum', hair: 'bun' })}`),
-    // 提肛：收缩（环小且实）/ 放松（环大且虚）
-    'kegel-1': frame(`${step(1)}${figure({ pose: 'sit', pal: 'gold', hair: 'bun' })}<ellipse cx="320" cy="330" rx="58" ry="24" stroke="#E5A83C" stroke-width="8" fill="none"/>`),
-    'kegel-2': frame(`${step(2)}${figure({ pose: 'sit', pal: 'gold', hair: 'bun' })}<ellipse cx="320" cy="330" rx="86" ry="38" stroke="#E5A83C" stroke-width="5" fill="none" opacity=".5"/>`),
-    // 颈部后缩：头前倾（前移）/ 头后收（后移成双下巴）+ 方向箭头
-    'neck-ret-1': frame(`${step(1)}${figure({ pose: 'stand', pal: 'lake', headShift: 22 })}${arcArrow('M 388 196 Q 404 214 388 232', '#5B94C9')}`),
-    'neck-ret-2': frame(`${step(2)}${figure({ pose: 'stand', pal: 'lake', headShift: -20 })}${arcArrow('M 252 196 Q 236 214 252 232', '#5B94C9')}`),
-    // 眼部：看远（山）/ 闭眼（无瞳孔+闭眼弧）
-    'eye-far': frame(`${step(1)}${figure({ pose: 'stand', pal: 'teal', hair: 'bob' })}<path d="M 452 160 L 500 120 L 548 160" stroke="#3FAE9E" stroke-width="10" stroke-linecap="round" fill="none"/>`),
-    'eye-close': frame(`${step(2)}${figure({ pose: 'stand', pal: 'teal', hair: 'bob', closedEyes: true })}`),
+    'stretch-2': frame(
+      `${step(2)}${figure({ pose: 'bendL', pal: 'plum', hair: 'bun' })}${arcArrow('M 414 250 Q 436 300 414 350', '#9B7EC8')}`,
+    ),
+    // 提肛 v2.2：不画人——菊花收缩示意（同心环）：收缩=内环实线+向内箭头 / 放松=外环虚线+向外箭头
+    'kegel-1': frame(
+      `${step(1)}
+       <ellipse cx="320" cy="300" rx="46" ry="30" fill="#F6D8C4" stroke="${LINE}" stroke-width="7"/>
+       <ellipse cx="320" cy="300" rx="20" ry="13" fill="#E5A83C" opacity=".85"/>
+       <path d="M 250 300 L 272 300 M 259 291 L 272 300 L 259 309" stroke="#C77E3C" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+       <path d="M 390 300 L 368 300 M 381 291 L 368 300 L 381 309" stroke="#C77E3C" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+       <text x="320" y="402" text-anchor="middle" font-family="sans-serif" font-size="26" fill="${LINE}">收</text>`,
+    ),
+    'kegel-2': frame(
+      `${step(2)}
+       <ellipse cx="320" cy="300" rx="46" ry="30" fill="#F6D8C4" stroke="${LINE}" stroke-width="7"/>
+       <ellipse cx="320" cy="300" rx="20" ry="13" fill="none" stroke="#E5A83C" stroke-width="5" stroke-dasharray="7 9"/>
+       <path d="M 226 300 L 250 300 M 238 291 L 250 300 L 238 309" stroke="#C77E3C" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none" transform="rotate(180 238 300)"/>
+       <path d="M 414 300 L 390 300 M 402 291 L 390 300 L 402 309" stroke="#C77E3C" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+       <text x="320" y="402" text-anchor="middle" font-family="sans-serif" font-size="26" fill="${LINE}">松</text>`,
+    ),
+    // 颈部后缩 v2.2：侧视图——头前伸（龟颈）/ 下巴水平后收成双下巴 + 方向箭头
+    'neck-ret-1': frame(
+      `${step(1)}
+       <path d="M 262 428 L 262 330 Q 262 296 296 292" stroke="${LINE}" stroke-width="9" stroke-linecap="round" fill="none"/>
+       <path d="M 296 292 L 340 288" stroke="${LINE}" stroke-width="26" stroke-linecap="round" fill="none"/>
+       <circle cx="392" cy="238" r="44" fill="#E3EEF8" stroke="${LINE}" stroke-width="7"/>
+       <path d="M 430 250 L 446 256 L 430 264" stroke="${LINE}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+       <circle cx="402" cy="230" r="3.6" fill="${LINE}"/>
+       <path d="M 372 276 Q 380 284 392 282" stroke="${LINE}" stroke-width="5" stroke-linecap="round" fill="none"/>
+       ${arcArrow('M 470 238 Q 486 300 452 336', '#5B94C9')}`,
+    ),
+    'neck-ret-2': frame(
+      `${step(2)}
+       <path d="M 262 428 L 262 330 Q 262 296 296 292" stroke="${LINE}" stroke-width="9" stroke-linecap="round" fill="none"/>
+       <path d="M 296 292 L 340 288" stroke="${LINE}" stroke-width="26" stroke-linecap="round" fill="none"/>
+       <circle cx="352" cy="238" r="44" fill="#E3EEF8" stroke="${LINE}" stroke-width="7"/>
+       <path d="M 390 250 L 406 256 L 390 264" stroke="${LINE}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+       <circle cx="362" cy="230" r="3.6" fill="${LINE}"/>
+       <path d="M 330 274 Q 342 288 360 282 Q 368 279 370 272" stroke="${LINE}" stroke-width="5" stroke-linecap="round" fill="none"/>
+       ${arcArrow('M 268 220 Q 250 262 282 300', '#5B94C9')}`,
+    ),
+    // 眼部 v2.2：不画人——眼睛特写远眺（视线箭头→远山）/ 闭眼睫毛特写
+    'eye-far': frame(
+      `${step(1)}
+       <path d="M 170 240 Q 240 172 310 240 Q 240 300 170 240 Z" fill="#FFF" stroke="${LINE}" stroke-width="8" stroke-linejoin="round"/>
+       <circle cx="240" cy="238" r="30" fill="#8FC9E8" stroke="${LINE}" stroke-width="6"/>
+       <circle cx="240" cy="238" r="12" fill="${LINE}"/>
+       <circle cx="249" cy="228" r="6" fill="#FFF"/>
+       <path d="M 322 232 L 396 232 M 380 218 L 398 232 L 380 246" stroke="#3FAE9E" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+       <path d="M 452 262 L 500 210 L 548 262 Z" fill="#DDF2EE" stroke="#3FAE9E" stroke-width="7" stroke-linejoin="round"/>
+       <path d="M 520 262 L 556 224 L 584 262" fill="none" stroke="#3FAE9E" stroke-width="7" stroke-linejoin="round"/>`,
+    ),
+    'eye-close': frame(
+      `${step(2)}
+       <path d="M 170 236 Q 240 292 310 236" stroke="${LINE}" stroke-width="8" stroke-linecap="round" fill="none"/>
+       <path d="M 196 262 L 186 282 M 240 272 L 240 294 M 284 262 L 294 282" stroke="${LINE}" stroke-width="7" stroke-linecap="round" fill="none"/>
+       <path d="M 372 232 Q 400 214 428 232 Q 456 250 484 232" stroke="#3FAE9E" stroke-width="7" stroke-linecap="round" fill="none"/>
+       <path d="M 372 264 Q 400 246 428 264 Q 456 282 484 264" stroke="#3FAE9E" stroke-width="7" stroke-linecap="round" fill="none" opacity=".45"/>`,
+    ),
     // 靠墙静蹲：站立（准备）/ 屈膝蹲（靠墙）
     'squat-1': frame(`${step(1)}${figure({ pose: 'stand', pal: 'coral' })}<rect x="150" y="150" width="22" height="286" rx="11" fill="#D8D3CB"/>`),
     'squat-2': frame(`${step(2)}${figure({ pose: 'squat', pal: 'coral' })}<rect x="150" y="150" width="22" height="286" rx="11" fill="#D8D3CB"/>`),
     // 提踵：站立 / 踮脚（脚跟抬起+向上箭头）
     'heel-1': frame(`${step(1)}${figure({ pose: 'stand', pal: 'plum', hair: 'curly' })}`),
     'heel-2': frame(`${step(2)}${figure({ pose: 'stand', pal: 'plum', hair: 'curly', tiptoe: true })}<path d="M 320 140 L 320 106 M 305 121 L 320 106 L 335 121" stroke="#9B7EC8" stroke-width="9" stroke-linecap="round" fill="none"/>`),
-    // 起身走动：迈步走（前后分腿）/ 抬臂远眺
-    'walk-1': frame(`${step(1)}${figure({ pose: 'walk', pal: 'gold' })}`),
-    'walk-2': frame(`${step(2)}${figure({ pose: 'armsUp', pal: 'gold' })}<path d="M 452 160 L 500 122 L 548 160" stroke="#E5A83C" stroke-width="10" stroke-linecap="round" fill="none"/>`),
-    // 深呼吸：吸气（小圆）/ 呼气（大圆）
-    'breathe-1': frame(`${step(1)}${figure({ pose: 'sit', pal: 'lake', hair: 'bob' })}<circle cx="320" cy="330" r="38" stroke="#5B94C9" stroke-width="7" fill="none"/>`),
-    'breathe-2': frame(`${step(2)}${figure({ pose: 'sit', pal: 'lake', hair: 'bob' })}<circle cx="320" cy="330" r="64" stroke="#5B94C9" stroke-width="5" fill="none" opacity=".5"/>`),
+    // 深呼吸 v2.2：不画人——呼吸节奏示意：吸气=三层向内聚拢箭头 / 呼气=向外扩散
+    'breathe-1': frame(
+      `${step(1)}
+       <circle cx="320" cy="280" r="34" fill="#DDF2EE" stroke="#3FAE9E" stroke-width="7"/>
+       <path d="M 320 190 L 320 226 M 306 212 L 320 226 L 334 212" stroke="#5B94C9" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+       <path d="M 212 280 L 268 280 M 252 264 L 268 280 L 252 296" stroke="#5B94C9" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+       <path d="M 428 280 L 372 280 M 388 264 L 372 280 L 388 296" stroke="#5B94C9" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+       <text x="320" y="402" text-anchor="middle" font-family="sans-serif" font-size="26" fill="${LINE}">吸气 4s</text>`,
+    ),
+    'breathe-2': frame(
+      `${step(2)}
+       <circle cx="320" cy="280" r="86" fill="none" stroke="#5B94C9" stroke-width="5" stroke-dasharray="8 12" opacity=".6"/>
+       <circle cx="320" cy="280" r="34" fill="#DDF2EE" stroke="#3FAE9E" stroke-width="7"/>
+       <path d="M 320 226 L 320 190 M 306 204 L 320 190 L 334 204" stroke="#5B94C9" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+       <path d="M 268 280 L 212 280 M 228 264 L 212 280 L 228 296" stroke="#5B94C9" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+       <path d="M 372 280 L 428 280 M 412 264 L 428 280 L 412 296" stroke="#5B94C9" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+       <text x="320" y="402" text-anchor="middle" font-family="sans-serif" font-size="26" fill="${LINE}">呼气 6s</text>`,
+    ),
     // 起身活动：从座位站起 / 站立远眺
     'standup-1': frame(`${step(1)}<rect x="212" y="338" width="108" height="16" rx="8" fill="#D8D3CB"/>${figure({ pose: 'stand', pal: 'coral', hair: 'bob' })}`),
     'standup-2': frame(`${step(2)}${figure({ pose: 'armsUp', pal: 'coral', hair: 'bob' })}<path d="M 452 150 L 500 116 L 548 150" stroke="#F2825C" stroke-width="10" stroke-linecap="round" fill="none"/>`),

@@ -1,67 +1,75 @@
 <!-- @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8UkVBRE1FLm1kfDIwMjYtMDh8ZTY1NmZkZjJkMg== -->
-# 布谷（Cuckoo）
+# Cuckoo (布谷)
 
-<!-- @Sdrop 布谷(Cuckoo) v1 © 2026 Xingdrop -->
+[![CI](https://github.com/Xingdrop/cuckoo/actions/workflows/ci.yml/badge.svg)](https://github.com/Xingdrop/cuckoo/actions/workflows/ci.yml)
 
-准时提醒，温柔守护——布谷，你的健康生活管家。
+**Gentle reminders, faithful care — Cuckoo, your health-life companion.**
 
-> 📄 许可：**商业用途须书面授权**（PolyForm 风格商业许可，详见 [LICENSE](./LICENSE)）；授权联系与申请模板见 [CONTACT.md](./CONTACT.md)。
-> 🛡 漏洞报告：见 [SECURITY.md](./SECURITY.md)（私密报告 + 响应时间承诺）。
+> 📄 License: **Commercial use requires written permission** (PolyForm-style commercial license, see [LICENSE](./LICENSE)); licensing contact: [CONTACT.md](./CONTACT.md).
+> 🛡 Security reports: [SECURITY.md](./SECURITY.md).
+> 🌏 简体中文文档：[README.zh-CN.md](./README.zh-CN.md)
 
-## ✨ 特性
+Cuckoo is an open-source, mobile-first health reminder PWA (installable on your phone) with an optional Android APK — built to help you take medicine on time, drink enough water, stretch between meetings, and stick to tiny habits, with family members watching your back.
 
-- **多分类提醒**：吃药 / 喝水 / 锻炼 / 休息 / 工作 / 自定义，支持每日多时间点、每周/每月、间隔循环与**不定时**提醒
-- **健康数据看板**：完成率、连续天数、分类统计、喝水进度（达成当日目标记 1 次）
-- **用药管理**：库存扣减、低库存预警、服药历史（按日/周/月筛选）
-- **运动与专注**：微运动库（14 个跟练动作配图解）、番茄钟（默认 25+5 可自定义）、拍照打卡
-- **社交社区**：帖子图文/视频分享、评论点赞收藏、一键加入计划、个人主页与关注
-- **我的计划**：自建/加入/官方计划，一键发帖，计划内提醒可修改（显示来源与已修改标记）
-- **消息通知**：站内通知中心 + Web Push（到期/漏服/低库存三触发源）
-- **周报/月报**：热力图、趋势、环比建议；**成就系统**：不间断坚持、用药/锻炼/喝水达人
-- **隐私与安全**：数据导出/注销、登录锁定与限流、上传三重校验、审计日志
-- **亲友协作**：邀请码绑定家人、只读健康摘要、图文聊天、紧急联系人通知
-- **多端**：Web PWA（离线可用）+ Android APK（设置页可下载最新安装包）
+## ✨ Highlights
 
-## 🚀 快速启动
+- **Smart reminders** — medication / water / exercise / rest / work / custom categories; multi-time daily, weekly, monthly, interval loops and untimed reminders; full-screen overlay with snooze & skip; photo check-in challenges
+- **Health dashboard** — completion rate, streak days, per-category stats, water intake progress
+- **Medication management** — stock deduction on completion, low-stock alerts, medicine history (day/week/month filter)
+- **Exercise library** — 14 follow-along micro-exercises with cute multi-frame illustrations; detail modal with swipeable steps
+- **Focus** — Pomodoro timer (classic 25+5 by default, fully customizable)
+- **Social** — share posts with photos/videos, like / comment / favorite, one-tap plan joining, profiles & follows
+- **Family care** — invite-code binding with approval, read-only health summary of your loved one, in-app chat, emergency-contact notifications
+- **Reports & achievements** — weekly/monthly reports, heatmap, 7 achievement rules
+- **Offline-first** — guest mode & offline accounts work without a server; data merges to the cloud when you sign in
+- **Theming** — 3 built-in themes (Peach Sunrise / Verdant Meadow / Glacier Bay), switchable in Settings
+- **Voice assistant** — long-press & swipe-to-mic dictation driving app actions via your own OpenAI-compatible API key (stored only on-device); native speech recognition in the Android app
+- **Privacy & security** — data export & account deletion, login rate-limiting & lockout, triple-checked uploads, audit logs
 
-要求：Node.js 20+。
+## 🚀 Quick start
+
+Requirements: Node.js 20+.
 
 ```bash
-# 后端
+# Backend
 cd backend
-cp .env.example .env      # 配置 JWT_SECRET 等
+cp .env.example .env      # configure JWT_SECRET etc.
 npm install
 npm start                 # http://localhost:3000/api
 
-# 前端（另开终端）
+# Frontend (another terminal)
 cd frontend
 npm install
 npm run dev               # http://localhost:5173
 ```
 
-> 生产部署（Nginx + PM2 + 备份）说明见项目发行材料；Web Push 需在 `.env` 配置 VAPID 密钥对。
+> Production deployment (Nginx + PM2 + backups) notes ship with the project; Web Push needs a VAPID key pair in `.env`.
 
-## 🧰 技术栈
+## 📱 Android app
 
-前端：React 19 + TypeScript + Vite + Tailwind CSS v4 + Zustand + React Router 7（PWA 离线可用）
-后端：NestJS 11 + TypeORM + better-sqlite3（WAL）+ JWT + Swagger + class-validator + Web Push + 定时任务
+The backend serves the latest APK at `GET /api/v1/app/download` (also linked from the in-app Settings page, hidden inside the app itself). Speech recognition in the APK uses the native `@capacitor-community/speech-recognition` plugin.
 
-## 🧪 测试
+## 🧰 Tech stack
 
-| 类型 | 命令 |
+Frontend: React 19 + TypeScript + Vite + Tailwind CSS v4 + Zustand + React Router 7 (offline-capable PWA)
+Backend: NestJS 11 + TypeORM + better-sqlite3 (WAL) + JWT + Swagger + Web Push + scheduled jobs
+Mobile: Capacitor 8 (Android)
+
+## 🧪 Testing
+
+| Type | Command |
 |---|---|
-| 后端单测 | `cd backend && npx jest --runInBand` |
-| 前端单测 | `cd frontend && npx vitest run` |
-| E2E（自动拉起前后端） | `cd frontend && npm run test:e2e` |
-| 代码评审 | 提交前由 AI 助手按项目规范完成（不依赖外部服务） |
+| Backend unit | `cd backend && npx jest --runInBand` |
+| Frontend unit | `cd frontend && npx vitest run` |
+| E2E (auto-starts both servers) | `cd frontend && npm run test:e2e` |
 
-## 📦 目录
+## 📦 Repository layout
 
 ```
-backend/   后端服务（modules 按业务域划分）
-frontend/  前端应用（pages / components / stores / services / utils）
+backend/   NestJS API (domain modules)
+frontend/  React PWA + Capacitor Android project
 ```
 
-## 📜 变更记录
+## 📜 Changelog
 
-版本迭代记录见发行说明（Release Notes）；提交历史遵循 Conventional Commits。
+See release notes; commits follow Conventional Commits. 简体中文说明：[README.zh-CN.md](./README.zh-CN.md)

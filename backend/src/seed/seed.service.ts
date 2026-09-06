@@ -146,7 +146,7 @@ export class SeedService implements OnApplicationBootstrap {
     const exercises: (Partial<Exercise> & { id: string })[] = [
       { id: 'ex-stretch-neck', name: '颈部左右拉伸', category: ExerciseCategory.STRETCH, durationSeconds: 30, imageUrl: img('neck-1'), imageUrls: seq2('neck-1', 'neck-2'), steps: '坐直，头向左倾至拉伸感，保持 15 秒；换右侧。' },
       { id: 'ex-stretch-shoulder', name: '肩部环绕', category: ExerciseCategory.STRETCH, durationSeconds: 30, imageUrl: img('shoulder-1'), imageUrls: seq2('shoulder-1', 'shoulder-2'), steps: '双肩向后画圈 10 次，再向前 10 次。' },
-      { id: 'ex-stretch-wrist', name: '手腕放松', category: ExerciseCategory.STRETCH, durationSeconds: 30, imageUrl: img('wrist-1'), imageUrls: seq2('wrist-1', 'wrist-1'), steps: '双手前伸，手指交叉翻转，保持 15 秒。' },
+      { id: 'ex-stretch-wrist', name: '手腕放松', category: ExerciseCategory.STRETCH, durationSeconds: 30, imageUrl: img('wrist-1'), imageUrls: seq2('wrist-1'), steps: '双手前伸，手指交叉翻转，保持 15 秒。' },
       { id: 'ex-stretch-side', name: '体侧拉伸', category: ExerciseCategory.STRETCH, durationSeconds: 40, imageUrl: img('stretch-1'), imageUrls: seq2('stretch-1', 'stretch-2'), steps: '双臂上举，身体向左侧弯保持 15 秒，换右侧。' },
       { id: 'ex-kegel-basic', name: '提肛基础训练', category: ExerciseCategory.KEGEL, durationSeconds: 60, imageUrl: img('kegel-1'), imageUrls: seq2('kegel-1', 'kegel-2'), steps: '收缩盆底肌 3 秒放松 3 秒，重复 10 次。' },
       { id: 'ex-kegel-hold', name: '提肛保持训练', category: ExerciseCategory.KEGEL, durationSeconds: 90, imageUrl: img('kegel-1'), imageUrls: seq2('kegel-2', 'kegel-1'), steps: '收缩盆底肌保持 5 秒，放松 5 秒，重复 9 次。' },

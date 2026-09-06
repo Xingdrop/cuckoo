@@ -1,5 +1,5 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL0Rhc2hib2FyZFBhZ2UudHN4fDIwMjYtMDl8ZjA0NDEzOTI5ZA== */
-import { BarChart3, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Plus, Settings } from 'lucide-react';
+import { BarChart3, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Plus, Settings, SlidersHorizontal } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -411,30 +411,33 @@ export function DashboardPage() {
             className="rounded-card bg-surface p-3 text-left shadow-sm"
             aria-label="选择计入完成率的提醒"
           >
-            {/* 右上角操作列：选择（计入）/ 统计 上下排列，样式区分（选择=幽灵字钮；统计=实底徽标） */}
-            <span className="flex flex-col items-end gap-1">
-              <span
-                role="button"
-                tabIndex={0}
-                aria-label="选择计入完成率的提醒"
-                className="text-[10px] leading-none text-ink-400 underline decoration-dotted underline-offset-2"
-              >
-                选择 ›
+            {/* 顶部：完成率标题 + 右侧操作列（选择=淡底胶囊；统计=实底胶囊，主题变量保证三主题可见） */}
+            <div className="flex items-start justify-between">
+              <p className="text-xs font-medium text-ink-500">完成率</p>
+              <span className="flex flex-col items-end gap-1">
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-label="选择计入完成率的提醒"
+                  className="flex items-center gap-0.5 rounded-full bg-ink-100/80 px-1.5 py-0.5 text-[10px] font-medium text-ink-600"
+                >
+                  <SlidersHorizontal size={9} strokeWidth={2.4} /> 选择
+                </span>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-label="进入统计"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate('/stats');
+                  }}
+                  className="flex items-center gap-0.5 rounded-full bg-primary-500 px-1.5 py-0.5 text-[10px] font-semibold text-white"
+                >
+                  <BarChart3 size={10} strokeWidth={2.6} /> 统计
+                </span>
               </span>
-              <span
-                role="button"
-                tabIndex={0}
-                aria-label="进入统计"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate('/stats');
-                }}
-                className="flex items-center gap-0.5 rounded-full bg-primary-500 px-1.5 py-0.5 text-[10px] font-semibold text-white"
-              >
-                <BarChart3 size={10} strokeWidth={2.6} /> 统计
-              </span>
-            </span>
-            <p className="mt-1 text-2xl font-bold leading-none text-primary-600">
+            </div>
+            <p className="-mt-1 text-2xl font-bold leading-none text-primary-600">
               {selected === today && stats ? stats.rate : rate}%
             </p>
             <p className="mt-1.5 text-[11px] leading-tight text-ink-500">
@@ -457,8 +460,9 @@ export function DashboardPage() {
           >
             {/* #26：紧凑喝水卡——内容随高度收缩，不留大片空白；达标与否/点击记录都不改变方框 */}
             <div className="flex h-6 items-center justify-between">
-              <p className="flex min-w-0 items-center gap-1 text-xs text-ink-500">
-                <span className="shrink-0">💧 喝水</span>
+              <p className="flex min-w-0 items-center gap-1 text-sm font-semibold text-ink-700">
+                <span className="shrink-0 text-base">💧</span>
+                <span className="shrink-0">喝水</span>
                 {selected !== today && (
                   <span className="shrink-0 rounded-full bg-ink-100 px-1.5 py-0.5 text-[9px] text-ink-500">
                     {selected.slice(5)}
@@ -501,9 +505,9 @@ export function DashboardPage() {
             </div>
             {water ? (
               <>
-                <p className="mt-2 truncate text-lg font-bold leading-none text-primary-600">
+                <p className="mt-2 truncate text-2xl font-bold leading-none text-primary-600">
                   {water.waterMl}
-                  <span className="ml-0.5 text-[11px] font-normal text-ink-400">ml</span>
+                  <span className="ml-0.5 text-xs font-normal text-ink-400">ml</span>
                   <span className="ml-1.5 text-[11px] font-normal text-ink-500">/ {water.waterGoalMl}ml</span>
                 </p>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-100">

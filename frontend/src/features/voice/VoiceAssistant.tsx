@@ -1,7 +1,8 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2ZlYXR1cmVzL3ZvaWNlL1ZvaWNlQXNzaXN0YW50LnRzeHwyMDI2LTA5fDIwZWY2MmQxZTc= */
 import { Mic, MicOff, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { loadAiConfig, runAssistant, speechSupported, type AssistantOutcome } from '../../assistant/assistant';
+import { loadAiConfig, runAssistant, type AssistantOutcome } from '../../assistant/assistant';
+import { nativeSpeechAvailable, startDictation, type DictationHandle } from './speechAdapter';
 
 /**
  * #26：语音助手（今日页）——唤醒手势：
@@ -10,7 +11,8 @@ import { loadAiConfig, runAssistant, speechSupported, type AssistantOutcome } fr
  */
 export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) {
   const [enabled, setEnabled] = useState(() => loadAiConfig().enabled);
-  const supported = speechSupported();
+  /** 语音可用性：APK=原生插件（@capacitor-community/speech-recognition）；浏览器=Web Speech API */
+  const [supported, setSupported] = useState(false);
 
   const [armed, setArmed] = useState(false);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
@@ -22,10 +24,11 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
   const micRef = useRef<HTMLButtonElement | null>(null);
   const startRef = useRef<{ x: number; y: number; t: number } | null>(null);
   const cancelRef = useRef(true);
-  const recRef = useRef<{ stop: () => void; transcript: () => string } | null>(null);
+  const recRef = useRef<DictationHandle | null>(null);
 
   useEffect(() => {
     setEnabled(loadAiConfig().enabled);
+    void nativeSpeechAvailable().then(setSupported);
   }, []);
 
   /** 长按检测 + 圆圈跟随 + 划入麦克风 */
@@ -88,59 +91,27 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
   const startRecording = () => {
     if (busy) return;
     if (!supported) {
-      onToast('当前环境不支持语音识别（请用手机 Chrome / 安卓浏览器）');
+      onToast('当前环境不支持语音识别（浏览器需 HTTPS；APK 请更新到含语音插件的新版本）');
       setArmed(false);
       setPos(null);
       return;
     }
-    const w = window as unknown as {
-      SpeechRecognition?: new () => {
-        lang: string;
-        continuous: boolean;
-        interimResults: boolean;
-        onresult: ((ev: { resultIndex: number; results: { length: number; [i: number]: { isFinal: boolean; 0: { transcript: string } } } }) => void) | null;
-        onend: (() => void) | null;
-        onerror: ((ev: { error?: string }) => void) | null;
-        start: () => void;
-        stop: () => void;
-      };
-      webkitSpeechRecognition?: new () => never;
-    };
-    const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition;
-    if (!SR) return;
-    const rec = new SR();
-    let text = '';
-    rec.lang = 'zh-CN';
-    rec.continuous = false;
-    rec.interimResults = true;
-    rec.onresult = (ev) => {
-      let interim = '';
-      let final = '';
-      for (let i = ev.resultIndex; i < ev.results.length; i++) {
-        const r = ev.results[i];
-        if (r.isFinal) final += r[0].transcript;
-        else interim += r[0].transcript;
-      }
-      text = (final + interim).trim();
-      setLive(text);
-    };
-    rec.onerror = () => {
-      setRecording(false);
-      onToast('语音识别失败（请检查麦克风权限）');
-    };
-    rec.onend = () => {
-      setRecording(false);
-      if (text.trim()) void handle(text.trim());
-      else onToast('未识别到语音');
-    };
-    try {
-      rec.start();
-      recRef.current = { stop: () => rec.stop(), transcript: () => text };
+    void startDictation({
+      onPartial: (t) => setLive(t),
+      onFinal: (t) => {
+        setRecording(false);
+        if (t.trim()) void handle(t.trim());
+        else onToast('未识别到语音');
+      },
+      onError: (msg) => {
+        setRecording(false);
+        onToast(msg);
+      },
+    }).then((h) => {
+      recRef.current = h;
       setLive('');
       setRecording(true);
-    } catch {
-      onToast('语音识别启动失败');
-    }
+    });
   };
 
   const stopRecording = () => {

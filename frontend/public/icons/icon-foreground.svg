@@ -1,9 +1,55 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 432">
-  <!-- 自适应前景：白色极简鸟（背景色由 ic_launcher_background 提供） -->
-  <g transform="translate(54,44) scale(0.63)">
-    <path d="M158 322 Q158 216 268 216 Q336 216 354 272 L400 290 L354 310 Q336 380 258 380 Q158 380 158 322 Z" fill="#FFFFFF"/>
-    <path d="M120 318 L160 288 L152 344 Z" fill="#FFFFFF"/>
-    <circle cx="300" cy="272" r="13" fill="#F2764A"/>
-    <path d="M214 312 Q252 290 292 310" stroke="#F2764A" stroke-width="15" fill="none" stroke-linecap="round"/>
+  <!-- 自适应前景：可爱布谷鸟挂钟（透明底；背景色由 ic_launcher_background 提供） -->
+  <g transform="translate(56,40) scale(0.63)">
+    <defs>
+      <linearGradient id="clockFaceFg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#FFFFFF"/>
+        <stop offset="1" stop-color="#F3FAF6"/>
+      </linearGradient>
+    </defs>
+    <path d="M196 188 L256 138 L316 188 Z" fill="#F2A65A"/>
+    <circle cx="256" cy="316" r="146" fill="url(#clockFaceFg)"/>
+    <circle cx="256" cy="316" r="146" fill="none" stroke="#DCEAE4" stroke-width="8"/>
+    <line x1="256" y1="430" x2="256" y2="462" stroke="#DCEAE4" stroke-width="10" stroke-linecap="round"/>
+    <circle cx="256" cy="470" r="13" fill="#F2A65A"/>
+    <circle cx="256" cy="196" r="10" fill="#CFE3DC"/>
+    <circle cx="376" cy="316" r="10" fill="#CFE3DC"/>
+    <circle cx="256" cy="436" r="10" fill="#CFE3DC"/>
+    <circle cx="136" cy="316" r="10" fill="#CFE3DC"/>
+    <path d="M256 316 L188 262" stroke="#2E7D6B" stroke-width="20" stroke-linecap="round" fill="none"/>
+    <path d="M256 316 L322 268" stroke="#2E7D6B" stroke-width="20" stroke-linecap="round" fill="none"/>
+    <circle cx="256" cy="316" r="16" fill="#F2A65A"/>
+    <circle cx="256" cy="316" r="6" fill="#E08F3F"/>
+    <!-- 布谷鸟 v2（栖在钟顶，造型精修） -->
+    <path d="M132 176 Q96 190 86 226 Q124 232 152 210 Q142 192 132 176 Z" fill="#1F5A4F"/>
+    <path d="M150 200 Q122 218 116 248 Q146 248 166 228 Z" fill="#2E7D6B"/>
+    <ellipse cx="252" cy="140" rx="82" ry="68" fill="#256557"/>
+    <ellipse cx="262" cy="168" rx="46" ry="34" fill="#F6EFE3"/>
+    <path d="M232 78 Q224 50 246 42 Q252 62 244 76 Z" fill="#1F5A4F"/>
+    <path d="M258 74 Q262 46 284 42 Q278 64 264 76 Z" fill="#2E7D6B"/>
+    <path d="M184 126 Q142 128 132 168 Q172 182 202 160 Q192 142 184 126 Z" fill="#35836F"/>
+    <path d="M156 152 Q168 160 186 156" stroke="#256557" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <circle cx="230" cy="118" r="21" fill="#FFFFFF"/>
+    <circle cx="288" cy="118" r="21" fill="#FFFFFF"/>
+    <circle cx="234" cy="121" r="11" fill="#22302C"/>
+    <circle cx="292" cy="121" r="11" fill="#22302C"/>
+    <circle cx="237" cy="117" r="4.5" fill="#FFFFFF"/>
+    <circle cx="295" cy="117" r="4.5" fill="#FFFFFF"/>
+    <circle cx="231" cy="126" r="2" fill="#FFFFFF" opacity=".8"/>
+    <circle cx="289" cy="126" r="2" fill="#FFFFFF" opacity=".8"/>
+    <path d="M214 106 l-6 -5 M306 106 l6 -5" stroke="#22302C" stroke-width="3.4" stroke-linecap="round"/>
+    <ellipse cx="200" cy="146" rx="11" ry="7" fill="#F7A8B8" opacity=".9"/>
+    <ellipse cx="314" cy="146" rx="11" ry="7" fill="#F7A8B8" opacity=".9"/>
+    <path d="M314 130 L356 141 L318 158 Z" fill="#F2A65A"/>
+    <path d="M317 148 L342 153 L320 160 Z" fill="#E08F3F"/>
+    <path d="M236 202 q -2 12 -12 14 M236 202 q 2 12 12 13" stroke="#E08F3F" stroke-width="9" stroke-linecap="round" fill="none"/>
+    <path d="M284 202 q -2 12 -12 14 M284 202 q 2 12 12 13" stroke="#E08F3F" stroke-width="9" stroke-linecap="round" fill="none"/>
+    <g fill="#FFD98A">
+      <ellipse cx="392" cy="96" rx="13" ry="10" transform="rotate(-18 392 96)"/>
+      <rect x="400" y="52" width="7" height="46" rx="3.5"/>
+      <path d="M400 52 Q424 56 426 76 Q414 70 400 72 Z"/>
+    </g>
+    <circle cx="368" cy="150" r="6" fill="#FFD98A" opacity=".75"/>
+    <circle cx="420" cy="128" r="5" fill="#FFD98A" opacity=".55"/>
   </g>
 </svg>

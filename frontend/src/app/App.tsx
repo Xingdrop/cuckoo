@@ -1,76 +1,40 @@
 // @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2FwcC9BcHAudHN4fDIwMjYtMDh8NjdjYzRlNDE4ZQ==
-import { lazy, Suspense, useEffect, useState } from 'react';
-import type { ComponentType } from 'react';
+import { useEffect, useState } from 'react';
 import { WifiOff } from 'lucide-react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { RequireAuth } from '../components/RequireAuth';
 import { ReminderScheduler } from '../features/reminders/ReminderScheduler';
 import { LoginPage } from '../pages/LoginPage';
+import { DashboardPage } from '../pages/DashboardPage';
+import { ReminderEditPage } from '../pages/ReminderEditPage';
+import { ReminderListPage } from '../pages/ReminderListPage';
+import { SettingsPage } from '../pages/SettingsPage';
+import { SocialPage } from '../pages/SocialPage';
+import { MedicinesPage } from '../pages/MedicinesPage';
+import { MedicineEditPage } from '../pages/MedicineEditPage';
+import { MedicineLogsPage } from '../pages/MedicineLogsPage';
+import { StatsPage } from '../pages/StatsPage';
+import { PomodoroPage } from '../pages/PomodoroPage';
+import { ExercisesPage } from '../pages/ExercisesPage';
+import { WaterSettingsPage } from '../pages/WaterSettingsPage';
+import { NotificationsPage } from '../pages/NotificationsPage';
+import { PostDetailPage } from '../pages/PostDetailPage';
+import { ReportsPage } from '../pages/ReportsPage';
+import { ReportPage } from '../pages/ReportPage';
+import { AchievementsPage } from '../pages/AchievementsPage';
+import { PrivacyPage } from '../pages/PrivacyPage';
+import { ProfilePage } from '../pages/ProfilePage';
+import { FollowListPage } from '../pages/FollowListPage';
+import { PlansPage } from '../pages/PlansPage';
+import { PlanPreviewPage } from '../pages/PlanPreviewPage';
+import { TemplatePreviewPage } from '../pages/TemplatePreviewPage';
+import { FamilyPage } from '../pages/FamilyPage';
+import { FamilyPartnerPage } from '../pages/FamilyPartnerPage';
+import { FamilyChatPage } from '../pages/FamilyChatPage';
 import { useAuthStore } from '../stores/authStore';
 import { useConnectionStore } from '../stores/connectionStore';
 import { useGuestStore } from '../guest/guestStore';
 import { tokenStore } from '../services/http';
-
-/**
- * 懒加载页面的辅助包装：页面组件均为 named export。
- * 分包收益：recharts（Dashboard/Stats）与各页面独立 chunk，首屏只加载登录页与骨架。
- * 性能修复（导航卡顿）：首点 tab 需现场下载 chunk——收集 loader，启动后空闲时统一预取。
- */
-const loaders: (() => Promise<unknown>)[] = [];
-function lazyPage<T extends Record<string, unknown>>(loader: () => Promise<T>, name: keyof T) {
-  loaders.push(loader as () => Promise<unknown>);
-  return lazy(async () => ({ default: (await loader())[name] as ComponentType }));
-}
-
-// 首屏（登录页）保持静态导入；其余按路由分包
-const DashboardPage = lazyPage(() => import('../pages/DashboardPage'), 'DashboardPage');
-const ReminderEditPage = lazyPage(() => import('../pages/ReminderEditPage'), 'ReminderEditPage');
-const ReminderListPage = lazyPage(() => import('../pages/ReminderListPage'), 'ReminderListPage');
-const SettingsPage = lazyPage(() => import('../pages/SettingsPage'), 'SettingsPage');
-const SocialPage = lazyPage(() => import('../pages/SocialPage'), 'SocialPage');
-const MedicinesPage = lazyPage(() => import('../pages/MedicinesPage'), 'MedicinesPage');
-const MedicineEditPage = lazyPage(() => import('../pages/MedicineEditPage'), 'MedicineEditPage');
-const MedicineLogsPage = lazyPage(() => import('../pages/MedicineLogsPage'), 'MedicineLogsPage');
-const StatsPage = lazyPage(() => import('../pages/StatsPage'), 'StatsPage');
-const PomodoroPage = lazyPage(() => import('../pages/PomodoroPage'), 'PomodoroPage');
-const ExercisesPage = lazyPage(() => import('../pages/ExercisesPage'), 'ExercisesPage');
-const WaterSettingsPage = lazyPage(() => import('../pages/WaterSettingsPage'), 'WaterSettingsPage');
-const NotificationsPage = lazyPage(() => import('../pages/NotificationsPage'), 'NotificationsPage');
-const PostDetailPage = lazyPage(() => import('../pages/PostDetailPage'), 'PostDetailPage');
-const ReportsPage = lazyPage(() => import('../pages/ReportsPage'), 'ReportsPage');
-const ReportPage = lazyPage(() => import('../pages/ReportPage'), 'ReportPage');
-const AchievementsPage = lazyPage(() => import('../pages/AchievementsPage'), 'AchievementsPage');
-const PrivacyPage = lazyPage(() => import('../pages/PrivacyPage'), 'PrivacyPage');
-const ProfilePage = lazyPage(() => import('../pages/ProfilePage'), 'ProfilePage');
-const FollowListPage = lazyPage(() => import('../pages/FollowListPage'), 'FollowListPage');
-const PlansPage = lazyPage(() => import('../pages/PlansPage'), 'PlansPage');
-const PlanPreviewPage = lazyPage(() => import('../pages/PlanPreviewPage'), 'PlanPreviewPage');
-const TemplatePreviewPage = lazyPage(() => import('../pages/TemplatePreviewPage'), 'TemplatePreviewPage');
-const FamilyPage = lazyPage(() => import('../pages/FamilyPage'), 'FamilyPage');
-const FamilyPartnerPage = lazyPage(() => import('../pages/FamilyPartnerPage'), 'FamilyPartnerPage');
-const FamilyChatPage = lazyPage(() => import('../pages/FamilyChatPage'), 'FamilyChatPage');
-
-/** 路由 chunk 加载中的全屏骨架 */
-function PageFallback() {
-  return (
-    <div className="flex min-h-dvh items-center justify-center text-sm text-ink-300">加载中…</div>
-  );
-}
-
-/** 性能：空闲时预取全部懒加载路由 chunk——首次点击 tab 零等待（修复导航卡顿） */
-function PrefetchRoutes() {
-  useEffect(() => {
-    const idle = (cb: () => void) => {
-      const w = window as unknown as { requestIdleCallback?: (cb: () => void) => number };
-      if (w.requestIdleCallback) w.requestIdleCallback(cb);
-      else setTimeout(cb, 1200);
-    };
-    idle(() => {
-      for (const load of loaders) void load().catch(() => undefined);
-    });
-  }, []);
-  return null;
-}
 
 /**
  * #15/#17/#23：同步结果横幅——
@@ -184,12 +148,11 @@ export function App() {
 
   return (
     <BrowserRouter>
-      <PrefetchRoutes />
       <GlobalOfflineBadge />
       <SyncOnOnline />
       <ReminderScheduler />
       <div className={online ? '' : 'pt-6'}>
-      <Suspense fallback={<PageFallback />}>
+      <div>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
@@ -427,7 +390,7 @@ export function App() {
           />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
-      </Suspense>
+      </div>
       </div>
     </BrowserRouter>
   );

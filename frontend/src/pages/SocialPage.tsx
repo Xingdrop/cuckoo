@@ -1,6 +1,6 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL1NvY2lhbFBhZ2UudHN4fDIwMjYtMDl8ODQ5OTBjN2IzNg== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3BhZ2VzL1NvY2lhbFBhZ2UudHN4fDIwMjYtMDl8NWYxNzdmOThkMA== */
 import { ArrowUp, Bell, Heart, ImagePlus, MessageCircle, PenSquare, Play, Star, Users, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { PullToRefresh } from '../components/PullToRefresh';
@@ -30,6 +30,29 @@ function fmtTime(iso: string): string {
   return `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+/** #14：社交页 tab 定义（长按可拖动排序，顺序按账户记忆） */
+const TABS = [
+  ['feed', '广场'],
+  ['following', '关注'],
+  ['mine', '我的'],
+  ['templates', '官方计划'],
+  ['family', '亲友'],
+] as const;
+type TabKey = (typeof TABS)[number][0];
+const TAB_ORDER_KEY = 'cuckoo.social.tabOrder';
+const DEFAULT_TAB_ORDER: TabKey[] = TABS.map(([k]) => k);
+/** 拖动期间阻止页面滚动/下拉刷新（非 passive 监听，仅在长按拖动时挂载） */
+const preventTouchMove = (e: TouchEvent) => e.preventDefault();
+const loadTabOrder = (uid: string): TabKey[] => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(`${TAB_ORDER_KEY}.${uid}`) ?? '[]') as string[];
+    const valid = raw.filter((k) => DEFAULT_TAB_ORDER.includes(k as TabKey)) as TabKey[];
+    return [...new Set(valid)].concat(DEFAULT_TAB_ORDER.filter((k) => !valid.includes(k)));
+  } catch {
+    return DEFAULT_TAB_ORDER;
+  }
+};
+
 /**
  * P-11 社区首页（FR-601~604/606~608；兴趣小组已于 2026-09-05 移除）
  * 帖子流 + 官方计划 + 一键加入
@@ -38,7 +61,14 @@ export function SocialPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const online = useConnectionStore((s) => s.online);
-  const [tab, setTab] = useState<'feed' | 'following' | 'mine' | 'templates' | 'family'>('feed');
+  const [tab, setTab] = useState<TabKey>('feed');
+  // #14：tab 顺序（长按 350ms 进入拖动，实时换位，按账户记忆到 localStorage）
+  const [tabOrder, setTabOrder] = useState<TabKey[]>(() => loadTabOrder(useAuthStore.getState().user?.id ?? 'guest'));
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const pressTimer = useRef<number | null>(null);
+  const pressPos = useRef({ x: 0, y: 0 });
+  const dragMoved = useRef(false);
+  const suppressClick = useRef(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [templates, setTemplates] = useState<PlanTemplate[]>([]);
   const [family, setFamily] = useState<FamilyBindingItem[] | null>(null);
@@ -76,6 +106,91 @@ export function SocialPage() {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  // #14：账户切换时恢复该账户的 tab 顺序
+  useEffect(() => {
+    setTabOrder(loadTabOrder(user?.id ?? 'guest'));
+  }, [user?.id]);
+
+  // #14：拖动换位并按账户持久化
+  const saveTabOrder = useCallback(
+    (order: TabKey[]) => {
+      setTabOrder(order);
+      try {
+        localStorage.setItem(`${TAB_ORDER_KEY}.${user?.id ?? 'guest'}`, JSON.stringify(order));
+      } catch {
+        /* 存储不可用时忽略（仅本次会话生效） */
+      }
+    },
+    [user?.id],
+  );
+
+  const clearPress = useCallback(() => {
+    if (pressTimer.current !== null) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  }, []);
+
+  /** #14：结束拖动（短按不触发；长按未移动也不切换 tab） */
+  const endDrag = useCallback(() => {
+    clearPress();
+    document.removeEventListener('touchmove', preventTouchMove);
+    if (dragMoved.current) {
+      suppressClick.current = true;
+      dragMoved.current = false;
+    }
+    setDragIdx(null);
+  }, [clearPress]);
+
+  // #14：拖动中松手可能发生在容器外（鼠标），全局兜底结束
+  useEffect(() => {
+    const up = () => endDrag();
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    return () => {
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+    };
+  }, [endDrag]);
+
+  // #14：tab 长按开始（350ms 震动进入拖动态）
+  const onTabPointerDown = (e: React.PointerEvent, idx: number) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    pressPos.current = { x: e.clientX, y: e.clientY };
+    dragMoved.current = false;
+    clearPress();
+    pressTimer.current = window.setTimeout(() => {
+      pressTimer.current = null;
+      setDragIdx(idx);
+      navigator.vibrate?.(30);
+      document.addEventListener('touchmove', preventTouchMove, { passive: false });
+    }, 350);
+  };
+
+  /** #14：拖动中手指划过其它 tab → 实时换位 */
+  const onTabPointerMove = (e: React.PointerEvent) => {
+    if (dragIdx === null) {
+      // 未进入拖动态：位移超过 10px 视为滚动/滑动意图，取消长按
+      if (pressTimer.current !== null) {
+        const dx = e.clientX - pressPos.current.x;
+        const dy = e.clientY - pressPos.current.y;
+        if (Math.hypot(dx, dy) > 10) clearPress();
+      }
+      return;
+    }
+    if (Math.hypot(e.clientX - pressPos.current.x, e.clientY - pressPos.current.y) > 6) dragMoved.current = true;
+    const hit = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-tab-idx]') as HTMLElement | null;
+    const target = hit ? Number(hit.dataset.tabIdx) : NaN;
+    if (!Number.isNaN(target) && target !== dragIdx) {
+      const order = [...tabOrder];
+      const [moved] = order.splice(dragIdx, 1);
+      order.splice(target, 0, moved);
+      saveTabOrder(order);
+      setDragIdx(target);
+      pressPos.current = { x: e.clientX, y: e.clientY };
+    }
+  };
 
   // #6 关注 tab 数据 + #5 关注按钮
   const followingIds = useMemo(() => new Set(followingUsers.map((u) => u.id)), [followingUsers]);
@@ -280,7 +395,7 @@ export function SocialPage() {
         >
           <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-surface shadow-sm">
             {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt="头像" className="h-full w-full object-cover" />
+              <img src={absoluteUrl(user.avatarUrl)} alt="头像" className="h-full w-full object-cover" />
             ) : (
               <span className="text-lg font-semibold text-primary-600">
                 {user?.username?.slice(0, 1).toUpperCase() ?? '我'}
@@ -319,26 +434,32 @@ export function SocialPage() {
         </div>
       </header>
 
-      {/* 分类 tab（#3：随内容滚动，不做吸顶） */}
-      <div className="mt-2 flex gap-1 overflow-x-auto px-4 py-1.5">
-        {([
-          ['feed', '广场'],
-          ['following', '关注'],
-          ['mine', '我的'],
-          ['templates', '官方计划'],
-          ['family', '亲友'],
-        ] as const).map(([key, label]) => (
+      {/* 分类 tab（#3：随内容滚动；#14：长按 350ms 可拖动排序，顺序按账户记忆） */}
+      <div
+        className="mt-2 flex touch-pan-x select-none gap-1 overflow-x-auto px-4 py-1.5"
+        onPointerMove={onTabPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onContextMenu={(e) => dragIdx !== null && e.preventDefault()}
+      >
+        {tabOrder.map((key, i) => (
           <button
             key={key}
+            data-tab-idx={i}
+            onPointerDown={(e) => onTabPointerDown(e, i)}
             onClick={() => {
+              if (suppressClick.current) {
+                suppressClick.current = false;
+                return;
+              }
               setTab(key);
               void load(); // #5：切换即刷新，与详情页操作同步
             }}
             className={`shrink-0 rounded-full px-4 py-2 text-sm transition-colors ${
               tab === key ? 'bg-primary-500 font-medium text-white' : 'bg-surface text-ink-700 shadow-sm'
-            }`}
+            } ${dragIdx === i ? 'scale-110 shadow-lg ring-2 ring-primary-300' : ''}`}
           >
-            {label}
+            {TABS.find(([k]) => k === key)![1]}
           </button>
         ))}
       </div>
@@ -475,7 +596,7 @@ export function SocialPage() {
                     aria-label={`查看 @${post.author.username} 的主页`}
                   >
                     {post.author.avatarUrl ? (
-                      <img src={post.author.avatarUrl} alt="头像" className="h-full w-full object-cover" />
+                      <img src={absoluteUrl(post.author.avatarUrl)} alt="头像" className="h-full w-full object-cover" />
                     ) : (
                       post.author.username.slice(0, 1).toUpperCase()
                     )}
@@ -709,7 +830,7 @@ export function SocialPage() {
                 {composerMedia.map((u, i) =>
                   u.match(/\.(mp4|mov|webm)/i) ? (
                     <div key={`${u}-${i}`} className="relative aspect-square w-full overflow-hidden rounded-btn bg-black">
-                      <video src={u} className="h-full w-full object-cover" preload="metadata" muted playsInline />
+                      <video src={absoluteUrl(u)} className="h-full w-full object-cover" preload="metadata" muted playsInline />
                       <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
                         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white">
                           <Play size={14} fill="currentColor" />
@@ -721,7 +842,7 @@ export function SocialPage() {
                     </div>
                   ) : (
                     <span key={`${u}-${i}`} className="relative aspect-square w-full overflow-hidden rounded-btn bg-ink-100">
-                      <img src={u} alt={`媒体 ${i + 1}`} className="h-full w-full object-cover" />
+                      <img src={absoluteUrl(u)} alt={`媒体 ${i + 1}`} className="h-full w-full object-cover" />
                       <button
                         type="button"
                         onClick={() => setComposerMedia((prev) => prev.filter((x) => x !== u))}

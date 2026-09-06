@@ -94,9 +94,9 @@ export class PlansService {
     return plan;
   }
 
-  /** 关闭计划：清除全部相关提醒（配置保留——可再次启用重建） */
+  /** 关闭计划：停用全部相关提醒（保留可见——提醒数/明细/一键发帖不受影响；配置同步保留） */
   private async deactivatePlan(userId: string, planId: string) {
-    await this.reminderRepo.softDelete({ userId, planId });
+    await this.reminderRepo.update({ userId, planId }, { isActive: false, nextTriggerAt: null });
   }
 
   /** 开启计划：按配置重建缺失提醒（保留已存在的），并全部启用 */
@@ -113,7 +113,21 @@ export class PlansService {
       }
       if (existing && !existing.deletedAt) {
         if (!existing.isActive) {
-          await this.reminderRepo.update({ id: existing.id, userId }, { isActive: true });
+          // 停用的提醒恢复启用并重算触发时间（nextTriggerAt 在停用时被清空）
+          await this.reminderRepo.update(
+            { id: existing.id, userId },
+            {
+              isActive: true,
+              nextTriggerAt: computeNextTrigger(
+                existing.repeatRule,
+                new Date(),
+                existing.startDate,
+                existing.endDate,
+                'Asia/Shanghai',
+                existing.times,
+              ),
+            },
+          );
         }
         cfg.push({ ...entry, reminderId: existing.id });
         continue;
@@ -251,7 +265,8 @@ export class PlansService {
   /** 计划内提醒 → 帖子计划快照（reminders[] 与 social.joinPlan 解析格式一致） */
   async buildSnapshot(userId: string, planId: string) {
     const plan = await this.findOne(userId, planId);
-    const reminders = await this.reminderRepo.find({ where: { userId, planId, isActive: true } });
+    // 一键发帖不要求计划启用：快照含全部提醒（含停用计划），接收方按配置自行创建
+    const reminders = await this.reminderRepo.find({ where: { userId, planId } });
     return {
       version: 1,
       from: { name: plan.name },

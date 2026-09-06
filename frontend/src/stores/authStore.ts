@@ -106,6 +106,9 @@ export const useAuthStore = create<AuthState>()(
           }
           try {
             const res = await authApi.login({ username, password });
+            if (!res?.token || !res?.user?.id) {
+              throw new Error('服务器响应异常：请检查「设置 → 高级 → 服务器地址」是否填写正确，并确认后端已启动');
+            }
             tokenStore.set(res.token);
             set({ user: res.user });
             // #15：登录即退出游客模式（避免界面/数据停留在游客态）
@@ -127,6 +130,10 @@ export const useAuthStore = create<AuthState>()(
 
         register: async (username, password, healthGoals) => {
           const res = await authApi.register({ username, password, healthGoals });
+          // 防御：响应缺 token/user（服务器地址错误/版本过旧）时给出可操作提示而非崩溃
+          if (!res?.token || !res?.user?.id) {
+            throw new Error('服务器响应异常：请检查「设置 → 高级 → 服务器地址」是否填写正确，并确认后端已启动');
+          }
           tokenStore.set(res.token);
           set({ user: res.user });
           const g = useGuestStore.getState();

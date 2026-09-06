@@ -52,7 +52,14 @@ http.interceptors.request.use((config) => {
 });
 
 http.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    // 防御（APK 注册/登录崩溃根因）：请求打到 WebView 本地源（服务器地址未配置/不可达）时，
+    // SPA 兜底会返回 200 的 index.html——识别并给出可操作提示，避免上层读 undefined 崩溃
+    if (typeof res.data === 'string' && /<!doctype html|<html[\s>]/i.test(res.data)) {
+      return Promise.reject(new Error('服务器地址不可用（返回了网页而非接口数据）：请在「设置 → 高级 → 服务器地址」填写后端地址，例如 http://电脑IP:3000'));
+    }
+    return res;
+  },
   (error: AxiosError<ApiErrorBody>) => {
     if (error.response?.status === 401) {
       tokenStore.clear();

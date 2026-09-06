@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3V0aWxzL2d1aWRlTWVkaWEudHN8MjAyNi0wOXwzYzcwMWRkNjFm */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3V0aWxzL2d1aWRlTWVkaWEudHN8MjAyNi0wOXxjZjdhOTc1NzQ2 */
 /* @Sdrop PLACEHOLDER */
 import { Capacitor } from '@capacitor/core';
 
@@ -19,12 +19,12 @@ const GUIDE_NAMES = [
   'water-1', 'water-5', 'water-7', 'water-generic',
   'medication-1', 'medication-2',
   'neck-1', 'neck-2', 'neck-ret-1', 'neck-ret-2',
-  'shoulder-1', 'shoulder-2', 'wrist-1',
+  'shoulder-1', 'shoulder-2', 'wrist-1', 'wrist-2',
   'stretch-1', 'stretch-2',
   'kegel-1', 'kegel-2',
   'eye-far', 'eye-close',
-  'squat-1', 'squat-2', 'heel-1', 'heel-2',
-  'walk-1', 'walk-2', 'breathe-1', 'breathe-2',
+  'squat-1', 'squat-2',
+  'walk-1', 'walk-2', 'breathe-1', 'breathe-2', 'breathe-3',
   'standup-1', 'standup-2',
 ];
 

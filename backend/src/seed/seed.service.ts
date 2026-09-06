@@ -155,12 +155,13 @@ export class SeedService implements OnApplicationBootstrap {
       { id: 'ex-eye-blink', name: '眨眼润眼', category: ExerciseCategory.EYE, durationSeconds: 20, imageUrl: img('eye-close'), imageUrls: seq2('eye-close', 'eye-far'), steps: '缓慢眨眼 10 次，闭眼转动眼球各方向。' },
       { id: 'ex-eye-focus', name: '远近聚焦', category: ExerciseCategory.EYE, durationSeconds: 60, imageUrl: img('eye-far'), imageUrls: seq2('eye-far', 'eye-close'), steps: '指尖置于眼前 30cm 注视 5 秒，再看 6 米外 5 秒，交替 6 组。' },
       { id: 'ex-stand-squat', name: '靠墙静蹲', category: ExerciseCategory.STAND, durationSeconds: 60, imageUrl: img('squat-1'), imageUrls: seq2('squat-1', 'squat-2'), steps: '背靠墙下蹲至大腿与地面平行，保持 30-60 秒。' },
-      { id: 'ex-stand-heel', name: '提踵站立', category: ExerciseCategory.STAND, durationSeconds: 60, imageUrl: img('heel-1'), imageUrls: seq2('heel-1', 'heel-2'), steps: '站立提踵 10 次，激活小腿与核心。' },
-      { id: 'ex-breathe', name: '深呼吸放松', category: ExerciseCategory.OTHER, durationSeconds: 120, imageUrl: img('breathe-1'), imageUrls: seq2('breathe-1', 'breathe-2'), steps: '吸气 4 秒→屏息 4 秒→呼气 6 秒，循环 8 次，缓解紧张。' },
+      // 2026-09-07（用户决策）：删除「提踵站立」，恢复「起身走动」——站立类保留静蹲+走动
+      { id: 'ex-stand-walk', name: '起身走动', category: ExerciseCategory.STAND, durationSeconds: 90, imageUrl: img('walk-1'), imageUrls: seq2('walk-1', 'walk-2'), steps: '起身绕行 1~2 分钟，配合远眺放松眼睛。' },
+      { id: 'ex-breathe', name: '深呼吸放松', category: ExerciseCategory.OTHER, durationSeconds: 120, imageUrl: img('breathe-1'), imageUrls: seq2('breathe-1', 'breathe-2', 'breathe-3'), steps: '吸气 4 秒→屏息 4 秒→呼气 6 秒，循环 8 次，缓解紧张。' },
     ];
 
-    // 2026-09-07（用户决策）：删除站立类第三个动作「起身走动」（含已入库数据）
-    await this.exerciseRepo.delete({ id: 'ex-stand-walk' });
+    // 2026-09-07（用户决策）：删除「提踵站立」（含已入库数据）；「起身走动」恢复
+    await this.exerciseRepo.delete({ id: 'ex-stand-heel' });
 
     for (const e of exercises) {
       const exists = await this.exerciseRepo.findOne({ where: { id: e.id } });

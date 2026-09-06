@@ -2,7 +2,7 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { computeNextTrigger } from '../../common/reminder-schedule';
 import { AuthService } from '../auth/auth.service';
 import { AuditService } from '../audit/audit.service';
@@ -87,6 +87,8 @@ export class UsersService {
       plans?: unknown[];
       posts?: unknown[];
       settings?: unknown;
+      /** 2026-09-06：离线删除墓碑——本地镜像期间删除的 id，导入时同步删除（防 upsert 复活） */
+      deleted?: { reminders?: unknown[]; medicines?: unknown[]; plans?: unknown[] };
     },
   ) {
     type Item = Record<string, unknown>;
@@ -220,6 +222,32 @@ export class UsersService {
         isActive: raw.isActive !== false,
         config: Array.isArray(raw.config) ? (raw.config as Record<string, unknown>[]) : null,
       }));
+    }
+
+    // 离线删除墓碑：仅按「id + 属主」删除，绝不跨账号（软删 Reminder/Medicine；Plan 无软删列 → 硬删）
+    const tomb = bundle.deleted ?? {};
+    const tombIds = (arr: unknown): string[] =>
+      (Array.isArray(arr) ? arr : [])
+        .filter((x): x is string => typeof x === 'string' && x.length > 0)
+        .slice(0, 2000);
+    const delReminders = tombIds(tomb.reminders);
+    const delMedicines = tombIds(tomb.medicines);
+    const delPlans = tombIds(tomb.plans);
+    if (delReminders.length) {
+      await this.dataSource.getRepository(Reminder).softDelete({ id: In(delReminders), userId });
+    }
+    if (delMedicines.length) {
+      await this.dataSource.getRepository(Medicine).softDelete({ id: In(delMedicines), userId });
+    }
+    if (delPlans.length) {
+      await this.dataSource.getRepository(Plan).delete({ id: In(delPlans), userId });
+    }
+    if (delReminders.length || delMedicines.length || delPlans.length) {
+      counts.tombstones = {
+        reminders: delReminders.length,
+        medicines: delMedicines.length,
+        plans: delPlans.length,
+      } as never;
     }
     // 帖子
     if (bundle.posts?.length) {

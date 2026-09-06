@@ -43,7 +43,13 @@ export function absoluteUrl(u?: string | null): string {
   // guide 插画：优先本地缓存（登录时校验缓存，离线/APK 直读本机）
   if (u.includes('/uploads/guide/')) return guideSrc(u);
   const custom = localStorage.getItem('cuckoo_api_base');
-  return custom ? `${custom.replace(/\/$/, '')}${u}` : u;
+  // 2026-09-06：APK 未手动配置时也用内置默认地址拼绝对路径（否则 /uploads/* 打到 WebView 本地源 → 图片全挂）
+  const origin = custom
+    ? custom.replace(/\/$/, '')
+    : Capacitor.isNativePlatform() && DEFAULT_NATIVE_API_BASE
+      ? DEFAULT_NATIVE_API_BASE.replace(/\/$/, '')
+      : '';
+  return origin ? `${origin}${u}` : u;
 }
 
 /** token 存取（后续换 localStorage 加密或 cookie，接口不变） */

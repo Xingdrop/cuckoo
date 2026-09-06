@@ -201,6 +201,8 @@ interface GuestState {
   notifications: GuestNotification[];
   /** #15：离线镜像所属账号（'seed:<uid>' = 种子离线账户；'online' = 在线账户镜像） */
   mirrorOf: string | null;
+  /** 2026-09-06：离线删除墓碑——记录镜像期间删除的 id，同步时通知云端真删（否则 upsert 合并会"复活"） */
+  deleted: { reminders: string[]; medicines: string[]; plans: string[] };
 
   activate: () => void;
   deactivate: () => void;
@@ -254,8 +256,11 @@ interface GuestState {
     medicines: unknown[];
     plans: unknown[];
     settings: Partial<GuestSettings> & { updatedAt: string };
+    deleted?: { reminders: string[]; medicines: string[]; plans: string[] };
     exportedAt: string;
   };
+  /** 同步成功后清空墓碑（云端已确认删除） */
+  clearTombstones: () => void;
   clear: () => void;
   setMirror: (userId: string) => void;
   clearMirror: () => void;
@@ -263,7 +268,7 @@ interface GuestState {
 
 const COLLECTIONS = [
   'reminders', 'logs', 'medicines', 'plans', 'settings', 'feed', 'templates',
-  'exercises', 'followings', 'favorites', 'notifications',
+  'exercises', 'followings', 'favorites', 'notifications', 'deleted',
 ] as const;
 
 /** 存档 key（owner 缺失时 null = 无存档） */
@@ -284,6 +289,7 @@ const emptyDataset = () => ({
   favorites: [] as string[],
   notifications: [] as GuestNotification[],
   mirrorOf: null,
+  deleted: { reminders: [] as string[], medicines: [] as string[], plans: [] as string[] },
 });
 
 function loadArchive(key: string): Partial<ReturnType<typeof emptyDataset>> {
@@ -333,6 +339,7 @@ export const useGuestStore = create<GuestState>()(
           followings: (merged.followings ?? []) as string[],
           favorites: (merged.favorites ?? []) as string[],
           notifications: (merged.notifications ?? []) as GuestNotification[],
+          deleted: merged.deleted ?? base.deleted,
         });
       };
 
@@ -351,6 +358,13 @@ export const useGuestStore = create<GuestState>()(
         favorites: [],
         notifications: [],
         mirrorOf: null,
+        deleted: { reminders: [], medicines: [], plans: [] },
+
+        /** 同步成功后清空墓碑 */
+        clearTombstones: () => {
+          set({ deleted: { reminders: [], medicines: [], plans: [] } });
+          persistNow();
+        },
 
         activate: () => {
           persistNow();
@@ -446,7 +460,13 @@ export const useGuestStore = create<GuestState>()(
         },
 
         removeReminder: (id) => {
-          set((s) => ({ reminders: s.reminders.filter((r) => r.id !== id) }));
+          set((s) => ({
+            reminders: s.reminders.filter((r) => r.id !== id),
+            // 墓碑：镜像模式下删除需在联网同步时通知云端（防 upsert 复活）
+            deleted: s.deleted.reminders.includes(id)
+              ? s.deleted
+              : { ...s.deleted, reminders: [...s.deleted.reminders, id] },
+          }));
           persistNow();
         },
 
@@ -516,7 +536,12 @@ export const useGuestStore = create<GuestState>()(
           persistNow();
         },
         removeMedicine: (id) => {
-          set((s) => ({ medicines: s.medicines.filter((m) => m.id !== id) }));
+          set((s) => ({
+            medicines: s.medicines.filter((m) => m.id !== id),
+            deleted: s.deleted.medicines.includes(id)
+              ? s.deleted
+              : { ...s.deleted, medicines: [...s.deleted.medicines, id] },
+          }));
           persistNow();
         },
 
@@ -542,7 +567,12 @@ export const useGuestStore = create<GuestState>()(
           persistNow();
         },
         removePlan: (id) => {
-          set((s) => ({ plans: s.plans.filter((p) => p.id !== id) }));
+          set((s) => ({
+            plans: s.plans.filter((p) => p.id !== id),
+            deleted: s.deleted.plans.includes(id)
+              ? s.deleted
+              : { ...s.deleted, plans: [...s.deleted.plans, id] },
+          }));
           persistNow();
         },
 
@@ -617,6 +647,20 @@ export const useGuestStore = create<GuestState>()(
             medicines: medicines.list as never,
             plans: plans.list as never,
             logs: logsMerge.list,
+            // 游客期间的删除意图随迁（防止合并后联网同步复活游客已删项）
+            deleted: (() => {
+              const gDel = (guest.deleted as
+                | { reminders?: string[]; medicines?: string[]; plans?: string[] }
+                | undefined) ?? { reminders: [], medicines: [], plans: [] };
+              const sDel = get().deleted;
+              const uni = (a: string[], b: string[] | undefined) =>
+                Array.from(new Set([...a, ...(b ?? [])]));
+              return {
+                reminders: uni(sDel.reminders, gDel.reminders),
+                medicines: uni(sDel.medicines, gDel.medicines),
+                plans: uni(sDel.plans, gDel.plans),
+              };
+            })(),
           });
           persistNow();
           try {
@@ -644,6 +688,7 @@ export const useGuestStore = create<GuestState>()(
             favorites: base.favorites,
             notifications: base.notifications,
             exercises: base.exercises,
+            deleted: base.deleted,
           });
           persistNow();
           try {
@@ -710,6 +755,7 @@ export const useGuestStore = create<GuestState>()(
             config: p.config ?? null,
           })),
           settings: { ...get().settings, updatedAt: nowIso() },
+          deleted: { ...get().deleted },
           exportedAt: nowIso(),
         }),
 

@@ -77,7 +77,11 @@ export async function syncMirrorToCloud(): Promise<boolean> {
     const { usersApi } = await import('../services/api/api.users');
     await usersApi.importData(store.exportBundle());
     const refreshed = await refreshLocalCache();
-    if (refreshed) store.setMirror('online');
+    if (refreshed) {
+      store.setMirror('online');
+      // 云端已确认删除（墓碑消费完成）；此后以服务器全量为本地权威
+      store.clearTombstones();
+    }
     return refreshed;
   } catch {
     return false;

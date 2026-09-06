@@ -234,13 +234,17 @@ describe('SocialService（UT-JOIN）', () => {
     expect(afterOn[0].isActive).toBe(true);
     expect(afterOn[0].title).toBe('喝水');
 
-    // 关闭 → 全部相关提醒被清除（配置保留）
+    // 关闭 → 提醒保留但全部停用（isActive=false、nextTriggerAt 清空；配置保留）
+    // 2026-09-07 语义变更（1ddc02c）：未启用计划的提醒仍参与展示/发帖，不再物理清除
     await plans.setActive(USER_B, plan!.id, false);
-    expect(await reminderRepo.count({ where: { planId: plan!.id } })).toBe(0);
+    const afterOff = await reminderRepo.find({ where: { planId: plan!.id } });
+    expect(afterOff).toHaveLength(1);
+    expect(afterOff[0].isActive).toBe(false);
+    expect(afterOff[0].nextTriggerAt).toBeNull();
     const planAfter = await planRepo.findOne({ where: { id: plan!.id } });
     expect((planAfter?.config as Record<string, unknown>[]).length).toBe(1);
 
-    // 再次开启 → 重新创建（reminderId 记录到 config）
+    // 再次开启 → 复用已有提醒恢复启用（reminderId 记录到 config）
     await plans.setActive(USER_B, plan!.id, true);
     const afterRe = await reminderRepo.find({ where: { planId: plan!.id } });
     expect(afterRe).toHaveLength(1);

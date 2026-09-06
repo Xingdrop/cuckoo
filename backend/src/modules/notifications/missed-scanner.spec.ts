@@ -1,6 +1,7 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8YmFja2VuZC9zcmMvbW9kdWxlcy9ub3RpZmljYXRpb25zL21pc3NlZC1zY2FubmVyLnNwZWMudHN8MjAyNi0wOXxhNzUyNWM0NTE2 */
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+import { DataSource } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { MissedScanner } from './missed-scanner';
 import { PushService } from './push.service';
@@ -70,6 +71,8 @@ describe('MissedScanner（UT-MISS）', () => {
         { provide: getRepositoryToken(UserSetting), useValue: settingRepo },
         { provide: PushService, useValue: { sendToUser } },
         { provide: ConfigService, useValue: { get: jest.fn() } },
+        // 2026-09-07：scanner 新增 DataSource（亲友用户查询 getRepository(User)）
+        { provide: DataSource, useValue: { getRepository: jest.fn().mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) }) } },
       ],
     }).compile();
     scanner = module.get(MissedScanner);

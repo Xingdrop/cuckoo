@@ -456,7 +456,7 @@ export function DashboardPage() {
               )}
             </p>
             {selected === today && stats && (
-              <p className="mt-1.5 h-4 truncate text-[10px] font-medium text-accent-700">🔥 连续 {stats.streakDays} 天</p>
+              <p className="mt-1.5 h-4 truncate text-[10px] font-medium text-accent-700">连续 {stats.streakDays} 天</p>
             )}
           </button>
 
@@ -522,7 +522,7 @@ export function DashboardPage() {
                 {/* 底部信息行（与完成率卡「连续 N 天」行等高，消除卡片空白）#7：前置连续达标天数 */}
                 <p className="mt-1 h-4 truncate text-[10px] leading-4 text-ink-400">
                   {water.streakDays > 0 && (
-                    <span className="font-medium text-accent-700">🔥 连续 {water.streakDays} 天 · </span>
+                    <span className="font-medium text-accent-700">连续 {water.streakDays} 天 · </span>
                   )}
                   {selected !== today ? (
                     <>{selected.slice(5)} · {water.waterMl}ml</>

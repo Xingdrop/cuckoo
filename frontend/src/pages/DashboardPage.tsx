@@ -512,11 +512,11 @@ export function DashboardPage() {
                 {/* 底部信息行（与完成率卡「连续 N 天」行等高，消除卡片空白） */}
                 <p className="mt-1 h-4 truncate text-[10px] leading-4 text-ink-400">
                   {selected !== today ? (
-                    <>{selected.slice(5).replace('-', '/')} 当日喝水 {water.waterMl}ml</>
+                    <>{selected.slice(5)} · {water.waterMl}ml</>
                   ) : water.rate >= 100 ? (
-                    <span className="font-medium text-primary-600">✓ 今日已达标 · 目标 {water.waterGoalMl}ml</span>
+                    <span className="font-medium text-primary-600">✓ 已达标 {water.waterMl}/{water.waterGoalMl}ml</span>
                   ) : (
-                    <>还可喝 {Math.max(0, water.waterGoalMl - water.waterMl)}ml · 目标 {water.waterGoalMl}ml</>
+                    <>还可喝 {Math.max(0, water.waterGoalMl - water.waterMl)} / {water.waterGoalMl}ml</>
                   )}
                 </p>
               </>

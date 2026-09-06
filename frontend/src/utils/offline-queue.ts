@@ -11,11 +11,13 @@ export interface PendingOp {
   reminderId: string;
   /** ack：scheduledTime（幂等键）；delay：原计划时间 */
   scheduledTime: string;
-  /** ack 状态（completed/skipped/challenge_completed） */
-  status?: 'completed' | 'skipped' | 'challenge_completed';
+  /** ack 状态（completed/skipped/challenge_completed/photo） */
+  status?: 'completed' | 'skipped' | 'challenge_completed' | 'photo';
   /** delay 分钟数 */
   minutes?: number;
   photoUrl?: string;
+  /** 2026-09-06：可选文字记录（随手记，≤500 字） */
+  note?: string;
   createdAt: number;
 }
 

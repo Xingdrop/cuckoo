@@ -372,7 +372,7 @@ export function SettingsPage() {
           <h2 className="px-4 py-3 text-sm font-medium">语音助手</h2>
           <SettingRow
             label="语音助手"
-            desc="开启后今日页底部显示语音按钮；长按页面任意处，上滑把圆圈拖入麦克风即可语音控制（浏览器需 HTTPS/允许麦克风；APK 内暂不支持）"
+            desc="开启后今日页底部显示语音按钮，长按按钮说话、松手后 AI 解析预案并确认执行（浏览器需 HTTPS/允许麦克风；APK 使用原生语音识别，首次使用需允许麦克风权限）"
             checked={ai.enabled}
             disabled={busy}
             onChange={(v) => {

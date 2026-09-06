@@ -39,6 +39,8 @@ export interface GuestLog {
   status: 'completed' | 'skipped' | 'delayed' | 'missed' | 'challenge_completed' | 'manual' | 'photo';
   amount: number;
   createdAt: string;
+  /** 2026-09-06：可选文字记录（提醒弹窗随手记） */
+  note?: string | null;
 }
 
 export interface GuestMedicine {
@@ -223,7 +225,7 @@ interface GuestState {
   /** #26：日志带照片（拍照/挑战打卡） */
   photoUrl?: string | null;
 
-  ack: (id: string, status: 'completed' | 'skipped' | 'photo', at?: string, photoUrl?: string) => void;
+  ack: (id: string, status: 'completed' | 'skipped' | 'photo', at?: string, photoUrl?: string, note?: string) => void;
   /** #26：替换某条日志的照片（保留原记录与时间语义） */
   updateLogPhoto: (logId: string, photoUrl: string) => void;
   recordWater: (ml: number) => void;
@@ -470,7 +472,7 @@ export const useGuestStore = create<GuestState>()(
           persistNow();
         },
 
-        ack: (id, status, at, photoUrl) => {
+        ack: (id, status, at, photoUrl, note) => {
           set((s) => ({
             logs: [
               ...s.logs,
@@ -481,6 +483,7 @@ export const useGuestStore = create<GuestState>()(
                 status,
                 amount: 0,
                 photoUrl: photoUrl ?? null,
+                note: note ?? null,
                 createdAt: nowIso(),
               },
             ],
@@ -724,6 +727,7 @@ export const useGuestStore = create<GuestState>()(
             status: l.status,
             amount: l.amount,
             category: 'custom',
+            note: l.note ?? null,
             createdAt: l.createdAt,
           })),
           medicines: get().medicines.map((m) => ({

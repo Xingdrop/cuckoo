@@ -76,6 +76,7 @@ export function useReminderScheduler() {
             status: op.status ?? 'completed',
             scheduledTime: op.scheduledTime,
             photoUrl: op.photoUrl,
+            note: op.note,
           });
         }
       });
@@ -136,11 +137,12 @@ export function useReminderScheduler() {
     };
   }, [reminders, user]);
 
-  /** 弹窗操作：完成/延迟/跳过/拍照完成 → ack（幂等）→ 关闭 → 重载 */
+  /** 弹窗操作：完成/延迟/跳过/拍照完成/拍照记录 → ack（幂等）→ 关闭 → 重载 */
   const handleAction = async (
-    status: 'completed' | 'delayed' | 'skipped' | 'challenge_completed',
+    status: 'completed' | 'delayed' | 'skipped' | 'challenge_completed' | 'photo',
     minutes?: number,
     photoUrl?: string,
+    note?: string,
   ) => {
     const current = activeRef.current;
     if (!current?.nextTriggerAt) return;
@@ -152,6 +154,7 @@ export function useReminderScheduler() {
           status,
           scheduledTime: current.nextTriggerAt,
           photoUrl,
+          note,
         });
       }
     } catch {
@@ -170,6 +173,7 @@ export function useReminderScheduler() {
               scheduledTime: current.nextTriggerAt,
               status,
               photoUrl,
+              note,
             },
       );
     } finally {

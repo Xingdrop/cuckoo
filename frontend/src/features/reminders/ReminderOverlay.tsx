@@ -1,10 +1,11 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2ZlYXR1cmVzL3JlbWluZGVycy9SZW1pbmRlck92ZXJsYXkudHN4fDIwMjYtMDl8NTBkMTgzNzBkMQ== */
 import { createPortal } from 'react-dom';
 import { AlarmClock, Camera, Check, ChevronRight, Image as ImageIcon, X } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { filesApi } from '../../services/api/api.files';
 import { LinkedText } from '../../components/LinkedText';
 import { MediaCarousel } from '../../components/MediaCarousel';
+import { loadFeedbackPrefs, startRingLoop, startVibrateLoop } from '../../utils/alert-feedback';
 import type { Reminder } from '../../types';
 import type { useReminderScheduler } from './useReminderScheduler';
 
@@ -33,29 +34,47 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
   const [showDelay, setShowDelay] = useState(false);
   const [customMinutes, setCustomMinutes] = useState('');
   const [showCamera, setShowCamera] = useState(false);
+  /** 拍照语义：challenge=挑战打卡（challenge_completed）；log=随手拍照记录（photo） */
+  const [photoMode, setPhotoMode] = useState<'challenge' | 'log'>('challenge');
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [note, setNote] = useState('');
   const fileRef = useRef<HTMLInputElement | null>(null);
   const galleryRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
 
+  /** 震动 + 响铃（2026-09-06）：按设置页偏好开关，弹窗卸载即停 */
+  useEffect(() => {
+    let cancelled = false;
+    const stops: (() => void)[] = [];
+    void loadFeedbackPrefs().then((p) => {
+      if (cancelled) return;
+      if (p.vibrate) stops.push(startVibrateLoop());
+      if (p.sound) stops.push(startRingLoop());
+    });
+    return () => {
+      cancelled = true;
+      stops.forEach((s) => s());
+    };
+  }, []);
+
   const act = async (
-    status: 'completed' | 'delayed' | 'skipped' | 'challenge_completed',
+    status: 'completed' | 'delayed' | 'skipped' | 'challenge_completed' | 'photo',
     minutes?: number,
     photoUrl?: string,
   ) => {
     setBusy(true);
-    await onAction(status, minutes, photoUrl);
+    await onAction(status, minutes, photoUrl, note.trim() || undefined);
   };
 
   const maxDelayCount = reminder.delaySettings.maxDelayCount ?? 3;
   const customEnabled = reminder.delaySettings.customEnabled ?? true;
 
-  /** 拍照/相册选择 → 上传 → 完成挑战 */
+  /** 拍照/相册选择 → 上传 → 完成挑战或拍照记录 */
   const uploadAndComplete = async (file: File) => {
     setPhotoBusy(true);
     try {
       const { url } = await filesApi.upload(file);
-      await act('challenge_completed', undefined, url);
+      await act(photoMode === 'challenge' ? 'challenge_completed' : 'photo', undefined, url);
     } catch {
       setPhotoBusy(false);
     }
@@ -79,7 +98,7 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
       </div>
 
       {/* 内容：#2 通知不通报提醒内容说明——仅标题；详情可到今日页点击查看 */}
-      <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-8 py-4 text-center">
         <h2 className="text-3xl font-bold leading-snug">{reminder.title}</h2>
         {reminder.content.text && (
           <p className="mt-4 text-lg leading-relaxed text-white/80">
@@ -108,70 +127,82 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
             className="mt-4 w-full"
           />
         )}
-        {reminder.challenge.enabled && (
-          <div className="mt-6 w-full">
-            {showCamera ? (
-              <div className="rounded-card bg-white/10 p-5">
-                <p className="mb-3 text-center text-sm text-white/80">拍摄打卡照片</p>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void uploadAndComplete(f);
-                  }}
-                />
-                <input
-                  ref={galleryRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void uploadAndComplete(f);
-                  }}
-                />
-                <div className="flex gap-3">
-                  <button
-                    disabled={photoBusy}
-                    onClick={() => fileRef.current?.click()}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-btn bg-white/15 py-3.5 text-sm transition-colors hover:bg-white/25 disabled:opacity-50"
-                  >
-                    <Camera size={18} /> {photoBusy ? '上传中…' : '拍照'}
-                  </button>
-                  <button
-                    disabled={photoBusy}
-                    onClick={() => galleryRef.current?.click()}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-btn bg-white/15 py-3.5 text-sm transition-colors hover:bg-white/25 disabled:opacity-50"
-                  >
-                    <ImageIcon size={18} /> 相册
-                  </button>
-                </div>
-                <button
-                  disabled={photoBusy}
-                  onClick={() => setShowCamera(false)}
-                  className="mt-3 w-full py-2 text-sm text-white/60"
-                >
-                  返回
-                </button>
-              </div>
-            ) : (
-              <>
-                <p className="rounded-full bg-accent-500/20 px-4 py-2 text-center text-sm text-accent-300">
-                  📸 拍照打卡挑战：完成后自动记录
-                </p>
-                <button
-                  onClick={() => setShowCamera(true)}
-                  className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-card bg-accent-500 py-3.5 text-base font-semibold text-white transition-colors hover:bg-accent-700"
-                >
-                  <Camera size={20} /> 开始拍照打卡
-                </button>
-              </>
-            )}
+        {/* 2026-09-06：可选文字记录（随手记，随完成/跳过/拍照一并上报，≤500 字） */}
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          maxLength={500}
+          rows={2}
+          placeholder="随手记一句（可选，≤500 字）"
+          className="mt-5 w-full shrink-0 rounded-card border border-white/15 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none resize-none focus:border-white/30"
+        />
+        {showCamera ? (
+          <div className="mt-6 w-full shrink-0 rounded-card bg-white/10 p-5">
+            <p className="mb-3 text-center text-sm text-white/80">
+              {photoMode === 'challenge' ? '拍摄打卡照片' : '拍照记录（可拍照或从相册选择）'}
+            </p>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void uploadAndComplete(f);
+              }}
+            />
+            <input
+              ref={galleryRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void uploadAndComplete(f);
+              }}
+            />
+            <div className="flex gap-3">
+              <button
+                disabled={photoBusy}
+                onClick={() => fileRef.current?.click()}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-btn bg-white/15 py-3.5 text-sm transition-colors hover:bg-white/25 disabled:opacity-50"
+              >
+                <Camera size={18} /> {photoBusy ? '上传中…' : '拍照'}
+              </button>
+              <button
+                disabled={photoBusy}
+                onClick={() => galleryRef.current?.click()}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-btn bg-white/15 py-3.5 text-sm transition-colors hover:bg-white/25 disabled:opacity-50"
+              >
+                <ImageIcon size={18} /> 相册
+              </button>
+            </div>
+            <button
+              disabled={photoBusy}
+              onClick={() => setShowCamera(false)}
+              className="mt-3 w-full py-2 text-sm text-white/60"
+            >
+              返回
+            </button>
           </div>
+        ) : (
+          reminder.challenge.enabled && (
+            <div className="mt-6 w-full shrink-0">
+              <p className="rounded-full bg-accent-500/20 px-4 py-2 text-center text-sm text-accent-300">
+                📸 拍照打卡挑战：完成后自动记录
+              </p>
+              <button
+                onClick={() => {
+                  setPhotoMode('challenge');
+                  setShowCamera(true);
+                }}
+                className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-card bg-accent-500 py-3.5 text-base font-semibold text-white transition-colors hover:bg-accent-700"
+              >
+                <Camera size={20} /> 开始拍照打卡
+              </button>
+            </div>
+          )
         )}
       </div>
 
@@ -246,6 +277,19 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
                 <X size={18} /> 跳过
               </button>
             </div>
+            {/* 2026-09-06：非挑战提醒也提供随手拍照记录（photo 日志，不影响完成状态） */}
+            {!reminder.challenge.enabled && !showCamera && (
+              <button
+                disabled={busy}
+                onClick={() => {
+                  setPhotoMode('log');
+                  setShowCamera(true);
+                }}
+                className="flex w-full items-center justify-center gap-1.5 rounded-card bg-white/5 py-2.5 text-sm text-white/70 transition-colors hover:bg-white/15"
+              >
+                <Camera size={16} /> 拍照记录（可选）
+              </button>
+            )}
           </>
         )}
       </div>

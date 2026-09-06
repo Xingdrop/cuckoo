@@ -174,6 +174,7 @@ export class UsersService {
         status: String(raw.status ?? 'completed'),
         delayMinutes: Number(raw.delayMinutes ?? 0),
         photoUrl: (raw.photoUrl as string) ?? null,
+        note: (raw.note as string) ?? null,
         medicineId: (raw.medicineId as string) ?? null,
         medicineNameSnapshot: (raw.medicineNameSnapshot as string) ?? null,
         category: String(raw.category ?? 'custom'),

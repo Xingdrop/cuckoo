@@ -82,6 +82,10 @@ export class ReminderLog {
   @Column({ type: 'int', default: 0 })
   amount: number;
 
+  /** 2026-09-06：可选文字记录（提醒弹窗随手记，≤500 字） */
+  @Column('text', { nullable: true })
+  note: string | null;
+
   @CreateDateColumn({ transformer: utcDateTime })
   createdAt: Date;
 }

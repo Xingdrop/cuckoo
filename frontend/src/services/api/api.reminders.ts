@@ -32,11 +32,11 @@ export interface CreateReminderInput {
   isActive?: boolean;
   /** #20：是否计入完成率（默认 true） */
   countInRate?: boolean;
-  /** 鍠濇按姣忔棩鐩爣锛坵ater 鍒嗙被锛?*/
+  /** 喝水每日目标（water 分类） */
   waterGoalMl?: number;
 }
 
-/** 鎻愰啋 API锛團R-201~209锛夆€斺€旀父瀹?绂荤嚎闀滃儚鑷姩璧版湰鍦伴€傞厤灞傦紙澶嶇敤鍘熺晫闈級 */
+/** 提醒 API（FR-201~209）——游客/离线镜像自动走本地适配层（复用原界面） */
 export const remindersApi = {
   list: (params?: { category?: string; isActive?: boolean }) =>
     useLocal() ? Promise.resolve(guestApi.list()) : http.get<Reminder[]>('/reminders', { params }).then((r) => r.data),
@@ -76,10 +76,10 @@ export const remindersApi = {
       ? Promise.resolve(guestApi.setActive(id, isActive))
       : http.patch<Reminder>(`/reminders/${id}/active`, { isActive }).then((r) => r.data),
 
-  /** 鎵ц涓婃姤锛堝箓绛夛細鍚屼竴 scheduledTime 鍙涓€娆★級 */
-  ack: (id: string, body: { status: ReminderLogStatus; scheduledTime: string; delayMinutes?: number; photoUrl?: string }) =>
+  /** 执行上报（幂等：同一 scheduledTime 只记一次） */
+  ack: (id: string, body: { status: ReminderLogStatus; scheduledTime: string; delayMinutes?: number; photoUrl?: string; note?: string }) =>
     useLocal()
-      ? Promise.resolve(guestApi.ack(id, body.status, body.scheduledTime, body.photoUrl))
+      ? Promise.resolve(guestApi.ack(id, body.status, body.scheduledTime, body.photoUrl, body.note))
       : http.post(`/reminders/${id}/ack`, body).then((r) => r.data),
 
   delay: (id: string, minutes: number) =>

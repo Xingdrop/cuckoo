@@ -412,13 +412,16 @@ export class RemindersService {
       // 幂等：同一时刻已记录则直接返回（不重复扣库存/重排）
       const existing = await logRepo.findOne({ where: { reminderId: id, scheduledTime } });
       if (existing) {
-        // #26：拍照记录重复上报 = 替换照片（更新 photoUrl 与时间，不改状态）
+        // #26：拍照记录重复上报 = 替换照片（更新 photoUrl 与时间，不改状态）；文字记录随报随更
         if (dto.status === ReminderLogStatus.PHOTO && dto.photoUrl) {
           await logRepo.update(
             { id: existing.id },
-            { photoUrl: dto.photoUrl, actualTime: new Date() },
+            { photoUrl: dto.photoUrl, actualTime: new Date(), note: dto.note ?? existing.note },
           );
           return { ok: true, log: { ...existing, photoUrl: dto.photoUrl, actualTime: new Date() }, duplicate: true, replaced: true };
+        }
+        if (dto.note) {
+          await logRepo.update({ id: existing.id }, { note: dto.note });
         }
         return { ok: true, log: existing, duplicate: true };
       }
@@ -436,6 +439,7 @@ export class RemindersService {
         status: dto.status,
         delayMinutes: dto.status === ReminderLogStatus.DELAYED ? dto.delayMinutes ?? 0 : 0,
         photoUrl: dto.photoUrl ?? null,
+        note: dto.note ?? null,
         medicineId: reminder.medicineId,
         medicineNameSnapshot: null,
         category: reminder.category,

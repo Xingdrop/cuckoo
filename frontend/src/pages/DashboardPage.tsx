@@ -417,7 +417,7 @@ export function DashboardPage() {
                 <span
                   role="button"
                   tabIndex={0}
-                  aria-label="选择计入完成率的提醒"
+                  aria-label="完成率选择入口"
                   className="flex items-center gap-0.5 rounded-full bg-ink-100/80 px-1.5 py-0.5 text-[10px] font-medium text-ink-600"
                 >
                   <SlidersHorizontal size={9} strokeWidth={2.4} /> 选择

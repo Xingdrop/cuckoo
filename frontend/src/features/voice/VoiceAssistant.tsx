@@ -36,7 +36,11 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
 
   useEffect(() => {
     setEnabled(loadAiConfig().enabled);
-    void nativeSpeechAvailable().then(setSupported);
+    // 支持检测（2026-09-06 修复）：原生插件可用 **或** 浏览器有 Web Speech API 都算支持——
+    // 之前只检测原生插件，导致 Web 端长按永远提示"不支持"，Web Speech 路径成死代码
+    const w = window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown };
+    const webOk = !!(w.SpeechRecognition ?? w.webkitSpeechRecognition);
+    void nativeSpeechAvailable().then((n) => setSupported(n || webOk));
     return () => {
       if (holdTimer.current) clearTimeout(holdTimer.current);
     };
@@ -78,8 +82,13 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
     }
     if (recording) {
       void recRef.current?.stop();
-    } else if (enabled && !busy) {
-      onToast('长按按钮说话，松手后确认要执行的调整');
+    } else {
+      // 2026-09-06 修复：未开启/快速点击也要有反馈（此前未开启时点击完全无响应）
+      onToast(
+        !enabled
+          ? '语音助手未开启：设置 → 语音助手 可开启'
+          : '长按按钮说话，松手后确认要执行的调整',
+      );
     }
   };
 

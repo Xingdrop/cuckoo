@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8YW5kcm9pZC9hcHAvc3JjL2FuZHJvaWRUZXN0L2phdmEvY29tL2dldGNhcGFjaXRvci9teWFwcC9FeGFtcGxlSW5zdHJ1bWVudGVkVGVzdC5qYXZhfDIwMjYtMDl8YjlhYmEwOGVlMg== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvYW5kcm9pZC9hcHAvc3JjL2FuZHJvaWRUZXN0L2phdmEvY29tL2dldGNhcGFjaXRvci9teWFwcC9FeGFtcGxlSW5zdHJ1bWVudGVkVGVzdC5qYXZhfDIwMjYtMDl8OWE0NDk5OWZlYw== */
 package com.getcapacitor.myapp;
 
 import static org.junit.Assert.*;

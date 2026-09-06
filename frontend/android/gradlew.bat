@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8YW5kcm9pZC9ncmFkbGV3LmJhdHwyMDI2LTA5fDIzMDYwNWRjMDM= */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvYW5kcm9pZC9ncmFkbGV3LmJhdHwyMDI2LTA5fDc0MWM2ZDZkMjM= */
 @rem
 @rem Copyright 2015 the original author or authors.
 @rem

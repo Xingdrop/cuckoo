@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZTJlL29mZmxpbmUuc3BlYy50c3wyMDI2LTA5fDJmMzVlZjA3ZDU= */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvZTJlL29mZmxpbmUuc3BlYy50c3wyMDI2LTA5fDNiZWYyOWM3ZTQ= */
 import { expect, test } from '@playwright/test';
 import { API, authHeaders, createDailyReminder, pageAuth, sharedState } from './helpers';
 

@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL2NvbXBvbmVudHMvQm90dG9tTmF2LnRzeHwyMDI2LTA5fDBhNjc5NDllOGU= */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2NvbXBvbmVudHMvQm90dG9tTmF2LnRzeHwyMDI2LTA5fGNmYTQ4NWQ1MzA= */
 import { CalendarCheck, Home, Users } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 

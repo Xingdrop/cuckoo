@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3V0aWxzL3B1c2gudHN8MjAyNi0wOXxmYTM3ODI0ZThj */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3V0aWxzL3B1c2gudHN8MjAyNi0wOXw0N2FhNmQ2ZmIy */
 import { registerSW } from 'virtual:pwa-register';
 import { http } from '../services/http';
 import { urlBase64ToUint8Array } from './push-utils';

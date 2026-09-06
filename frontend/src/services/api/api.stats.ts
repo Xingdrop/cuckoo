@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3NlcnZpY2VzL2FwaS9hcGkuc3RhdHMudHN8MjAyNi0wOXw4NGE3ZWUwOTk3 */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3NlcnZpY2VzL2FwaS9hcGkuc3RhdHMudHN8MjAyNi0wOXw5MjIwYTc2MDZh */
 import { http } from '../http';
 import { useLocal } from '../../guest/localMode';
 import { guestApi } from '../../guest/guestApi';

@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbGQvc3JjL3V0aWxzL25hdGl2ZVJlbWluZGVycy50c3wyMDI2LTA5fG5hdGl2ZVJlbWluZGVycw== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3V0aWxzL25hdGl2ZVJlbWluZGVycy50c3wyMDI2LTA5fDE1MWY2NTRlZjc= */
 import { Capacitor } from '@capacitor/core';
 import type { Reminder } from '../types';
 

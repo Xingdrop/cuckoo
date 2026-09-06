@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3BhZ2VzL1BvbW9kb3JvUGFnZS50c3h8MjAyNi0wOXwzMzNjMWU0MTUw */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL1BvbW9kb3JvUGFnZS50c3h8MjAyNi0wOXxhNDY1ZDQ4MzZj */
 import { ChevronLeft, Pause, Play, RotateCcw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';

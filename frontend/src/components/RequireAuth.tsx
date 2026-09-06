@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL2NvbXBvbmVudHMvUmVxdWlyZUF1dGgudHN4fDIwMjYtMDl8NTg1MjgyOThlOA== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2NvbXBvbmVudHMvUmVxdWlyZUF1dGgudHN4fDIwMjYtMDl8Y2Y4YWY5YzBlOQ== */
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuthStore } from '../stores/authStore';

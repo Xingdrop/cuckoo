@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8Y2FwYWNpdG9yLmNvbmZpZy50c3wyMDI2LTA5fDhiOWI5OTZiMmM= */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvY2FwYWNpdG9yLmNvbmZpZy50c3wyMDI2LTA5fDY0NTFiYzc2MjM= */
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {

@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZTJlL3JlcG9ydHMuc3BlYy50c3wyMDI2LTA5fGE0NWMyZDZiYWU= */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvZTJlL3JlcG9ydHMuc3BlYy50c3wyMDI2LTA5fDZjZmU3YTEyNzU= */
 import { expect, test } from '@playwright/test';
 import {
   API,

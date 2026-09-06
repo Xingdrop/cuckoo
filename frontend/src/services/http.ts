@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3NlcnZpY2VzL2h0dHAudHN8MjAyNi0wOXw4M2FjZjEzN2Mz */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3NlcnZpY2VzL2h0dHAudHN8MjAyNi0wOXwwOGZmMDZhZjdj */
 import axios, { AxiosError } from 'axios';
 import { guideSrc } from '../utils/guideMedia';
 import { Capacitor } from '@capacitor/core';

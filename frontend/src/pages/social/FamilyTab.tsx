@@ -1,4 +1,4 @@
-// @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3BhZ2VzL3NvY2lhbC9GYW1pbHlUYWIudHN4fDIwMjYtMDl8NmFjZWMxNjk4Nw==
+// @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL3NvY2lhbC9GYW1pbHlUYWIudHN4fDIwMjYtMDl8Yjg3NmYxYjQyMA==
 import { ChevronRight, HeartHandshake, MessageCircle, UserPlus, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { EmptyState } from '../../components/ui/Feedback';

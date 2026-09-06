@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3R5cGVzL3NjaGVtYXMudHN8MjAyNi0wOXxlNGU4NWZjZGFk */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3R5cGVzL3NjaGVtYXMudHN8MjAyNi0wOXw1YzVhOTFjZTU3 */
 import { z } from 'zod';
 
 /**

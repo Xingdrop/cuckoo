@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3V0aWxzL3B1c2gtdXRpbHMudHN8MjAyNi0wOXxlOWIzNDUxNTRk */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3V0aWxzL3B1c2gtdXRpbHMudHN8MjAyNi0wOXxjMjFjNjE4MTJi */
 /**
  * Web Push 工具纯函数（与浏览器 API 解耦，便于单测）。
  */

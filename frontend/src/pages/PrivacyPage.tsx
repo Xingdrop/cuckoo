@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3BhZ2VzL1ByaXZhY3lQYWdlLnRzeHwyMDI2LTA5fDVjZWYxMGU5ZGM= */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL1ByaXZhY3lQYWdlLnRzeHwyMDI2LTA5fGY1MmRjYmQ3ZjU= */
 import { ChevronLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 

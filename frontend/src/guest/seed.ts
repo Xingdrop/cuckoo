@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL2d1ZXN0L3NlZWQudHN8MjAyNi0wOXxmMjA4Y2ExNDA0 */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2d1ZXN0L3NlZWQudHN8MjAyNi0wOXxlZjU0NzZiNGU5 */
 import { compareSync } from 'bcryptjs';
 import { useGuestStore, type SeedDataset } from './guestStore';
 

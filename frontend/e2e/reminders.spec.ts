@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZTJlL3JlbWluZGVycy5zcGVjLnRzfDIwMjYtMDl8NGMyOTc3MWVjZQ== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvZTJlL3JlbWluZGVycy5zcGVjLnRzfDIwMjYtMDl8YWY1ZGFlNDhmZA== */
 import { expect, test } from '@playwright/test';
 import { pageAuth } from './helpers';
 

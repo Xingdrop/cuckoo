@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3V0aWxzL21lZGlhLnRzfDIwMjYtMDl8MzJiY2I0N2Q1NQ== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3V0aWxzL21lZGlhLnRzfDIwMjYtMDl8N2VjYmVkMTM1NA== */
 /**
  * 图片/媒体前端压缩（#1）：图片在 canvas 中重编码为 webp（≤1600px），
  * 降低上传体积（服务端 sharp 继续二次压缩）；视频不转码（无 ffmpeg），大小校验由后端负责。

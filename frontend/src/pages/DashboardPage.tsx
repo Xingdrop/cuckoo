@@ -1,5 +1,5 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL0Rhc2hib2FyZFBhZ2UudHN4fDIwMjYtMDl8ZjA0NDEzOTI5ZA== */
-import { BarChart3, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Plus, Settings, SlidersHorizontal } from 'lucide-react';
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3BhZ2VzL0Rhc2hib2FyZFBhZ2UudHN4fDIwMjYtMDl8OTA2YTM2MzNiMA== */
+import { BarChart3, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Plus, Settings, SlidersHorizontal, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -64,6 +64,14 @@ function untilLabel(dateKey: string, time: string): string {
   const days = Math.floor(hours / 24);
   const remH = hours % 24;
   return remH > 0 ? `${days} 天 ${remH} 小时后` : `${days} 天后`;
+}
+
+/** #8：延迟中的槽位显示新时间（原时刻 + 累计延迟分钟，跨小时进位） */
+function slotTime(t: { time: string; delayMinutes?: number }): string {
+  if (!t.delayMinutes) return t.time;
+  const [h, m] = t.time.split(':').map(Number);
+  const total = h * 60 + m + t.delayMinutes;
+  return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
 /**
@@ -178,6 +186,8 @@ export function DashboardPage() {
   const slots = items.flatMap((item) =>
     item.times.map((t) => ({
       time: t.time,
+      // #8：延迟中的槽位显示新时间（原时刻+延迟分钟）
+      displayTime: slotTime(t),
       status: t.status,
       item,
       isDone: t.status === 'completed' || t.status === 'challenge_completed',
@@ -509,8 +519,11 @@ export function DashboardPage() {
                     style={{ width: `${Math.min(100, water.rate)}%` }}
                   />
                 </div>
-                {/* 底部信息行（与完成率卡「连续 N 天」行等高，消除卡片空白） */}
+                {/* 底部信息行（与完成率卡「连续 N 天」行等高，消除卡片空白）#7：前置连续达标天数 */}
                 <p className="mt-1 h-4 truncate text-[10px] leading-4 text-ink-400">
+                  {water.streakDays > 0 && (
+                    <span className="font-medium text-accent-700">🔥 连续 {water.streakDays} 天 · </span>
+                  )}
                   {selected !== today ? (
                     <>{selected.slice(5)} · {water.waterMl}ml</>
                   ) : water.rate >= 100 ? (
@@ -586,14 +599,19 @@ export function DashboardPage() {
               {pendingSlots.map((s, i) => (
                 <li
                   key={`p-${s.item.reminderId}-${s.time}-${i}`}
-                  className="flex items-center gap-3 rounded-card bg-surface px-4 py-3 shadow-sm"
+                  className="flex items-center gap-2.5 rounded-card bg-surface px-3 py-2.5 shadow-sm"
                 >
                   <button
                     onClick={() => setDetailItem(s.item)}
-                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >
-                    <span className="w-12 shrink-0 text-right text-xs font-semibold text-primary-600">{s.item.untimed ? '不定时' : s.time}</span>
-                    <span className="text-lg">
+                    <span className="w-10 shrink-0 text-right text-[10px] font-semibold leading-tight text-primary-600">
+                      {s.item.untimed ? '不定时' : s.displayTime}
+                      {s.displayTime !== s.time && (
+                        <span className="block text-[9px] font-normal text-ink-400 line-through">{s.time}</span>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-base">
                       {s.item.categoryIcon ?? CATEGORY_EMOJI[s.item.category] ?? '📌'}
                     </span>
                     <span className="min-w-0 flex-1">
@@ -616,15 +634,17 @@ export function DashboardPage() {
                         <div className="flex shrink-0 items-center gap-1">
                           <button
                             onClick={() => void untimedAck(s.item, 'completed')}
-                            className="rounded-full bg-primary-500 px-2 py-0.5 text-[10px] font-medium text-white"
+                            aria-label="完成"
+                            className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-500 text-white"
                           >
-                            完成
+                            <Check size={13} />
                           </button>
                           <button
                             onClick={() => void untimedAck(s.item, 'skipped')}
-                            className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-medium text-ink-600"
+                            aria-label="放弃"
+                            className="flex h-6 w-6 items-center justify-center rounded-full bg-ink-100 text-ink-500"
                           >
-                            放弃
+                            <X size={13} />
                           </button>
                           {/* #26：完成并拍照记录 */}
                           <button
@@ -636,16 +656,16 @@ export function DashboardPage() {
                           </button>
                         </div>
                       ) : (
-                        <span className="shrink-0 rounded-full bg-ink-100 px-2.5 py-1 text-[10px] text-ink-300">
-                          仅±3天可确认
+                        <span className="shrink-0 rounded-full bg-ink-100 px-2 py-0.5 text-[10px] text-ink-300">
+                          仅±3天
                         </span>
                       );
                     }
                     // 距离该时间点触发的间隔（以当前看板日期/时间为基准；
                     // 不用 reminder.nextTriggerAt——它可能已推进到明天，导致"明天的提醒显示 10 分钟后"）
-                    const label = untilLabel(selected, s.time);
+                    const label = untilLabel(selected, s.displayTime);
                     return label ? (
-                      <span className="shrink-0 rounded-full bg-primary-500/15 px-2.5 py-1 text-[11px] font-medium text-primary-700">
+                      <span className="shrink-0 rounded-full bg-primary-500/15 px-2 py-0.5 text-[10px] font-medium text-primary-700">
                         {label}
                       </span>
                     ) : null;
@@ -690,7 +710,7 @@ export function DashboardPage() {
                         onClick={() => setDetailItem(s.item)}
                         className="flex min-w-0 flex-1 items-center gap-3 text-left"
                       >
-                      <span className="w-12 shrink-0 text-right text-xs font-semibold text-ink-500">{s.item.untimed ? '不定时' : s.time}</span>
+                      <span className="w-10 shrink-0 text-right text-[10px] font-semibold text-ink-500">{s.item.untimed ? '不定时' : s.time}</span>
                       <span className="text-lg opacity-50">
                         {s.item.categoryIcon ?? CATEGORY_EMOJI[s.item.category] ?? '📌'}
                       </span>
@@ -755,7 +775,7 @@ export function DashboardPage() {
                       className="flex min-w-0 flex-1 items-center gap-3 text-left"
                       aria-label="查看详情"
                     >
-                    <span className="w-12 shrink-0 text-right text-xs font-semibold text-danger-700">{s.item.untimed ? '不定时' : s.time}</span>
+                    <span className="w-10 shrink-0 text-right text-[10px] font-semibold text-danger-700">{s.item.untimed ? '不定时' : s.time}</span>
                     <span className="text-lg opacity-60">
                       {s.item.categoryIcon ?? CATEGORY_EMOJI[s.item.category] ?? '📌'}
                     </span>
@@ -772,16 +792,19 @@ export function DashboardPage() {
                     </span>
                     </button>
                     {s.status === 'skipped' ? (
-                      <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-ink-300 px-2.5 py-1 text-[10px] font-medium text-white">
-                        ↷ 已跳过
+                      <span
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink-300 text-white"
+                        aria-label="已放弃"
+                      >
+                        <X size={12} />
                       </span>
                     ) : (
                       <button
                         onClick={() => setCompleteConfirm({ item: s.item, time: s.item.untimed ? undefined : s.time })}
-                        className="flex shrink-0 items-center gap-0.5 rounded-full bg-danger-500 px-2.5 py-1 text-[10px] font-medium text-white"
-                        aria-label="修改为已完成"
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-danger-500 text-white"
+                        aria-label="已错过，点击修改为已完成"
                       >
-                        ✗ 已错过
+                        <X size={12} />
                       </button>
                     )}
                     <button
@@ -789,9 +812,9 @@ export function DashboardPage() {
                         openCameraFor(s.item, s.item.untimed ? undefined : s.time);
                       }}
                       aria-label="补记完成并拍照记录"
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-danger-500/15 text-danger-600"
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-danger-500/15 text-danger-600"
                     >
-                      <Camera size={13} />
+                      <Camera size={12} />
                     </button>
                     {/* #4：已放弃（跳过）的允许再次确认完成 */}
                     {s.status === 'skipped' && (
@@ -803,9 +826,10 @@ export function DashboardPage() {
                             .catch(() => undefined)
                             .then(() => load(selected));
                         }}
-                        className="flex shrink-0 items-center gap-1 rounded-full bg-primary-500 px-2.5 py-1 text-[10px] font-medium text-white"
+                        aria-label="再次完成"
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-500 text-white"
                       >
-                        <Check size={11} /> 再次完成
+                        <Check size={13} />
                       </button>
                     )}
                   </li>

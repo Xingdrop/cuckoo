@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2NvbXBvbmVudHMvQ29sbGFwc2libGVTZWN0aW9uLnRzeHwyMDI2LTA5fDI1ZTNhMjhmOTc= */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL2NvbXBvbmVudHMvQ29sbGFwc2libGVTZWN0aW9uLnRzeHwyMDI2LTA5fDBlMDE5NGUxOWQ= */
 import { ChevronDown } from 'lucide-react';
 import { ReactNode, useState } from 'react';
 
@@ -58,14 +58,14 @@ export function CollapsibleSection({
         </span>
         {badge !== undefined && <span className="text-[11px] text-ink-300">{badge}</span>}
         </button>
-        {/* 2026-09-06：收起/展开与头部动作键统一靠右（此前"收起"紧跟标题左侧） */}
+        {/* 2026-09-07（#11）：头部动作键（如一键清空）在「收起/展开」左侧 */}
+        {headerAction}
         <button
           onClick={toggle}
           className="shrink-0 py-1 pl-2 text-[11px] text-ink-400"
         >
           {open ? '收起' : '展开'}
         </button>
-        {headerAction}
       </div>
       {open && <div className="mt-2">{children}</div>}
     </section>

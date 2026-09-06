@@ -1,10 +1,10 @@
-// @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL3NvY2lhbC9GYW1pbHlUYWIudHN4fDIwMjYtMDl8Yjg3NmYxYjQyMA==
+// @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3BhZ2VzL3NvY2lhbC9GYW1pbHlUYWIudHN4fDIwMjYtMDl8NmFjZWMxNjk4Nw==
 import { ChevronRight, HeartHandshake, MessageCircle, UserPlus, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { EmptyState } from '../../components/ui/Feedback';
 import type { FamilyBindingItem } from '../../services/api/api.family';
 import { familyApi } from '../../services/api/api.family';
-import { errorMessage } from '../../services/http';
+import { absoluteUrl, errorMessage } from '../../services/http';
 import { useGuestStore } from '../../guest/guestStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 
@@ -93,7 +93,7 @@ export function FamilyTab({
                 className="flex w-full items-center gap-3 rounded-card bg-surface p-4 text-left shadow-sm"
               >
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-50 text-sm font-semibold text-primary-600">
-                  {b.peer.avatarUrl ? <img src={b.peer.avatarUrl} alt="" className="h-full w-full object-cover" /> : b.peer.username.slice(0, 1).toUpperCase()}
+                  {b.peer.avatarUrl ? <img src={absoluteUrl(b.peer.avatarUrl)} alt="" className="h-full w-full object-cover" /> : b.peer.username.slice(0, 1).toUpperCase()}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">@{b.peer.username}</span>

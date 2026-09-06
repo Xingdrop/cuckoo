@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3NlcnZpY2VzL2FwaS9hcGkuc3RhdHMudHN8MjAyNi0wOXw5MjIwYTc2MDZh */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3NlcnZpY2VzL2FwaS9hcGkuc3RhdHMudHN8MjAyNi0wOXw4NGE3ZWUwOTk3 */
 import { http } from '../http';
 import { useLocal } from '../../guest/localMode';
 import { guestApi } from '../../guest/guestApi';
@@ -22,6 +22,8 @@ export interface WaterInfo {
   waterGoalMl: number;
   rate: number;
   reached: boolean;
+  /** #7：连续达标天数（今天未达标不打断——从昨天起算） */
+  streakDays: number;
 }
 
 export interface DayStat {

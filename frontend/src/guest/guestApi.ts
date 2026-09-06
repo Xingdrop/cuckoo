@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2d1ZXN0L2d1ZXN0QXBpLnRzfDIwMjYtMDl8MzZkOWI5Njc0MA== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL2d1ZXN0L2d1ZXN0QXBpLnRzfDIwMjYtMDl8MWYzMDAxM2MwMA== */
 import { useGuestStore, type GuestReminder, type GuestMedicine, type GuestPlan, type GuestFeedPost, type GuestTemplate } from './guestStore';
 import { shiftKey } from '../utils/calendar';
 import type {
@@ -402,17 +402,34 @@ export const guestApi = {
   waterInfo(date?: string) {
     const key = date ?? todayKey();
     const settings = useGuestStore.getState().settings;
-    const waterMl = useGuestStore
+    const logs = useGuestStore
       .getState()
-      .logs.filter((l) => l.amount > 0 && localDayOf(l.scheduledTime) === key)
+      .logs.filter((l) => l.amount > 0);
+    const waterMl = logs
+      .filter((l) => localDayOf(l.scheduledTime) === key)
       .reduce((sum, l) => sum + l.amount, 0);
     const waterGoalMl = settings.waterGoalMl || 2000;
+    // #7 连续达标天数：从查询日往前逐日累计；查询日=今天且未达标不打断（从昨天起算）
+    let streakDays = 0;
+    if (waterGoalMl > 0) {
+      const perDay = new Map<string, number>();
+      for (const l of logs) perDay.set(localDayOf(l.scheduledTime), (perDay.get(localDayOf(l.scheduledTime)) ?? 0) + l.amount);
+      const today = todayKey();
+      let cursor = key;
+      if (key === today && waterMl < waterGoalMl) cursor = shiftKey(cursor, -1);
+      for (let i = 0; i < 365; i++) {
+        if ((perDay.get(cursor) ?? 0) < waterGoalMl) break;
+        streakDays += 1;
+        cursor = shiftKey(cursor, -1);
+      }
+    }
     return {
       date: key,
       waterMl,
       waterGoalMl,
       rate: Math.min(100, Math.round((waterMl / waterGoalMl) * 100)),
       reached: waterMl >= waterGoalMl,
+      streakDays,
     };
   },
 
@@ -580,13 +597,19 @@ export const guestApi = {
     const plan = s.plans.find((p) => p.id === id);
     if (plan && patch.isActive !== undefined && patch.isActive !== plan.isActive) {
       if (patch.isActive) {
-        // 开启：按配置重建缺失的提醒（已有的保留）
+        // 开启：按配置重建缺失的提醒；已有停用的恢复启用并重算触发时间
         const configs = (plan.config ?? []) as Array<Record<string, unknown>>;
         let changed = false;
         const nextConfig = configs.map((c) => {
           const rid = c.reminderId as string | undefined;
           const existing = rid ? useGuestStore.getState().reminders.find((r) => r.id === rid) : null;
-          if (existing) return c;
+          if (existing) {
+            if (!existing.isActive) {
+              // 恢复启用（nextTriggerAt 由 toReminder 按 isActive 动态重算，无需存储）
+              useGuestStore.getState().updateReminder(existing.id, { isActive: true });
+            }
+            return c;
+          }
           const base = buildLocalReminderFromConfig(id, c);
           const newId = `g-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
           useGuestStore.getState().insertReminder({ ...base, id: newId, createdAt: nowIso(), updatedAt: nowIso() });
@@ -595,9 +618,11 @@ export const guestApi = {
         });
         if (changed) useGuestStore.getState().patchPlan(id, { config: nextConfig });
       } else {
-        // 关闭：清除全部相关提醒（配置保留——再次开启可重建）
+        // 关闭：停用全部相关提醒（保留可见——提醒数/明细/一键发帖不受影响；配置保留）
         const s2 = useGuestStore.getState();
-        for (const r of [...s2.reminders.filter((x) => x.planId === id)]) s2.removeReminder(r.id);
+        for (const r of s2.reminders.filter((x) => x.planId === id)) {
+          if (r.isActive) s2.updateReminder(r.id, { isActive: false });
+        }
       }
     }
     useGuestStore.getState().patchPlan(id, patch as never);

@@ -2,6 +2,7 @@
 import { http } from '../http';
 import { useLocal } from '../../guest/localMode';
 import { guestApi } from '../../guest/guestApi';
+import { recordCloudDelete } from '../../guest/guestStore';
 import type {
   ChallengeSettings,
   DelaySettings,
@@ -69,7 +70,15 @@ export const remindersApi = {
       : http.put<Reminder>(`/reminders/${id}`, body).then((r) => r.data),
 
   remove: (id: string) =>
-    useLocal() ? Promise.resolve(guestApi.remove(id)) : http.delete(`/reminders/${id}`).then((r) => r.data),
+    useLocal()
+      ? Promise.resolve(guestApi.remove(id))
+      : http
+          .delete(`/reminders/${id}`)
+          .then((r) => {
+            // 2026-09-07：镜像同步删除+墓碑，防重登回灌复活
+            recordCloudDelete('reminders', id);
+            return r.data;
+          }),
 
   setActive: (id: string, isActive: boolean) =>
     useLocal()

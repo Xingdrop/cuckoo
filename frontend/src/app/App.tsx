@@ -86,7 +86,8 @@ function SyncOnOnline() {
   );
 }
 
-/** #17/#19：未联网顶部横幅（网络断开 / APK 无服务器时；可点击 × 关闭；检测完成前不闪现） */
+/** #17/#19：未联网顶部横幅（网络断开 / APK 无服务器时；可点击 × 关闭；检测完成前不闪现）；
+ * 2026-09-07 改为文档流内联（原 fixed+全局 pt-6 会在横幅关闭后残留 24px 死留白） */
 function GlobalOfflineBadge() {
   const online = useConnectionStore((s) => s.online);
   const checked = useConnectionStore((s) => s.lastCheck > 0);
@@ -94,7 +95,7 @@ function GlobalOfflineBadge() {
   if (online || !checked || hidden) return null;
   if (!checked) return null;
   return (
-    <div className="fixed inset-x-0 top-0 z-[75] flex items-center justify-center gap-1.5 bg-warning-500 px-3 py-1.5 text-[11px] font-medium text-white shadow-sm">
+    <div className="flex items-center justify-center gap-1.5 bg-warning-500 px-3 py-1.5 text-[11px] font-medium text-white shadow-sm">
       <WifiOff size={12} strokeWidth={2.2} />
       未联网 — 显示本地数据（断网前接收的社交内容可浏览），联网后自动同步
       <button
@@ -157,7 +158,6 @@ export function App() {
       <GlobalOfflineBadge />
       <SyncOnOnline />
       <ReminderScheduler />
-      <div className={online ? '' : 'pt-6'}>
       <div>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
@@ -396,7 +396,6 @@ export function App() {
           />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
-      </div>
       </div>
     </BrowserRouter>
   );

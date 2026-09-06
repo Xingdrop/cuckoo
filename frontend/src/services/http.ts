@@ -74,6 +74,11 @@ http.interceptors.response.use(
     if (typeof res.data === 'string' && /<!doctype html|<html[\s>]/i.test(res.data)) {
       return Promise.reject(new Error('服务器地址不可用（返回了网页而非接口数据）：请在「设置 → 高级 → 服务器地址」填写后端地址，例如 http://电脑IP:3000'));
     }
+    // 2026-09-07 全局自愈：任何 API 请求成功但联网标志仍为离线（健康探测误报/瞬时失败）→
+    // 立即重探测恢复 online，避免「未联网」横幅在全应用残留（动态 import 避免与 connectionStore 循环依赖）
+    void import('../stores/connectionStore').then(({ useConnectionStore }) => {
+      if (!useConnectionStore.getState().online) void useConnectionStore.getState().refresh();
+    });
     return res;
   },
   (error: AxiosError<ApiErrorBody>) => {

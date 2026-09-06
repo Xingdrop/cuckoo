@@ -14,9 +14,8 @@ export function CollapsibleSection({
   title,
   badge,
   defaultOpen,
-  /** 头部动作插槽（如「一键清空」小按钮）——点击不触发折叠；side 控制左/右 */
+  /** 头部动作插槽（如「一键清空」小按钮）——固定右置，点击不触发折叠 */
   headerAction,
-  headerActionSide = 'left',
   children,
 }: {
   id: string;
@@ -25,7 +24,6 @@ export function CollapsibleSection({
   badge?: string;
   defaultOpen?: boolean;
   headerAction?: ReactNode;
-  headerActionSide?: 'left' | 'right';
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(() => {
@@ -46,7 +44,6 @@ export function CollapsibleSection({
   return (
     <section className="mb-4">
       <div className="flex w-full items-center gap-1.5 rounded-btn bg-surface px-3 py-2.5 shadow-sm">
-        {headerAction && headerActionSide === 'left' && headerAction}
         <button
           onClick={toggle}
           aria-expanded={open}
@@ -60,9 +57,15 @@ export function CollapsibleSection({
           {icon} {title}
         </span>
         {badge !== undefined && <span className="text-[11px] text-ink-300">{badge}</span>}
-          {headerAction && headerActionSide === 'right' && headerAction}
-          <span className="shrink-0 text-[11px] text-ink-400">{open ? '收起' : '展开'}</span>
         </button>
+        {/* 2026-09-06：收起/展开与头部动作键统一靠右（此前"收起"紧跟标题左侧） */}
+        <button
+          onClick={toggle}
+          className="shrink-0 py-1 pl-2 text-[11px] text-ink-400"
+        >
+          {open ? '收起' : '展开'}
+        </button>
+        {headerAction}
       </div>
       {open && <div className="mt-2">{children}</div>}
     </section>

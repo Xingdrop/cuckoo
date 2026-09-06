@@ -272,7 +272,7 @@ export function SocialPage() {
 
   return (
     <div className="mx-auto max-w-md pb-20">
-      <header className="flex items-center justify-between px-4 pt-6">
+      <header className="flex items-center justify-between px-4 pt-2">
         <button
           onClick={() => navigate('/profile')}
           className="flex items-center gap-2.5"
@@ -320,7 +320,7 @@ export function SocialPage() {
       </header>
 
       {/* 分类 tab（#3：随内容滚动，不做吸顶） */}
-      <div className="mt-3 flex gap-1 overflow-x-auto px-4 py-1.5">
+      <div className="mt-2 flex gap-1 overflow-x-auto px-4 py-1.5">
         {([
           ['feed', '广场'],
           ['following', '关注'],

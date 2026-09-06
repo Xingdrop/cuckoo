@@ -2,6 +2,7 @@
 import { http } from '../http';
 import { useLocal, useGuestMode } from '../../guest/localMode';
 import { guestApi } from '../../guest/guestApi';
+import { recordCloudDelete } from '../../guest/guestStore';
 
 export type PlanSourceType = 'self' | 'official' | 'share';
 
@@ -41,7 +42,13 @@ export const plansApi = {
   remove: (id: string) =>
     useLocal()
       ? Promise.resolve(guestApi.removePlan(id))
-      : http.delete(`/plans/${id}`).then((r) => r.data),
+      : http
+          .delete(`/plans/${id}`)
+          .then((r) => {
+            // 2026-09-07：镜像同步删除+墓碑，防重登回灌复活
+            recordCloudDelete('plans', id);
+            return r.data;
+          }),
   share: (id: string) =>
     useLocal()
       ? Promise.reject(new Error('离线模式暂不支持分享，请联网后使用'))

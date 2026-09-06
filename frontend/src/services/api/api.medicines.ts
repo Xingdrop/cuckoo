@@ -2,6 +2,7 @@
 import { http } from '../http';
 import { useLocal } from '../../guest/localMode';
 import { guestApi } from '../../guest/guestApi';
+import { recordCloudDelete } from '../../guest/guestStore';
 import type { Medicine, Page, ReminderLog } from '../../types';
 
 export interface MedicineInput {
@@ -37,7 +38,13 @@ export const medicinesApi = {
   remove: (id: string) =>
     useLocal()
       ? Promise.resolve(guestApi.removeMedicine(id))
-      : http.delete(`/medicines/${id}`).then((r) => r.data),
+      : http
+          .delete(`/medicines/${id}`)
+          .then((r) => {
+            // 2026-09-07：镜像同步删除+墓碑，防重登回灌复活
+            recordCloudDelete('medicines', id);
+            return r.data;
+          }),
 
   adjustStock: (id: string, delta: number) =>
     useLocal()

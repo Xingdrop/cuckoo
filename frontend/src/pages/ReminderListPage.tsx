@@ -274,7 +274,6 @@ export function ReminderListPage() {
           icon="📌"
           title="全部提醒"
           badge={`（${items.length}）`}
-          headerActionSide="right"
           headerAction={
             <button
               onClick={() => setConfirmClearAll(true)}

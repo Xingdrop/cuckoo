@@ -812,3 +812,12 @@ export const isLocalMode = (): boolean => {
   const g = useGuestStore.getState();
   return g.active || (g.mirrorOf !== null && g.mirrorOf.startsWith('seed:'));
 };
+
+/** 2026-09-07：在线删除成功后同步本地镜像 + 记墓碑。
+ *  否则镜像存档保留已删项，重新登录时 exportBundle 回灌过期镜像 → upsert 让已删项"复活"。 */
+export const recordCloudDelete = (kind: 'reminders' | 'medicines' | 'plans', id: string): void => {
+  const g = useGuestStore.getState();
+  if (kind === 'reminders') g.removeReminder(id);
+  else if (kind === 'medicines') g.removeMedicine(id);
+  else g.removePlan(id);
+};

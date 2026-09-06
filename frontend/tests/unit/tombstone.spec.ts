@@ -1,6 +1,6 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvdGVzdHMvdW5pdC90b21ic3RvbmUuc3BlYy50c3wyMDI2LTA5fDQ0ZjM4ODZmNWI= */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useGuestStore } from '../../src/guest/guestStore';
+import { useGuestStore, recordCloudDelete } from '../../src/guest/guestStore';
 import type { GuestReminder } from '../../src/guest/guestStore';
 
 /**
@@ -85,5 +85,22 @@ describe('guestStore 离线删除墓碑', () => {
     expect(useGuestStore.getState().deleted).toEqual({ reminders: [], medicines: [], plans: [] });
     // 再导出：墓碑已消费，不再携带
     expect(useGuestStore.getState().exportBundle().deleted?.reminders).toEqual([]);
+  });
+
+  it('2026-09-07 在线删除（recordCloudDelete）→ 镜像同步移除 + 记墓碑（防重登回灌复活）', () => {
+    // 模拟在线账户镜像：mirrorOf='online'，存档里还有上次镜像的旧提醒
+    useGuestStore.setState({ owner: { mode: 'online', userId: 'u1' }, mirrorOf: 'online' });
+    const s = useGuestStore.getState();
+    s.insertReminder(seedReminder('r1'));
+    s.insertReminder(seedReminder('r2'));
+
+    // 在线删除走服务器 API 成功后调用（api.reminders.remove 在线分支）
+    recordCloudDelete('reminders', 'r1');
+
+    const st = useGuestStore.getState();
+    expect(st.reminders.map((r) => r.id)).toEqual(['r2']);
+    expect(st.deleted.reminders).toEqual(['r1']);
+    // 重登回灌时 exportBundle 携带墓碑 → importData 真删，旧镜像项不会复活
+    expect(useGuestStore.getState().exportBundle().deleted?.reminders).toEqual(['r1']);
   });
 });

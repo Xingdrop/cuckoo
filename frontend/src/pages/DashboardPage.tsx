@@ -332,7 +332,7 @@ export function DashboardPage() {
       style={{ touchAction: 'pan-y' }}
     >
       {/* #24：顶部日期头——两行布局（日期居中不挤压）+ 点击自选日期 */}
-      <header className="px-4 pt-5">
+      <header className="px-4 pt-3">
         <div className="flex items-center justify-between">
           <button
             onClick={() => setSelected((s) => shiftKey(s, -1))}
@@ -592,7 +592,7 @@ export function DashboardPage() {
                     onClick={() => setDetailItem(s.item)}
                     className="flex min-w-0 flex-1 items-center gap-3 text-left"
                   >
-                    <span className="w-14 shrink-0 text-right text-sm font-semibold text-primary-600">{s.item.untimed ? '不定时' : s.time}</span>
+                    <span className="w-12 shrink-0 text-right text-xs font-semibold text-primary-600">{s.item.untimed ? '不定时' : s.time}</span>
                     <span className="text-lg">
                       {s.item.categoryIcon ?? CATEGORY_EMOJI[s.item.category] ?? '📌'}
                     </span>
@@ -613,16 +613,16 @@ export function DashboardPage() {
                       // #12/#14：不定时 — 完成/放弃（仅限今日前后 3 天可操作）
                       const canOperate = Math.abs(dayDiff) <= 3;
                       return canOperate ? (
-                        <div className="flex shrink-0 items-center gap-1.5">
+                        <div className="flex shrink-0 items-center gap-1">
                           <button
                             onClick={() => void untimedAck(s.item, 'completed')}
-                            className="rounded-full bg-primary-500 px-2.5 py-1 text-[11px] font-medium text-white"
+                            className="rounded-full bg-primary-500 px-2 py-0.5 text-[10px] font-medium text-white"
                           >
                             完成
                           </button>
                           <button
                             onClick={() => void untimedAck(s.item, 'skipped')}
-                            className="rounded-full bg-ink-100 px-2.5 py-1 text-[11px] font-medium text-ink-600"
+                            className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-medium text-ink-600"
                           >
                             放弃
                           </button>
@@ -630,9 +630,9 @@ export function DashboardPage() {
                           <button
                             onClick={() => openCameraFor(s.item)}
                             aria-label="完成并拍照记录"
-                            className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-500/10 text-primary-600"
+                            className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-500/10 text-primary-600"
                           >
-                            <Camera size={13} />
+                            <Camera size={12} />
                           </button>
                         </div>
                       ) : (
@@ -690,7 +690,7 @@ export function DashboardPage() {
                         onClick={() => setDetailItem(s.item)}
                         className="flex min-w-0 flex-1 items-center gap-3 text-left"
                       >
-                      <span className="w-14 shrink-0 text-right text-sm font-semibold text-ink-500">{s.item.untimed ? '不定时' : s.time}</span>
+                      <span className="w-12 shrink-0 text-right text-xs font-semibold text-ink-500">{s.item.untimed ? '不定时' : s.time}</span>
                       <span className="text-lg opacity-50">
                         {s.item.categoryIcon ?? CATEGORY_EMOJI[s.item.category] ?? '📌'}
                       </span>
@@ -755,7 +755,7 @@ export function DashboardPage() {
                       className="flex min-w-0 flex-1 items-center gap-3 text-left"
                       aria-label="查看详情"
                     >
-                    <span className="w-14 shrink-0 text-right text-sm font-semibold text-danger-700">{s.item.untimed ? '不定时' : s.time}</span>
+                    <span className="w-12 shrink-0 text-right text-xs font-semibold text-danger-700">{s.item.untimed ? '不定时' : s.time}</span>
                     <span className="text-lg opacity-60">
                       {s.item.categoryIcon ?? CATEGORY_EMOJI[s.item.category] ?? '📌'}
                     </span>

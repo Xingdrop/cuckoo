@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL0ZhbWlseVBhcnRuZXJQYWdlLnRzeHwyMDI2LTA5fGYxYzc4M2I1NDQ= */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3BhZ2VzL0ZhbWlseVBhcnRuZXJQYWdlLnRzeHwyMDI2LTA5fGM5ZTRiOTViZGY= */
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -135,11 +135,13 @@ export function FamilyPartnerPage() {
                 <p className="mt-0.5 text-[11px] text-ink-500">错过</p>
               </div>
               <div className="text-center">
-                <p className="text-xl font-bold">
+                {/* 2026-09-07（#12）：数值/目标分行——四列格宽有限，原「2450/2000」一行必溢出 */}
+                <p className="text-xl font-bold leading-tight">
                   {data.summary.waterMl}
-                  <span className="text-xs font-normal text-ink-400">/{data.summary.waterGoalMl}</span>
+                  <span className="text-[10px] font-normal text-ink-400">ml</span>
                 </p>
-                <p className="mt-0.5 text-[11px] text-ink-500">水量(ml)</p>
+                <p className="text-[10px] leading-tight text-ink-400">目标{data.summary.waterGoalMl}</p>
+                <p className="mt-0.5 text-[11px] text-ink-500">喝水量</p>
               </div>
             </section>
 

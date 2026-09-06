@@ -1,10 +1,10 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL01lZGljaW5lc1BhZ2UudHN4fDIwMjYtMDl8MTkwNTdhZGM0ZA== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3BhZ2VzL01lZGljaW5lc1BhZ2UudHN4fDIwMjYtMDl8MjAzZGNlMTEyNQ== */
 import { CalendarClock, ChevronLeft, ChevronRight, Minus, Plus, Pill } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { ErrorBanner, EmptyState, LoadingState } from '../components/ui/Feedback';
-import { errorMessage } from '../services/http';
+import { absoluteUrl, errorMessage } from '../services/http';
 import { medicinesApi } from '../services/api/api.medicines';
 import type { Medicine } from '../types';
 
@@ -138,7 +138,7 @@ export function MedicinesPage() {
                       {m.photoUrls!.slice(0, 6).map((u, i) => (
                         <img
                           key={u}
-                          src={u}
+                          src={absoluteUrl(u)}
                           alt={`${m.name} 照片 ${i + 1}`}
                           className="h-14 w-14 shrink-0 rounded-md object-cover"
                         />

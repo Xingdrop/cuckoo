@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL0ZhbWlseVBhZ2UudHN4fDIwMjYtMDl8Nzk1N2RmZmUwNg== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8c3JjL3BhZ2VzL0ZhbWlseVBhZ2UudHN4fDIwMjYtMDl8YzZjNDM5YjY2MA== */
 import { ChevronLeft, Copy, RefreshCw, UserPlus, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -8,7 +8,7 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { ErrorBanner, LoadingState } from '../components/ui/Feedback';
 import { contactsApi, type EmergencyContactItem } from '../services/api/api.contacts';
 import { familyApi, type FamilyBindingItem } from '../services/api/api.family';
-import { errorMessage } from '../services/http';
+import { absoluteUrl, errorMessage } from '../services/http';
 import { useAuthStore } from '../stores/authStore';
 import { bindCodeSchema, contactSchema, type ContactInput } from '../types/schemas';
 
@@ -247,7 +247,7 @@ export function FamilyPage() {
                   <div className="flex items-center gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-50 text-sm font-semibold text-primary-600">
                       {b.peer.avatarUrl ? (
-                        <img src={b.peer.avatarUrl} alt="" className="h-full w-full object-cover" />
+                        <img src={absoluteUrl(b.peer.avatarUrl)} alt="" className="h-full w-full object-cover" />
                       ) : (
                         b.peer.username.slice(0, 1).toUpperCase()
                       )}

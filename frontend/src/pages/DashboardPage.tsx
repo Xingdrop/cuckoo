@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { ReminderDetailModal } from '../components/ReminderDetailModal';
-import { BirdMascot } from '../components/BirdMascot';
 import { VoiceAssistant } from '../features/voice/VoiceAssistant';
 import { remindersApi } from '../services/api/api.reminders';
 import { authApi } from '../services/api/api.auth';
@@ -463,11 +462,6 @@ export function DashboardPage() {
               <p className="flex min-w-0 items-center gap-1 text-sm font-semibold text-ink-700">
                 <span className="shrink-0 text-base">💧</span>
                 <span className="shrink-0">喝水</span>
-                {selected !== today && (
-                  <span className="shrink-0 rounded-full bg-ink-100 px-1.5 py-0.5 text-[9px] text-ink-500">
-                    {selected.slice(5)}
-                  </span>
-                )}
               </p>
               <div className="relative shrink-0">
                 {selected === today ? (
@@ -508,7 +502,6 @@ export function DashboardPage() {
                 <p className="mt-2 truncate text-2xl font-bold leading-none text-primary-600">
                   {water.waterMl}
                   <span className="ml-0.5 text-xs font-normal text-ink-400">ml</span>
-                  <span className="ml-1.5 text-[11px] font-normal text-ink-500">/ {water.waterGoalMl}ml</span>
                 </p>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-100">
                   <div
@@ -518,10 +511,12 @@ export function DashboardPage() {
                 </div>
                 {/* 底部信息行（与完成率卡「连续 N 天」行等高，消除卡片空白） */}
                 <p className="mt-1 h-4 truncate text-[10px] leading-4 text-ink-400">
-                  {water.rate >= 100 ? (
-                    <span className="font-medium text-primary-600">✓ 今日已达标</span>
+                  {selected !== today ? (
+                    <>{selected.slice(5).replace('-', '/')} 当日喝水 {water.waterMl}ml</>
+                  ) : water.rate >= 100 ? (
+                    <span className="font-medium text-primary-600">✓ 今日已达标 · 目标 {water.waterGoalMl}ml</span>
                   ) : (
-                    <>还可喝 {Math.max(0, water.waterGoalMl - water.waterMl)}ml · 每杯约 200ml</>
+                    <>还可喝 {Math.max(0, water.waterGoalMl - water.waterMl)}ml · 目标 {water.waterGoalMl}ml</>
                   )}
                 </p>
               </>
@@ -553,7 +548,7 @@ export function DashboardPage() {
           ) : slots.length === 0 ? (
             <div className="mt-3 rounded-card bg-surface p-8 text-center shadow-sm">
               <div className="mx-auto mb-2 flex justify-center">
-                <BirdMascot size={88} />
+                <img src="/icons/icon-192.png" alt="布谷" className="h-20 w-20 rounded-2xl shadow-md" />
               </div>
               <p className="text-sm text-ink-500">
                 {selected === today ? '今天还没有提醒，布谷鸟陪你从一个小习惯开始' : '这一天还没有安排提醒'}

@@ -5,141 +5,128 @@ import { loadAiConfig, runAssistant, type AssistantOutcome } from '../../assista
 import { nativeSpeechAvailable, startDictation, type DictationHandle } from './speechAdapter';
 
 /**
- * #26：语音助手（今日页）——唤醒手势：
- * 长按页面任意处出现跟随手指的圆圈（提示"上滑到麦克风"）→ 把圆圈划入右下角语音按钮 → 开始录音并实时显示识别文字
- * → 松手停止 → AI 按 API 目录执行 → 逐个提示「识别内容 / 修改动作 / 修改结果」。
+ * #26 语音助手 v2（2026-09-06 交互重做）：
+ * 长按语音按钮 → 开始识别（实时文字）→ 松手 →
+ * AI 解析出「将要进行的调整」预案（不执行）→ 用户点「确认执行」才落地。
+ * 识别：APK=原生插件（@capacitor-community/speech-recognition）；浏览器=Web Speech API。
  */
+
+interface PlanState {
+  text: string;
+  reply: string;
+  steps: AssistantOutcome['steps'];
+  actions: { id: string; params: Record<string, unknown> }[];
+  error?: string;
+}
+
 export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) {
   const [enabled, setEnabled] = useState(() => loadAiConfig().enabled);
-  /** 语音可用性：APK=原生插件（@capacitor-community/speech-recognition）；浏览器=Web Speech API */
   const [supported, setSupported] = useState(false);
 
-  const [armed, setArmed] = useState(false);
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const [recording, setRecording] = useState(false);
   const [live, setLive] = useState('');
+  const [plan, setPlan] = useState<PlanState | null>(null);
   const [outcome, setOutcome] = useState<AssistantOutcome | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const micRef = useRef<HTMLButtonElement | null>(null);
-  const startRef = useRef<{ x: number; y: number; t: number } | null>(null);
-  const cancelRef = useRef(true);
+  const btnRef = useRef<HTMLButtonElement | null>(null);
   const recRef = useRef<DictationHandle | null>(null);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pressingRef = useRef(false);
 
   useEffect(() => {
     setEnabled(loadAiConfig().enabled);
     void nativeSpeechAvailable().then(setSupported);
+    return () => {
+      if (holdTimer.current) clearTimeout(holdTimer.current);
+    };
   }, []);
 
-  /** 长按检测 + 圆圈跟随 + 划入麦克风 */
-  useEffect(() => {
-    const onStart = (e: TouchEvent) => {
-      if (!enabled) return;
-      const t = e.touches[0];
-      startRef.current = { x: t.clientX, y: t.clientY, t: Date.now() };
-      cancelRef.current = true;
-      // 450ms 长按（期间移动 < 14px）→ 显示圆圈
-      setTimeout(() => {
-        const s = startRef.current;
-        if (!s || cancelRef.current) return;
-        if (Math.hypot(t.clientX - s.x, t.clientY - s.y) < 14) {
-          setArmed(true);
-          setPos({ x: s.x, y: s.y });
-        }
-      }, 450);
-    };
-    const onMove = (e: TouchEvent) => {
-      if (!startRef.current) return;
-      const t = e.touches[0];
-      if (!armed) {
-        // 移动即视为取消长按
-        if (Math.hypot(t.clientX - startRef.current.x, t.clientY - startRef.current.y) > 14) {
-          cancelRef.current = true;
-        }
+  /** 长按按钮（≥350ms）开始识别；松手结束识别 → 出预案 */
+  const onPointerDown = () => {
+    if (!enabled || busy || recording) return;
+    pressingRef.current = true;
+    holdTimer.current = setTimeout(() => {
+      if (!pressingRef.current) return;
+      if (!supported) {
+        onToast('当前环境不支持语音识别（浏览器需 HTTPS；APK 请更新到含语音插件的新版本）');
         return;
       }
-      e.preventDefault();
-      setPos({ x: t.clientX, y: t.clientY });
-      if (!recording) {
-        const r = micRef.current?.getBoundingClientRect();
-        if (r) {
-          const cx = r.left + r.width / 2;
-          const cy = r.top + r.height / 2;
-          if (Math.hypot(t.clientX - cx, t.clientY - cy) < 46) startRecording();
-        }
-      }
-    };
-    const onEnd = () => {
-      if (recording) stopRecording();
-      cancelRef.current = true;
-      startRef.current = null;
-      setArmed(false);
-      setPos(null);
-    };
-    document.addEventListener('touchstart', onStart, { passive: true });
-    document.addEventListener('touchmove', onMove, { passive: false });
-    document.addEventListener('touchend', onEnd);
-    document.addEventListener('touchcancel', onEnd);
-    return () => {
-      document.removeEventListener('touchstart', onStart);
-      document.removeEventListener('touchmove', onMove);
-      document.removeEventListener('touchend', onEnd);
-      document.removeEventListener('touchcancel', onEnd);
-    };
-  }, [enabled, armed, recording]);
+      void startDictation({
+        onPartial: (t) => setLive(t),
+        onFinal: (t) => {
+          setRecording(false);
+          void makePlan(t.trim());
+        },
+        onError: (msg) => {
+          setRecording(false);
+          onToast(msg);
+        },
+      }).then((h) => {
+        recRef.current = h;
+        setLive('');
+        setRecording(true);
+      });
+    }, 350);
+  };
 
-  const startRecording = () => {
-    if (busy) return;
-    if (!supported) {
-      onToast('当前环境不支持语音识别（浏览器需 HTTPS；APK 请更新到含语音插件的新版本）');
-      setArmed(false);
-      setPos(null);
+  const onPointerUp = () => {
+    pressingRef.current = false;
+    if (holdTimer.current) {
+      clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+    }
+    if (recording) {
+      void recRef.current?.stop();
+    } else if (enabled && !busy) {
+      onToast('长按按钮说话，松手后确认要执行的调整');
+    }
+  };
+
+  /** 松手后：AI 解析预案（不执行） */
+  const makePlan = async (text: string) => {
+    if (!text) {
+      onToast('未识别到语音');
       return;
     }
-    void startDictation({
-      onPartial: (t) => setLive(t),
-      onFinal: (t) => {
-        setRecording(false);
-        if (t.trim()) void handle(t.trim());
-        else onToast('未识别到语音');
-      },
-      onError: (msg) => {
-        setRecording(false);
-        onToast(msg);
-      },
-    }).then((h) => {
-      recRef.current = h;
-      setLive('');
-      setRecording(true);
-    });
-  };
-
-  const stopRecording = () => {
-    recRef.current?.stop();
-  };
-
-  const handle = async (text: string) => {
     setBusy(true);
     setLive(text);
-    const out = await runAssistant(text);
-    setOutcome(out);
+    const out = await runAssistant(text, { autoRun: false });
     setBusy(false);
-    onToast(out.error ? 'AI 处理未完成' : 'AI 已完成处理');
+    setPlan({
+      text,
+      reply: out.reply,
+      steps: out.steps,
+      actions: (out as unknown as { pendingActions?: { id: string; params: Record<string, unknown> }[] }).pendingActions ?? [],
+      error: out.error,
+    });
+    if (out.error) onToast('AI 处理未完成');
+  };
+
+  /** 确认执行预案 */
+  const confirmPlan = async () => {
+    if (!plan || busy) return;
+    setBusy(true);
+    const { executePending } = await import('../../assistant/assistant');
+    const out = await executePending(plan.actions, plan.text);
+    setBusy(false);
+    setPlan(null);
+    setOutcome(out);
+    onToast(out.error ? 'AI 执行未完成' : 'AI 已完成调整');
   };
 
   return (
     <>
-      {/* 语音按钮（#26：浅色固定，贴合今日页底部；未开启时点击提示去设置开启） */}
       <button
-        ref={micRef}
-        aria-label="语音助手"
-        title="长按页面任意处，上滑把圆圈拖到此处说话"
-        onClick={() =>
-          enabled
-            ? onToast('长按页面任意处，上滑把圆圈拖到麦克风即可说话')
-            : onToast('语音助手未开启：请到「设置 → 语音助手」开启并配置 AI API')
-        }
-        className={`fixed bottom-20 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-medium shadow-md transition-all ${
+        ref={btnRef}
+        aria-label="语音助手（长按说话）"
+        onPointerDown={onPointerDown}
+        onPointerUp={onPointerUp}
+        onPointerLeave={() => {
+          if (recording) onPointerUp();
+        }}
+        onContextMenu={(e) => e.preventDefault()}
+        className={`fixed bottom-20 left-1/2 z-40 flex -translate-x-1/2 select-none items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-medium shadow-md ${
           recording
             ? 'animate-pulse border-danger-500 bg-danger-500 text-white'
             : enabled
@@ -148,31 +135,64 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
         }`}
       >
         {recording ? <MicOff size={13} /> : <Mic size={13} />}
-        {recording ? '正在聆听…' : enabled ? '语音助手' : '语音助手（未开启）'}
+        {recording ? '松手结束' : enabled ? '长按说话' : '语音助手（未开启）'}
       </button>
 
-      {/* 长按圆圈跟随手指 */}
-      {armed && pos && !recording && (
-        <div
-          className="pointer-events-none fixed z-[70] flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-primary-500 bg-primary-500/20"
-          style={{ left: pos.x, top: pos.y }}
-        >
-          <span className="text-[10px] font-medium text-primary-700">拖到麦克风</span>
-        </div>
-      )}
-
-      {/* 录音实时字幕 */}
+      {/* 识别实时字幕 */}
       {recording && (
         <div className="fixed inset-x-0 top-0 z-[70] border-b border-primary-100 bg-surface/95 px-4 pb-3 pt-4 shadow-sm">
           <p className="flex items-center gap-2 text-xs text-primary-600">
             <span className="h-2 w-2 animate-pulse rounded-full bg-danger-500" />
             正在聆听…（松手结束）
           </p>
-          <p className="mt-2 min-h-5 text-sm text-ink-800">{live || '…'}</p>
+          <p className="mt-2 min-h-5 text-sm text-ink-800">{live || <span className="text-ink-300">|</span>}</p>
         </div>
       )}
 
-      {/* 结果面板：识别内容 / 修改动作 / 修改结果 */}
+      {/* 预案确认面板：识别内容 + 将要进行的调整 → 确认执行 */}
+      {plan && (
+        <div className="fixed inset-x-0 bottom-0 z-50 rounded-t-card bg-surface p-5 shadow-xl">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold">确认执行以下调整？</h3>
+            <button onClick={() => setPlan(null)} aria-label="关闭" className="rounded-full bg-ink-100 p-1.5 text-ink-500">
+              <X size={16} />
+            </button>
+          </div>
+          <p className="mt-2 rounded-btn bg-bg px-3 py-2 text-sm text-ink-700">🎤 {plan.text}</p>
+          <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
+            {plan.steps
+              .filter((s) => s.act)
+              .map((s, i) => (
+                <div key={i} className="rounded-btn bg-bg px-3 py-2 text-xs">
+                  <p className="text-ink-700">
+                    ⚙️ <span className="font-medium">将要：</span>
+                    {s.act}
+                  </p>
+                  {s.result && <p className="mt-1 text-ink-400">{s.result}</p>}
+                </div>
+              ))}
+            {plan.steps.filter((s) => s.act).length === 0 && (
+              <p className="rounded-btn bg-bg px-3 py-2 text-xs text-ink-400">没有匹配到可执行的调整（仅说明）</p>
+            )}
+          </div>
+          {plan.reply && <p className="mt-3 text-sm font-medium text-ink-800">{plan.reply}</p>}
+          {plan.error && <p className="mt-1 text-[11px] text-danger-600">{plan.error}</p>}
+          <div className="mt-3 flex gap-2">
+            <button onClick={() => setPlan(null)} className="flex-1 rounded-btn bg-ink-100 py-2.5 text-sm font-medium text-ink-700">
+              取消
+            </button>
+            <button
+              onClick={() => void confirmPlan()}
+              disabled={busy || plan.actions.length === 0}
+              className="flex-1 rounded-btn bg-primary-500 py-2.5 text-sm font-medium text-white disabled:opacity-40"
+            >
+              {busy ? '执行中…' : `确认执行${plan.actions.length ? `（${plan.actions.length} 项）` : ''}`}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 执行结果面板 */}
       {outcome && (
         <div className="fixed inset-x-0 bottom-0 z-50 rounded-t-card bg-surface p-5 shadow-xl">
           <div className="flex items-center justify-between">

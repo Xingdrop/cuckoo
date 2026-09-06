@@ -34,7 +34,17 @@ export class MedicinesService {
     private readonly push: PushService,
   ) {}
 
+  /** 服务器防护：单用户药品数量上限 */
+  private static readonly MAX_MEDICINES = 50;
+
   async create(userId: string, dto: CreateMedicineDto) {
+    const count = await this.medicineRepo.count({ where: { userId } });
+    if (count >= MedicinesService.MAX_MEDICINES) {
+      throw new BadRequestException({
+        code: 'LIMIT_REACHED',
+        message: `药品数量已达上限（${MedicinesService.MAX_MEDICINES} 种）`,
+      });
+    }
     const medicine = this.medicineRepo.create({
       id: randomUUID(),
       userId,

@@ -1,5 +1,5 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL1JlbWluZGVyTGlzdFBhZ2UudHN4fDIwMjYtMDl8OWE5OGY3ZDdhZA== */
-import { ChevronRight, Eraser, Pencil, Plus, Power, Settings2, Trash2 } from 'lucide-react';
+import { ChevronRight, Pencil, Plus, Power, Settings2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -264,26 +264,26 @@ export function ReminderListPage() {
             </span>
             <ChevronRight size={16} className="shrink-0 text-ink-300" />
           </button>
-          {/* 一键清空全部提醒（二次确认） */}
-          <button
-            onClick={() => setConfirmClearAll(true)}
-            disabled={items.length === 0 || clearing}
-            className="mt-2 flex w-full items-center gap-3 rounded-card bg-surface px-4 py-3.5 text-left shadow-sm disabled:opacity-40"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-danger-500/10">
-              <Eraser size={18} className="text-danger-600" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-medium text-danger-700">一键清空提醒</span>
-              <span className="block text-[11px] text-ink-500">
-                {items.length > 0 ? `删除全部 ${items.length} 条提醒（二次确认）` : '暂无可清空的提醒'}
-              </span>
-            </span>
-          </button>
         </CollapsibleSection>
 
         {/* 通用折叠分区：全部提醒 */}
-        <CollapsibleSection id="reminders" icon="📌" title="全部提醒" badge={`（${items.length}）`}>
+        <CollapsibleSection
+          id="reminders"
+          icon="📌"
+          title="全部提醒"
+          badge={`（${items.length}）`}
+          headerAction={
+            <button
+              onClick={() => setConfirmClearAll(true)}
+              disabled={items.length === 0 || clearing}
+              aria-label="一键清空全部提醒"
+              title="一键清空全部提醒"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-danger-500/10 text-danger-600 disabled:opacity-30"
+            >
+              <Trash2 size={13} />
+            </button>
+          }
+        >
         {loading ? (
           <div className="py-16 text-center text-sm text-ink-500">加载中…</div>
         ) : items.length === 0 ? (

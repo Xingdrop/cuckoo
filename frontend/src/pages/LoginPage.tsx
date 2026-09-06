@@ -2,7 +2,8 @@
 import { FormEvent, useState } from 'react';
 import { ChevronRight, WifiOff } from 'lucide-react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { errorMessage, tokenStore } from '../services/http';
+import { errorMessage, refreshApiBase, tokenStore } from '../services/http';
+import { Capacitor } from '@capacitor/core';
 import { useAuthStore } from '../stores/authStore';
 import { useGuestStore } from '../guest/guestStore';
 import { useConnectionStore } from '../stores/connectionStore';
@@ -19,6 +20,10 @@ export function LoginPage() {
   const [confirm, setConfirm] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** APK 首次使用：服务器地址未配置时在登录页直接填写（否则所有请求打到 WebView 本地源） */
+  const isNative = Capacitor.isNativePlatform();
+  const [apiBaseInput, setApiBaseInput] = useState(() => localStorage.getItem('cuckoo_api_base') ?? '');
+  const needServerSetup = isNative && !apiBaseInput.trim();
   const { user, login, register } = useAuthStore();
   const online = useConnectionStore((s) => s.online);
   const navigate = useNavigate();
@@ -151,7 +156,39 @@ export function LoginPage() {
             </div>
           )}
 
-          {error && (
+          {isNative && (
+        <div className={`mb-4 rounded-card border p-3.5 ${needServerSetup ? 'border-warning-500/60 bg-warning-500/10' : 'border-ink-100 bg-bg'}`}>
+          <p className="text-xs font-medium text-ink-700">服务器地址 {needServerSetup ? '（首次使用必填）' : ''}</p>
+          <div className="mt-2 flex gap-2">
+            <input
+              value={apiBaseInput}
+              onChange={(e) => setApiBaseInput(e.target.value)}
+              placeholder="http://电脑IP:3000"
+              inputMode="url"
+              autoCapitalize="off"
+              autoCorrect="off"
+              className="min-w-0 flex-1 rounded-btn border border-ink-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary-500"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem('cuckoo_api_base', apiBaseInput.trim());
+                refreshApiBase();
+                setError(null);
+              }}
+              className="shrink-0 rounded-btn bg-primary-500 px-4 py-2 text-xs font-medium text-white"
+            >
+              保存
+            </button>
+          </div>
+          {needServerSetup && (
+            <p className="mt-1.5 text-[11px] leading-relaxed text-ink-500">
+              与电脑同一 WiFi：填写电脑后端地址后即可登录/注册；游客模式与离线账户无需联网
+            </p>
+          )}
+        </div>
+      )}
+      {error && (
             <p className="rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">
               {error}
             </p>

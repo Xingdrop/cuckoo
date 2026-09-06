@@ -71,14 +71,15 @@ export async function cacheGuideMedia(): Promise<void> {
   }
 }
 
-/** 渲染地址解析：guide 插画优先本地缓存；其它资源走常规绝对地址 */
+/** 渲染地址解析：guide 插画 = 随 APP 打包的本地资源（/guide/*.webp，离线可用）；
+ *  本地 dataURL 缓存其次；都没有才回退服务器地址 */
 export function guideSrc(u?: string | null): string {
   if (!u) return '';
   const i = u.indexOf('/uploads/guide/');
   if (i === -1) return u;
   const name = u.slice(i + '/uploads/guide/'.length).replace(/\.webp$/, '');
+  if (GUIDE_NAMES.includes(name)) return `/guide/${name}.webp`;
   const cached = readCache()[name];
   if (cached && cached.startsWith('data:image')) return cached;
-  // 未缓存：APK/局域网需绝对地址；Web 同源相对地址即可
   return Capacitor.isNativePlatform() && BASE ? `${BASE}${u}` : u;
 }

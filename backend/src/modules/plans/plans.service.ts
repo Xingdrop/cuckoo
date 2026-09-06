@@ -38,9 +38,19 @@ export class PlansService {
   ) {}
 
   /** 创建自建计划 */
+  /** 服务器防护：单用户计划数量上限 */
+  private static readonly MAX_PLANS = 50;
+
   async create(userId: string, dto: { name: string; description?: string }) {
     if (!dto.name?.trim()) {
       throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '请输入计划名称' });
+    }
+    const count = await this.planRepo.count({ where: { userId } });
+    if (count >= PlansService.MAX_PLANS) {
+      throw new BadRequestException({
+        code: 'LIMIT_REACHED',
+        message: `计划数量已达上限（${PlansService.MAX_PLANS} 个）`,
+      });
     }
     return this.planRepo.save(
       this.planRepo.create({

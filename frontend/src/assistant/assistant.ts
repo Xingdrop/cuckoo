@@ -41,13 +41,18 @@ export interface AssistantOutcome {
   reply: string;
   steps: StepReport[];
   error?: string;
+  /** dryRun 模式：未执行的原始动作（确认后交 executePending） */
+  pendingActions?: { id: string; params: Record<string, unknown> }[];
 }
 
 /**
  * 执行 AI 返回的 JSON 计划：{"reply":"...","actions":[{"id":"..","params":{..}}]}
  * 每个动作独立执行并返回「动作→结果」，供界面逐条提示。
  */
-export async function runAssistant(rawText: string): Promise<AssistantOutcome> {
+export async function runAssistant(
+  rawText: string,
+  opts: { autoRun?: boolean } = { autoRun: true },
+): Promise<AssistantOutcome> {
   const cfg = loadAiConfig();
   if (!cfg.apiKey || !cfg.baseUrl) {
     return {
@@ -110,6 +115,17 @@ ${JSON.stringify(ctx)}
 
   const steps: StepReport[] = [{ say: rawText, act: '语音识别', result: '已识别' }];
   const actions = Array.isArray(plan.actions) ? plan.actions : [];
+  // dryRun：只返回预案（供用户确认），不执行
+  if (opts.autoRun === false) {
+    return {
+      reply: plan.reply?.slice(0, 200) ?? '好的，已为你处理。',
+      steps,
+      pendingActions: actions.slice(0, 5).filter((a): a is { id: string; params: Record<string, unknown> } => {
+        const def = CATALOG.find((c) => c.id === a.id);
+        return Boolean(def?.exec && def.run);
+      }),
+    };
+  }
   for (const a of actions.slice(0, 5)) {
     const def = CATALOG.find((c) => c.id === a.id);
     if (!def || !def.exec || !def.run) {
@@ -126,6 +142,30 @@ ${JSON.stringify(ctx)}
   if (actions.length === 0) steps.push({ say: '', act: '未执行修改', result: '仅说明' });
 
   return { reply: plan.reply?.slice(0, 200) ?? '好的，已为你处理。', steps };
+}
+
+/** 确认后执行预案动作（语音助手 v2：松手出预案 → 确认执行） */
+export async function executePending(
+  actions: { id: string; params: Record<string, unknown> }[],
+  rawText: string,
+): Promise<AssistantOutcome> {
+  const steps: StepReport[] = [{ say: rawText, act: '语音识别', result: '已识别' }];
+  const { CATALOG } = await import('./apiCatalog');
+  for (const a of actions.slice(0, 5)) {
+    const def = CATALOG.find((c) => c.id === a.id);
+    if (!def?.exec || !def.run) {
+      steps.push({ say: '', act: a.id, result: '不支持（未在目录中允许执行）' });
+      continue;
+    }
+    try {
+      const r = await def.run(a.params ?? {});
+      steps.push({ say: '', act: def.desc.split('（')[0], result: r.msg });
+    } catch (e) {
+      steps.push({ say: '', act: a.id, result: `执行失败：${String(e).slice(0, 60)}` });
+    }
+  }
+  if (actions.length === 0) steps.push({ say: '', act: '未执行修改', result: '仅说明' });
+  return { reply: '已按确认完成调整。', steps };
 }
 
 export function speechSupported(): boolean {

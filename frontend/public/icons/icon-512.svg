@@ -23,7 +23,7 @@
 
   <!-- 表针（12:05，主题橙） -->
   <path d="M 255.9 272 L 255.9 192" stroke="#F2764A" stroke-width="22" stroke-linecap="round"/>
-  <path d="M 255.9 272 L 193.9 308" stroke="#F2764A" stroke-width="22" stroke-linecap="round"/>
+  <path d="M 255.9 272 L 318.1 308" stroke="#F2764A" stroke-width="22" stroke-linecap="round"/>
   <circle cx="255.9" cy="272" r="19" fill="#F2764A"/>
   <circle cx="255.9" cy="272" r="7" fill="#D95F33"/>
 

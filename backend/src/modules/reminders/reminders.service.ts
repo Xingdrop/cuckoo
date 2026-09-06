@@ -79,7 +79,17 @@ export class RemindersService {
   }
 
   /** 创建提醒：计算首次 nextTriggerAt（调度引擎依赖） */
+  /** 服务器防护：单用户提醒数量上限（防本地数据洪泛破坏数据库） */
+  private static readonly MAX_REMINDERS = 200;
+
   async create(userId: string, dto: CreateReminderDto) {
+    const count = await this.reminderRepo.count({ where: { userId } });
+    if (count >= RemindersService.MAX_REMINDERS) {
+      throw new BadRequestException({
+        code: 'LIMIT_REACHED',
+        message: `提醒数量已达上限（${RemindersService.MAX_REMINDERS} 条），请先清理不需要的提醒`,
+      });
+    }
     const timezone = await this.getUserTimezone(userId);
     // 喝水目标同步到用户设置
     if (dto.waterGoalMl) {
@@ -517,9 +527,27 @@ export class RemindersService {
    * 手动喝水记录（看板 +200ml 等；#4：按日期独立——记录写入指定日期的当日正午，
    * 永不与其它日期串扰；dateStr 缺省 = 今天（用户时区））
    */
+  /** 服务器防护：每日喝水记录条数上限（防灌库） */
+  private static readonly MAX_WATER_LOGS_PER_DAY = 60;
+
   async waterLog(userId: string, amountMl: number, scheduledAt?: Date) {
     if (!Number.isInteger(amountMl) || amountMl <= 0 || amountMl > 5000) {
       throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '水量须为 1~5000ml 的整数' });
+    }
+    // 当日喝水记录条数校验（同日 60 条 = 5000ml×60 的极端情况封顶）
+    const dayStart = scheduledAt ?? new Date();
+    const start = new Date(dayStart);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    const dayCount = await this.logRepo.count({
+      where: { userId, category: 'water', scheduledTime: Between(start, end) },
+    });
+    if (dayCount >= RemindersService.MAX_WATER_LOGS_PER_DAY) {
+      throw new BadRequestException({
+        code: 'LIMIT_REACHED',
+        message: `今日喝水记录已达上限（${RemindersService.MAX_WATER_LOGS_PER_DAY} 条）`,
+      });
     }
     const log = this.logRepo.create({
       id: randomUUID(),

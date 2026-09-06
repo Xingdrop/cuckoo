@@ -13,9 +13,20 @@ function pingHealth(): Promise<boolean> {
       const ctrl = 'AbortSignal' in window && 'timeout' in AbortSignal ? AbortSignal.timeout(2500) : undefined;
       const timer = setTimeout(() => resolve(false), 3000);
       fetch(HEALTH_URL, { cache: 'no-store', signal: ctrl as AbortSignal | undefined })
-        .then((r) => {
+        .then(async (r) => {
           clearTimeout(timer);
-          resolve(r.ok);
+          if (!r.ok) {
+            resolve(false);
+            return;
+          }
+          // 防假在线（2026-09-06）：APK 未配服务器地址时 WebView 会用 200 的 index.html
+          // 兜底任何路径——校验响应体确为健康 JSON 才算在线
+          try {
+            const j = (await r.json()) as { status?: string };
+            resolve(j?.status === 'ok');
+          } catch {
+            resolve(false);
+          }
         })
         .catch(() => {
           clearTimeout(timer);

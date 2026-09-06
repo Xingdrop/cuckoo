@@ -151,6 +151,11 @@ export class SocialService {
       planSnapshot?: Record<string, unknown> | null;
     },
   ) {
+    // 服务器防护：单用户帖子数量上限（防灌库）
+    const postCount = await this.postRepo.count({ where: { userId, status: PostStatus.PUBLISHED } });
+    if (postCount >= 300) {
+      throw new BadRequestException({ code: 'LIMIT_REACHED', message: '发帖数量已达上限（300 条）' });
+    }
     if (!dto.content?.trim() || dto.content.length > POST_CONTENT_MAX) {
       throw new BadRequestException({
         code: 'VALIDATION_FAILED',

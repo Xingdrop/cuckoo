@@ -27,6 +27,18 @@ function delayedTime(time: string, delayMinutes?: number): string | null {
   return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
+/** #6（2026-09-07 真机反馈）：延迟槽位标签——新时刻与原时刻同字号，延迟说明单独一行小字 */
+function DelayedSlotLabel({ time, delayMinutes }: { time: string; delayMinutes: number }) {
+  return (
+    <span className="block leading-tight">
+      <span className="font-mono text-sm text-ink-700">
+        {time} <span className="text-warning-700">→ {delayedTime(time, delayMinutes)}</span>
+      </span>
+      <span className="mt-0.5 block text-[11px] text-warning-700">已延迟 {delayMinutes} 分钟</span>
+    </span>
+  );
+}
+
 const CATEGORY_EMOJI: Record<string, string> = {
   water: '💧',
   medication: '💊',
@@ -81,6 +93,7 @@ export function ReminderDetailModal({
   onClose,
   onComplete,
   onRetake,
+  refreshKey = 0,
 }: {
   item: CalendarItem;
   /** 本地日期 key（yyyy-MM-dd），用于筛选当日日志 */
@@ -90,6 +103,8 @@ export function ReminderDetailModal({
   onComplete: (time?: string) => void;
   /** 补拍照片（外层拉起相机/相册） */
   onRetake: () => void;
+  /** #8：外层照片上报成功后递增 → 重新拉取当日记录显示新照片 */
+  refreshKey?: number;
 }) {
   const [logs, setLogs] = useState<DayLog[] | null>(null);
   const c = item.content ?? {};
@@ -122,7 +137,7 @@ export function ReminderDetailModal({
     return () => {
       alive = false;
     };
-  }, [item.reminderId, date]);
+  }, [item.reminderId, date, refreshKey]);
 
   /** 当日拍照记录（photo 或带 photoUrl 的完成/挑战记录） */
   const photoLogs = useMemo(
@@ -131,8 +146,8 @@ export function ReminderDetailModal({
   );
 
   const slots = item.untimed ? [] : item.times;
-  /** 待完成时点（无状态记录）——「标记完成」优先作用于它 */
-  const pendingSlot = slots.find((s) => !s.status);
+  /** 待完成时点（无状态记录）——「标记完成」优先作用于它；延迟中（≠已处理）也可直接完成（2026-09-07 #8） */
+  const pendingSlot = slots.find((s) => !s.status || s.status === 'delayed');
   const missedSlots = slots.filter((s) => s.status === 'missed');
 
   const mediaUrls = useMemo(() => {
@@ -189,13 +204,7 @@ export function ReminderDetailModal({
               <SlotRow
                 label={
                   slots[0].delayMinutes ? (
-                    <span className="font-mono text-sm text-ink-700">
-                      {slots[0].time}
-                      <span className="font-sans text-[9px] text-warning-700">
-                        {' '}
-                        → {delayedTime(slots[0].time, slots[0].delayMinutes)}（已延迟 {slots[0].delayMinutes} 分钟）
-                      </span>
-                    </span>
+                    <DelayedSlotLabel time={slots[0].time} delayMinutes={slots[0].delayMinutes} />
                   ) : (
                     slots[0].time
                   )
@@ -210,19 +219,19 @@ export function ReminderDetailModal({
                   const chip = statusChip(s.status);
                   return (
                     <li key={s.time} className="flex items-center gap-2 px-3 py-2.5">
-                      <span className="w-12 shrink-0 font-mono text-sm text-ink-700">
-                        {s.time}
-                        {s.delayMinutes ? (
-                          <span className="block font-sans text-[9px] text-warning-700">
-                            → {delayedTime(s.time, s.delayMinutes)}（已延迟 {s.delayMinutes} 分钟）
-                          </span>
-                        ) : null}
-                      </span>
+                      {s.delayMinutes ? (
+                        <span className="min-w-0 shrink-0">
+                          <DelayedSlotLabel time={s.time} delayMinutes={s.delayMinutes} />
+                        </span>
+                      ) : (
+                        <span className="w-12 shrink-0 font-mono text-sm text-ink-700">{s.time}</span>
+                      )}
                       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${chip.cls}`}>
                         {chip.text}
                       </span>
                       <span className="min-w-0 flex-1" />
-                      {!s.status && (
+                      {/* 待完成或延迟中（延迟≠已处理）均可直接标记完成（2026-09-07 #8） */}
+                      {(!s.status || s.status === 'delayed') && (
                         <button
                           onClick={() => onComplete(s.time)}
                           className="flex h-7 shrink-0 items-center gap-1 rounded-lg bg-primary-500 px-2.5 text-[11px] font-medium text-white"
@@ -238,7 +247,7 @@ export function ReminderDetailModal({
                           <CheckCircle2 size={12} /> 补记
                         </button>
                       )}
-                      {!s.status && (
+                      {(!s.status || s.status === 'delayed') && (
                         <button
                           onClick={onRetake}
                           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-ink-100 text-ink-600"
@@ -384,7 +393,7 @@ function SlotRow({
     <div className="flex items-center gap-2 rounded-card bg-bg px-3 py-2.5">
       <span className="min-w-0 flex-1 truncate text-sm text-ink-700">{label}</span>
       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${chip.cls}`}>{chip.text}</span>
-      {!status && (
+      {(!status || status === 'delayed') && (
         <button
           onClick={onDone}
           className="flex h-7 shrink-0 items-center gap-1 rounded-lg bg-primary-500 px-2.5 text-[11px] font-medium text-white"

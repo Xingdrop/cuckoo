@@ -60,18 +60,56 @@ export async function startDictation(handlers: {
     // onFinal 永不触发，上层 recording 状态卡死（按钮一直显示「松手结束」）
     let finished = false;
     let failed = false;
+    // 2026-09-07（#9 二轮）：原生识别器在静音 ~2s 或启动后无语音时会自动结束（无事件通知），
+    // 用户仍在长按 → 识别已死 → 松手拿到空文本误报「未识别到语音」。
+    // → 按住期间 watchdog 监测事件流，停摆即自动重启识别；重启前锁定已识别文本，跨段拼接。
+    let base = '';
+    let active = true;
+    let restarting = false;
+    let lastEventAt = Date.now();
     const emitFinal = (t: string) => {
       if (finished || failed) return;
       finished = true;
       handlers.onFinal(t);
     };
     const handle = await SpeechRecognition.addListener('partialResults', (data: { matches: string[] }) => {
+      lastEventAt = Date.now();
       const m = data.matches?.[0] ?? '';
       if (m && m !== last) {
         last = m;
-        handlers.onPartial(m);
+        handlers.onPartial(`${base}${m}`);
       }
     });
+    const restart = async () => {
+      if (!active || restarting) return;
+      restarting = true;
+      try {
+        base = base + last; // 锁定本轮已识别文本
+        last = '';
+        try {
+          await SpeechRecognition.stop();
+        } catch {
+          /* 可能已自行结束 */
+        }
+        await new Promise((r) => setTimeout(r, 120));
+        if (!active) {
+          restarting = false;
+          return;
+        }
+        await SpeechRecognition.start({
+          language: 'zh-CN',
+          maxResults: 1,
+          partialResults: true,
+          popup: false,
+        });
+      } catch {
+        /* busy 等瞬时失败 → watchdog 下一轮再试 */
+      }
+      restarting = false;
+    };
+    const watchdog = setInterval(() => {
+      if (active && !restarting && Date.now() - lastEventAt > 2200) void restart();
+    }, 1000);
     void SpeechRecognition.start({
       language: 'zh-CN',
       maxResults: 1,
@@ -85,6 +123,8 @@ export async function startDictation(handlers: {
 
     return {
       stop: async () => {
+        active = false;
+        clearInterval(watchdog);
         // 2026-09-07（真机修复「一说话就中断提示未识别到语音」）：
         // 原生识别器的最终 matches 在 stopListening() 之后才经 onResults→partialResults 事件送达，
         // 必须先调 stop() 并留出短暂窗口接住最终结果，再移除监听；否则 last 恒为空 → 误报「未识别到语音」
@@ -99,7 +139,7 @@ export async function startDictation(handlers: {
         } catch {
           /* 已移除 */
         }
-        emitFinal(last);
+        emitFinal(`${base}${last}`.trim());
       },
     };
   }
@@ -117,9 +157,11 @@ export async function startDictation(handlers: {
   const rec = new SR();
   rec.lang = 'zh-CN';
   rec.interimResults = true;
-  rec.continuous = false;
+  // 2026-09-07（#9）：长按期间浏览器静音 ~5s 会自动结束识别 → continuous + onend 自动重启，按住期间持续聆听
+  rec.continuous = true;
   let finalText = '';
   let stopped = false;
+  let active = true; // 按住中（stop() 才置 false）——onend 时用于区分「松手结束」与「浏览器自动断流」
   // 2026-09-07（#9）：onFinal 恰好一次（含空文本）——松手无文本时也必须结束 recording，
   // 否则按钮卡在「松手结束」；onerror 后不再 emitFinal（错误路径已结束状态）
   let finished = false;
@@ -140,13 +182,23 @@ export async function startDictation(handlers: {
     if (live) handlers.onPartial(live);
   };
   rec.onerror = (e) => {
-    if (!stopped) {
+    if (!stopped && !active) {
       failed = true;
       handlers.onError?.(`识别错误：${e.error}`);
     }
+    // 按住期间的单次错误（no-speech 等）交给 onend 自动重启，不终断
   };
   rec.onend = () => {
     if (stopped) return;
+    if (active) {
+      // 仍在长按 → 浏览器自动断流，立即重启识别
+      try {
+        rec.start();
+      } catch {
+        /* 已在运行等瞬时错误 → 下一轮 onend 再试 */
+      }
+      return;
+    }
     emitFinal(finalText.trim());
   };
   try {
@@ -158,6 +210,7 @@ export async function startDictation(handlers: {
   return {
     stop: () => {
       stopped = true;
+      active = false;
       try {
         rec.stop();
       } catch {

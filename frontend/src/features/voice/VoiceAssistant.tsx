@@ -141,6 +141,7 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
           if (recording) onPointerUp();
         }}
         onContextMenu={(e) => e.preventDefault()}
+        style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
         className={`fixed bottom-20 left-1/2 z-40 flex -translate-x-1/2 select-none items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-medium shadow-md ${
           recording
             ? 'animate-pulse border-danger-500 bg-danger-500 text-white'

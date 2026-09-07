@@ -472,13 +472,11 @@ export class RemindersService {
           return { ok: true, log: { ...existing, photoUrl: dto.photoUrl, actualTime: new Date() }, duplicate: true, replaced: true };
         }
 
-        // #8：延迟后到期完成/放弃 → 落到原计划时刻的 delayed 日志（同槽一条记录）
-        const delayedLanded =
-          existing.status === ReminderLogStatus.DELAYED &&
-          isTerminal &&
-          Math.abs(
-            existing.scheduledTime.getTime() + (existing.delayMinutes ?? 0) * 60_000 - scheduledTime.getTime(),
-          ) < 60_000;
+        // #8：延迟后完成/放弃 → 落到原计划时刻的 delayed 日志（同槽一条记录）。
+        // 2026-09-07 真机修复：详情弹窗/看板用「原时刻」上报，与「原时刻+延迟分钟」相差 ≥1 分钟，
+        // 原 60 秒窗口判定不成立 → 走 duplicate 分支静默丢弃 → 行永远显示「即将提醒」。
+        // 唯一索引已按 reminderId+scheduledTime 归槽，同槽终端状态上报一律升级，不再比对时间窗。
+        const delayedLanded = existing.status === ReminderLogStatus.DELAYED && isTerminal;
         // 错过（3 分钟弹窗过期/漏服扫描）后补完成/放弃 → 原槽升级
         const missedUpgrade = existing.status === ReminderLogStatus.MISSED && isTerminal;
 

@@ -6,6 +6,7 @@ import { filesApi } from '../../services/api/api.files';
 import { LinkedText } from '../../components/LinkedText';
 import { MediaCarousel } from '../../components/MediaCarousel';
 import { loadFeedbackPrefs, startRingLoop, startVibrateLoop } from '../../utils/alert-feedback';
+import { captureNativePhoto } from '../../utils/cameraCapture';
 import type { Reminder } from '../../types';
 import type { useReminderScheduler } from './useReminderScheduler';
 
@@ -184,14 +185,23 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
             <div className="flex gap-3">
               <button
                 disabled={photoBusy}
-                onClick={() => fileRef.current?.click()}
+                onClick={async () => {
+                  // #8（2026-09-07）：APK 走原生相机插件（WebView file chooser 会闪退）；Web 回退 input
+                  const f = await captureNativePhoto();
+                  if (f) void uploadAndComplete(f);
+                  else if (f === undefined) fileRef.current?.click();
+                }}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-btn bg-white/15 py-3.5 text-sm transition-colors hover:bg-white/25 disabled:opacity-50"
               >
                 <Camera size={18} /> {photoBusy ? '上传中…' : '拍照'}
               </button>
               <button
                 disabled={photoBusy}
-                onClick={() => galleryRef.current?.click()}
+                onClick={async () => {
+                  const f = await captureNativePhoto('gallery');
+                  if (f) void uploadAndComplete(f);
+                  else if (f === undefined) galleryRef.current?.click();
+                }}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-btn bg-white/15 py-3.5 text-sm transition-colors hover:bg-white/25 disabled:opacity-50"
               >
                 <ImageIcon size={18} /> 相册

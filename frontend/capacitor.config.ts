@@ -7,7 +7,9 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   // 2026-09-07：WebView 以 https://localhost 加载，默认拦截页内 http:// 请求（Mixed Content）
   // → APK 访问局域网 http 后端必须放开（配合 Manifest usesCleartextTraffic，缺一不可）
-  android: { allowMixedContent: true }
+  android: { allowMixedContent: true },
+  // 2026-09-08：真机排障开启 WebView 远程调试（chrome://inspect）——发布给外部用户前需移除
+  webContentsDebuggingEnabled: true,
 };
 
 export default config;

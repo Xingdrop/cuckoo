@@ -11,6 +11,7 @@ import { statsApi, DashboardStats, WaterInfo } from '../services/api/api.stats';
 import { filesApi } from '../services/api/api.files';
 import { useGuestStore } from '../guest/guestStore';
 import { compressMediaFile } from '../utils/media';
+import { captureNativePhoto } from '../utils/cameraCapture';
 import { dateHead, festivalIcon, lunarInfo, shiftKey, todayKey } from '../utils/calendar';
 
 const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
@@ -277,11 +278,21 @@ export function DashboardPage() {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2600);
   };
-  const openCameraFor = (item: CalendarItem, _time?: string) => {
+  const openCameraFor = async (item: CalendarItem, _time?: string) => {
     setCamTarget(item);
-    camRef.current?.click();
+    // #8（2026-09-07）：APK 用 @capacitor/camera 原生拍照（WebView file chooser 会闪退）
+    // Web 端返回 undefined → 回退隐藏 input；原生取消返回 null → 仅清理状态
+    const nativeFile = await captureNativePhoto();
+    if (nativeFile === undefined) {
+      camRef.current?.click();
+      return;
+    }
+    if (nativeFile) void onCamPicked(nativeFile);
+    else setCamTarget(null);
   };
   const [camTarget, setCamTarget] = useState<CalendarItem | null>(null);
+  /** #8：详情弹窗开着补拍 → 照片上报成功后 bump，让弹窗重新拉取当日记录以显示新照片 */
+  const [detailRefresh, setDetailRefresh] = useState(0);
   const onCamPicked = async (file: File | undefined) => {
     const target = camTarget;
     setCamTarget(null);
@@ -311,6 +322,8 @@ export function DashboardPage() {
         photoUrl: url,
       });
       void load(selected);
+      // 详情弹窗仍开着 → 刷新其内部日志，用户立即可查看刚拍的照片（2026-09-07 #8）
+      setDetailRefresh((v) => v + 1);
     } catch {
       showToast('照片处理失败，请重试');
     }
@@ -915,6 +928,7 @@ export function DashboardPage() {
         <ReminderDetailModal
           item={detailItem}
           date={selected}
+          refreshKey={detailRefresh}
           onClose={() => setDetailItem(null)}
           onComplete={(time) => {
             const missed = !itemSlotDone(detailItem, time);
@@ -931,42 +945,43 @@ export function DashboardPage() {
             }
           }}
           onRetake={() => {
-            openCameraFor(detailItem);
-            setDetailItem(null);
+            // #8（2026-09-07）：保持弹窗开着，拍完回显照片（此前关闭弹窗 → 用户以为闪退且看不到照片）
+            void openCameraFor(detailItem);
           }}
         />
       )}
 
-      {/* #26：确认弹窗——已错过点击后确认才修改为已完成（拍照不弹窗，直接形成记录） */}
+      {/* #26：确认弹窗——已错过点击后确认才修改为已完成（#10：去「取消」按钮，右上 × 关闭，紧凑字号） */}
       {completeConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-8">
-          <div className="w-full max-w-sm rounded-card bg-surface p-5 shadow-xl">
-            <h3 className="text-base font-semibold">修改为已完成？</h3>
-            <p className="mt-2 text-sm text-ink-600">
+          <div className="relative w-full max-w-xs rounded-card bg-surface p-4 shadow-xl">
+            <button
+              onClick={() => setCompleteConfirm(null)}
+              disabled={completeBusy}
+              aria-label="关闭"
+              className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full text-ink-400 hover:bg-ink-100 disabled:opacity-40"
+            >
+              <X size={15} />
+            </button>
+            <h3 className="pr-7 text-sm font-semibold">修改为已完成？</h3>
+            <p className="mt-1.5 text-xs leading-relaxed text-ink-600">
               「{completeConfirm.item.title}」{completeConfirm.time ? `${completeConfirm.time} · ` : ''}
               已错过，确认后将修改为已完成。
             </p>
-            <div className="mt-4 flex gap-2">
+            <div className="mt-3.5 flex gap-2">
               <button
                 onClick={() => {
                   setDetailItem(completeConfirm.item);
                   setCompleteConfirm(null);
                 }}
-                className="flex-1 rounded-btn bg-ink-100 py-2.5 text-sm font-medium text-ink-700"
+                className="flex-1 rounded-btn bg-ink-100 py-2 text-xs font-medium text-ink-700"
               >
                 查看详情
               </button>
               <button
-                onClick={() => setCompleteConfirm(null)}
-                disabled={completeBusy}
-                className="flex-1 rounded-btn bg-ink-100 py-2.5 text-sm font-medium text-ink-700 disabled:opacity-50"
-              >
-                取消
-              </button>
-              <button
                 onClick={() => void confirmComplete()}
                 disabled={completeBusy}
-                className="flex-1 rounded-btn bg-primary-500 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+                className="flex-1 rounded-btn bg-primary-500 py-2 text-xs font-medium text-white disabled:opacity-50"
               >
                 {completeBusy ? '处理中…' : '修改为已完成'}
               </button>

@@ -128,9 +128,16 @@ export function SocialPage() {
   }, [tabOrder]);
 
   // #14：tab 长按开始（350ms 震动进入拖动态）
+  // 真机修复（2026-09-09）：tab 栏本身可横向滑动，350ms 内手指轻微抖动会让浏览器
+  // 启动原生 pan-x 滚动并发出 pointercancel 掐断 pointer 流——若不中止计时器，
+  // 之后照样震动进入拖动态却收不到任何 pointermove（表现为"有动画但拖不动"）。
+  // 因此：等待期抖动 >8px 或 pointercancel → 中止长按；进入拖动态后首 touchmove
+  // preventDefault 阻止滚动抢占，pointer 流才得以持续。
+  const pressStartRef = useRef<{ x: number; y: number } | null>(null);
   const onTabPointerDown = (e: React.PointerEvent, idx: number) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     clearPress();
+    pressStartRef.current = { x: e.clientX, y: e.clientY };
     pressTimer.current = window.setTimeout(() => {
       pressTimer.current = null;
       dragIdxRef.current = idx;
@@ -174,6 +181,13 @@ export function SocialPage() {
       document.addEventListener('pointerup', onUp);
       document.addEventListener('pointercancel', onUp);
     }, 350);
+  };
+  /** 等待长按期间：手指明显移动（滑动意图）或被原生滚动接管 → 中止长按 */
+  const onTabPointerMoveWhileWaiting = (e: React.PointerEvent) => {
+    if (pressTimer.current === null || !pressStartRef.current) return;
+    const dx = e.clientX - pressStartRef.current.x;
+    const dy = e.clientY - pressStartRef.current.y;
+    if (Math.hypot(dx, dy) > 8) clearPress();
   };
 
   // #6 关注 tab 数据 + #5 关注按钮
@@ -428,6 +442,9 @@ export function SocialPage() {
             key={key}
             data-tab-idx={i}
             onPointerDown={(e) => onTabPointerDown(e, i)}
+            onPointerMove={onTabPointerMoveWhileWaiting}
+            onPointerUp={() => clearPress()}
+            onPointerCancel={() => clearPress()}
             onClick={() => {
               if (suppressClick.current) {
                 suppressClick.current = false;

@@ -47,8 +47,15 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
   }, []);
 
   /** 长按按钮（≥350ms）开始识别；松手结束识别 → 出预案 */
-  const onPointerDown = () => {
+  const onPointerDown = (e: React.PointerEvent) => {
     if (!enabled || busy || recording) return;
+    // #54（2026-09-09 真机复修）：显式捕获指针——手指轻微滑出按钮时事件仍送达本按钮，
+    // 杜绝滑动导致的 pointerleave/pointercancel 把识别掐断（触摸场景默认隐式捕获并不可靠）
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* 不支持则退化为默认行为 */
+    }
     pressingRef.current = true;
     holdTimer.current = setTimeout(() => {
       if (!pressingRef.current) return;
@@ -137,8 +144,10 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        onPointerLeave={() => {
-          if (recording) onPointerUp();
+        onPointerLeave={(e) => {
+          // #54：触摸长按期间手指滑出按钮不应中断识别（显式捕获已保证事件不丢）；
+          // 仅鼠标按住拖出时才视为放弃
+          if (e.pointerType === 'mouse' && recording) onPointerUp();
         }}
         onContextMenu={(e) => e.preventDefault()}
         style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}

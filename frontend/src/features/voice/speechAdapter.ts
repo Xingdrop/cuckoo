@@ -110,16 +110,34 @@ export async function startDictation(handlers: {
     const watchdog = setInterval(() => {
       if (active && !restarting && Date.now() - lastEventAt > 2200) void restart();
     }, 1000);
-    void SpeechRecognition.start({
-      language: 'zh-CN',
-      maxResults: 1,
-      partialResults: true,
-      popup: false, // false 才有 partialResults（且不遮挡手势层）
-    }).catch((e) => {
-      if (finished) return; // 松手后的正常结束不当年错误
-      failed = true;
-      handlers.onError?.(friendlySrError(String(e)));
-    });
+    // #54（2026-09-09）：首次 start 偶发 busy（上一会话未完全释放）→ 自动重试一次，
+    // 仍失败才报错——此前直接报「识别服务忙」把整次长按废掉，用户感知为"一按就中断"
+    const startWithRetry = async () => {
+      try {
+        await SpeechRecognition.start({
+          language: 'zh-CN',
+          maxResults: 1,
+          partialResults: true,
+          popup: false, // false 才有 partialResults（且不遮挡手势层）
+        });
+      } catch (e) {
+        if (finished || !active) return; // 松手后的正常结束不当年错误
+        await new Promise((r) => setTimeout(r, 350));
+        if (!active || finished) return;
+        try {
+          await SpeechRecognition.start({
+            language: 'zh-CN',
+            maxResults: 1,
+            partialResults: true,
+            popup: false,
+          });
+        } catch (e2) {
+          failed = true;
+          handlers.onError?.(friendlySrError(String(e2 ?? e)));
+        }
+      }
+    };
+    void startWithRetry();
 
     return {
       stop: async () => {

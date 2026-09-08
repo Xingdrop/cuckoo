@@ -115,6 +115,8 @@ export class StatsService {
         rate: Math.min(100, Math.round((waterMl / waterGoalMl) * 100)),
         // #3：水目标达成独立标记（后台以 waterLogs 记录，不混入完成率/连续天数）
         waterGoalReached: waterGoalMl > 0 && waterMl >= waterGoalMl,
+        // #3（2026-09-09）：连续达标天数——此前 dashboard 不返回，前端"喝水连续 N 天"永远空
+        streakDays: await this.calcWaterStreak(userId, local.year, local.month, local.day, waterMl, waterGoalMl),
       },
     };
   }
@@ -203,36 +205,7 @@ export class StatsService {
     const waterMl = waterLogs.reduce((sum, l) => sum + l.amount, 0);
     const setting = await this.settingRepo.findOne({ where: { userId } });
     const waterGoalMl = setting?.waterGoalMl ?? 2000;
-    // #7 连续达标天数：从查询日往前逐日累计（waterMl ≥ goal）；
-    // 查询日=今天且尚未达标不打断连续（今天还没过完，从昨天起算）
-    let streakDays = 0;
-    if (waterGoalMl > 0) {
-      const today = toLocal(new Date(), tz);
-      const isToday = y === today.year && m === today.month && d === today.day;
-      let cy = y;
-      let cm = m;
-      let cd = d;
-      if (isToday && waterMl < waterGoalMl) {
-        const pv = new Date(Date.UTC(cy, cm - 1, cd - 1));
-        cy = pv.getUTCFullYear();
-        cm = pv.getUTCMonth() + 1;
-        cd = pv.getUTCDate();
-      }
-      for (let i = 0; i < 365; i++) {
-        const s = localToUtc(tz, cy, cm, cd, 0, 0);
-        const e = localToUtc(tz, cy, cm, cd + 1, 0, 0);
-        const logs = await this.logRepo.find({
-          where: { userId, category: 'water', scheduledTime: Between(s, e) },
-        });
-        const total = logs.reduce((sum, l) => sum + l.amount, 0);
-        if (total < waterGoalMl) break;
-        streakDays += 1;
-        const pv = new Date(Date.UTC(cy, cm - 1, cd - 1));
-        cy = pv.getUTCFullYear();
-        cm = pv.getUTCMonth() + 1;
-        cd = pv.getUTCDate();
-      }
-    }
+    const streakDays = await this.calcWaterStreak(userId, y, m, d, waterMl, waterGoalMl);
     return {
       date: `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
       waterMl,
@@ -241,6 +214,49 @@ export class StatsService {
       reached: waterGoalMl > 0 && waterMl >= waterGoalMl,
       streakDays,
     };
+  }
+
+  /**
+   * #7 连续达标天数（dashboard/waterInfo 共用）：从查询日往前逐日累计（waterMl ≥ goal）；
+   * 查询日=今天且尚未达标不打断连续（今天还没过完，从昨天起算）
+   */
+  private async calcWaterStreak(
+    userId: string,
+    y: number,
+    m: number,
+    d: number,
+    waterMl: number,
+    waterGoalMl: number,
+  ): Promise<number> {
+    if (waterGoalMl <= 0) return 0;
+    const tz = await this.getTz(userId);
+    const today = toLocal(new Date(), tz);
+    const isToday = y === today.year && m === today.month && d === today.day;
+    let cy = y;
+    let cm = m;
+    let cd = d;
+    if (isToday && waterMl < waterGoalMl) {
+      const pv = new Date(Date.UTC(cy, cm - 1, cd - 1));
+      cy = pv.getUTCFullYear();
+      cm = pv.getUTCMonth() + 1;
+      cd = pv.getUTCDate();
+    }
+    let streakDays = 0;
+    for (let i = 0; i < 365; i++) {
+      const s = localToUtc(tz, cy, cm, cd, 0, 0);
+      const e = localToUtc(tz, cy, cm, cd + 1, 0, 0);
+      const logs = await this.logRepo.find({
+        where: { userId, category: 'water', scheduledTime: Between(s, e) },
+      });
+      const total = logs.reduce((sum, l) => sum + l.amount, 0);
+      if (total < waterGoalMl) break;
+      streakDays += 1;
+      const pv = new Date(Date.UTC(cy, cm - 1, cd - 1));
+      cy = pv.getUTCFullYear();
+      cm = pv.getUTCMonth() + 1;
+      cd = pv.getUTCDate();
+    }
+    return streakDays;
   }
 
   /** 手动记录喝水（#4 日期独立；#11 只允许修改今日） */

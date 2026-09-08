@@ -86,6 +86,30 @@ function SyncOnOnline() {
   );
 }
 
+/** #10（2026-09-09）：APK 通知权限被拒 → 一次性提示（后台提醒完全依赖系统通知，静默失效用户无感知） */
+function NotifyPermHint() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const onDenied = () => {
+      setShow(true);
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setShow(false), 6000);
+    };
+    window.addEventListener('cuckoo:notify-perm-denied', onDenied);
+    return () => {
+      window.removeEventListener('cuckoo:notify-perm-denied', onDenied);
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+  if (!show) return null;
+  return (
+    <div className="pointer-events-none fixed bottom-32 left-1/2 z-[45] max-w-[92vw] -translate-x-1/2 truncate rounded-full bg-danger-500 px-3.5 py-1.5 text-[11px] font-medium text-white shadow-lg">
+      未开启通知权限，后台提醒无法弹出——请在系统设置中允许布谷发送通知
+    </div>
+  );
+}
+
 /** #17/#19：未联网顶部横幅（网络断开 / APK 无服务器时；可点击 × 关闭；检测完成前不闪现）；
  * 2026-09-07 改为文档流内联（原 fixed+全局 pt-6 会在横幅关闭后残留 24px 死留白） */
 function GlobalOfflineBadge() {
@@ -122,6 +146,8 @@ export function App() {
     void init();
     // #16/#17：APK 预置离线种子只加载+校验（不自动登录）；登录后本地校验密码进入离线模式
     void import('../guest/seed').then((m) => m.bootstrapSeed());
+    // #10（2026-09-09）：APK 启动即初始化通知渠道/权限（拒绝时提示，避免后台通知静默失效）
+    void import('../utils/nativeReminders').then((m) => m.initNativeNotifications());
     // 联网检测（服务器健康检查）
     void useConnectionStore.getState().init();
     // #17：联网状态监听（online/offline 事件 → 重新探测）
@@ -157,6 +183,7 @@ export function App() {
     <BrowserRouter>
       <GlobalOfflineBadge />
       <SyncOnOnline />
+      <NotifyPermHint />
       <ReminderScheduler />
       <div>
         <Routes>

@@ -31,6 +31,45 @@ function hashId(s: string): number {
 let lastFp = '';
 let inFlight = false;
 
+/** 确保渠道存在 + 通知权限已授（返回是否可用）；App 启动即调，避免首次排程时才弹权限 */
+async function ensureChannelAndPermission(): Promise<boolean> {
+  const { LocalNotifications } = await import('@capacitor/local-notifications');
+  const perm = await LocalNotifications.checkPermissions();
+  if (perm.display !== 'granted') {
+    const req = await LocalNotifications.requestPermissions();
+    if (req.display !== 'granted') return false;
+  }
+  // Android 高优先级通道： heads-up 弹出 + 震动 + 声音
+  // Importance/Visibility 为纯类型（数值枚举）：HIGH=4、PUBLIC=1
+  if (Capacitor.getPlatform() === 'android') {
+    await LocalNotifications.createChannel({
+      id: 'cuckoo-reminders',
+      name: '提醒',
+      description: '布谷提醒弹窗的系统通知',
+      importance: 4,
+      visibility: 1,
+      vibration: true,
+      sound: 'default',
+    });
+  }
+  return true;
+}
+
+/**
+ * #10（2026-09-09）：App 启动即初始化通知渠道 + 权限——
+ * 此前权限请求埋在首次排程里，用户一旦忽略/拒绝系统弹窗，后台通知就永远静默失效。
+ * 权限被拒 → 广播 cuckoo:notify-perm-denied（App 层展示一次性提示，引导去系统设置开启）。
+ */
+export async function initNativeNotifications(): Promise<void> {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    const ok = await ensureChannelAndPermission();
+    if (!ok) window.dispatchEvent(new CustomEvent('cuckoo:notify-perm-denied'));
+  } catch {
+    // 初始化失败静默（前台调度引擎仍在工作）
+  }
+}
+
 /** 全量重排未来 24h 的本地通知（内容不变则跳过） */
 export async function syncNativeSchedule(list: Reminder[]): Promise<void> {
   if (!Capacitor.isNativePlatform() || inFlight) return;
@@ -59,25 +98,9 @@ export async function syncNativeSchedule(list: Reminder[]): Promise<void> {
   if (fp === lastFp) return;
   inFlight = true;
   try {
+    const ok = await ensureChannelAndPermission();
+    if (!ok) return;
     const { LocalNotifications } = await import('@capacitor/local-notifications');
-    const perm = await LocalNotifications.checkPermissions();
-    if (perm.display !== 'granted') {
-      const req = await LocalNotifications.requestPermissions();
-      if (req.display !== 'granted') return;
-    }
-    // Android 高优先级通道： heads-up 弹出 + 震动 + 声音
-    // Importance/Visibility 为纯类型（数值枚举）：HIGH=4、PUBLIC=1
-    if (Capacitor.getPlatform() === 'android') {
-      await LocalNotifications.createChannel({
-        id: 'cuckoo-reminders',
-        name: '提醒',
-        description: '布谷提醒弹窗的系统通知',
-        importance: 4,
-        visibility: 1,
-        vibration: true,
-        sound: 'default',
-      });
-    }
     const pending = await LocalNotifications.getPending();
     if (pending.notifications.length) {
       await LocalNotifications.cancel({ notifications: pending.notifications });

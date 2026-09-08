@@ -7,7 +7,8 @@ import { PullToRefresh } from '../components/PullToRefresh';
 import { useAuthStore } from '../stores/authStore';
 import { useConnectionStore } from '../stores/connectionStore';
 import { useGuestStore } from '../guest/guestStore';
-import { absoluteUrl, errorMessage } from '../services/http';
+import { errorMessage } from '../services/http';
+import { RImg, RVideo } from '../components/remoteMedia';
 import { socialApi, Post, PlanTemplate } from '../services/api/api.social';
 import { familyApi, type FamilyBindingItem } from '../services/api/api.family';
 import { FamilyTab } from './social/FamilyTab';
@@ -378,7 +379,7 @@ export function SocialPage() {
         >
           <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-surface shadow-sm">
             {user?.avatarUrl ? (
-              <img src={absoluteUrl(user.avatarUrl)} alt="头像" className="h-full w-full object-cover" />
+              <RImg src={user.avatarUrl} alt="头像" className="h-full w-full object-cover" />
             ) : (
               <span className="text-lg font-semibold text-primary-600">
                 {user?.username?.slice(0, 1).toUpperCase() ?? '我'}
@@ -576,7 +577,7 @@ export function SocialPage() {
                     aria-label={`查看 @${post.author.username} 的主页`}
                   >
                     {post.author.avatarUrl ? (
-                      <img src={absoluteUrl(post.author.avatarUrl)} alt="头像" className="h-full w-full object-cover" />
+                      <RImg src={post.author.avatarUrl} alt="头像" className="h-full w-full object-cover" />
                     ) : (
                       post.author.username.slice(0, 1).toUpperCase()
                     )}
@@ -702,9 +703,9 @@ export function SocialPage() {
                 {(t.mediaUrls?.length ?? 0) > 0 && (
                   <div className="mb-3 flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
                     {t.mediaUrls!.slice(0, 6).map((u) => (
-                      <img
+                      <RImg
                         key={u}
-                        src={absoluteUrl(u)}
+                        src={u}
                         alt=""
                         loading="lazy"
                         className="h-20 w-28 shrink-0 rounded-btn bg-bg object-cover"
@@ -810,7 +811,7 @@ export function SocialPage() {
                 {composerMedia.map((u, i) =>
                   u.match(/\.(mp4|mov|webm)/i) ? (
                     <div key={`${u}-${i}`} className="relative aspect-square w-full overflow-hidden rounded-btn bg-black">
-                      <video src={absoluteUrl(u)} className="h-full w-full object-cover" preload="metadata" muted playsInline />
+                      <RVideo src={u} className="h-full w-full object-cover" preload="metadata" muted playsInline />
                       <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
                         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white">
                           <Play size={14} fill="currentColor" />
@@ -822,7 +823,7 @@ export function SocialPage() {
                     </div>
                   ) : (
                     <span key={`${u}-${i}`} className="relative aspect-square w-full overflow-hidden rounded-btn bg-ink-100">
-                      <img src={absoluteUrl(u)} alt={`媒体 ${i + 1}`} className="h-full w-full object-cover" />
+                      <RImg src={u} alt={`媒体 ${i + 1}`} className="h-full w-full object-cover" />
                       <button
                         type="button"
                         onClick={() => setComposerMedia((prev) => prev.filter((x) => x !== u))}

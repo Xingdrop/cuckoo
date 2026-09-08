@@ -7,6 +7,7 @@ import { statsApi, DashboardStats, DayStat } from '../services/api/api.stats';
 import { remindersApi } from '../services/api/api.reminders';
 import { filesApi } from '../services/api/api.files';
 import { absoluteUrl, errorMessage } from '../services/http';
+import { RImg } from '../components/remoteMedia';
 import { compressMediaFile } from '../utils/media';
 
 /** 热力图 4 档颜色映射（M5 完善：0 / 1-49 / 50-99 / 100%） */
@@ -379,7 +380,7 @@ export function StatsPage() {
                         className="relative aspect-square overflow-hidden rounded-btn bg-ink-100"
                         aria-label={`查看 ${g.title} 照片详情`}
                       >
-                        <img src={absoluteUrl(p.url)} alt={`${g.title} 照片`} className="h-full w-full object-cover" />
+                        <RImg src={p.url} alt={`${g.title} 照片`} className="h-full w-full object-cover" />
                         <span className="pointer-events-none absolute bottom-0.5 left-0.5 rounded bg-black/55 px-1 py-0.5 text-[8px] text-white">
                           {new Date(p.at).toISOString().slice(0, 10)} {new Date(p.at).toISOString().slice(11, 16)}
                         </span>
@@ -402,8 +403,8 @@ export function StatsPage() {
                   <X size={16} />
                 </button>
               </div>
-              <img
-                src={absoluteUrl(photoView.photo.url)}
+              <RImg
+                src={photoView.photo.url}
                 alt="照片详情"
                 className="mt-3 max-h-[55dvh] w-full rounded-btn object-contain"
               />

@@ -1,7 +1,7 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2NvbXBvbmVudHMvTWVkaWFHcmlkLnRzeHwyMDI2LTA5fGIzOTYzMmVmZmM= */
 import { Play, X } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
-import { absoluteUrl } from '../services/http';
+import { RImg, RVideo } from './remoteMedia';
 
 /** 判断 URL 是否为视频（#8：帖子支持视频播放） */
 export function isVideoUrl(u: string): boolean {
@@ -31,9 +31,9 @@ function VideoTile({ url }: { url: string }) {
 
   return (
     <div className="relative aspect-video w-full overflow-hidden bg-black">
-      <video
+      <RVideo
         ref={ref}
-        src={absoluteUrl(url)}
+        src={url}
         controls={playing}
         playsInline
         preload="metadata"
@@ -90,7 +90,7 @@ export function MediaGrid({ urls, className = '' }: { urls: string[]; className?
             <VideoTile key={m.url} url={m.url} />
           ) : (
             <button key={m.url} className="block w-full" onClick={() => setPreview(i)} aria-label="查看大图">
-              <img src={absoluteUrl(m.url)} alt="帖子媒体" loading="lazy" className="aspect-video w-full object-cover" />
+              <RImg src={m.url} alt="帖子媒体" loading="lazy" className="aspect-video w-full object-cover" />
             </button>
           ),
         )}
@@ -109,8 +109,8 @@ export function MediaGrid({ urls, className = '' }: { urls: string[]; className?
             <X size={20} />
           </button>
           {items[preview] && (
-            <img
-              src={absoluteUrl(items[preview].url)}
+            <RImg
+              src={items[preview].url}
               alt="大图预览"
               className="max-h-[80dvh] max-w-full object-contain"
               onClick={(e) => e.stopPropagation()}

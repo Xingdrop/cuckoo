@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvdXRpbHMvY2FtZXJhQ2FwdHVyZS50c3wyMDI2LTA5fDQyNzg1YjczNw== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3V0aWxzL2NhbWVyYUNhcHR1cmUudHN8MjAyNi0wOXxhMWVlYWQ0Yzdj */
 import { Capacitor } from '@capacitor/core';
 
 /**

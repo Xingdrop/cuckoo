@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
 import { ErrorBanner, EmptyState, LoadingState } from '../components/ui/Feedback';
-import { absoluteUrl, errorMessage } from '../services/http';
+import { errorMessage } from '../services/http';
+import { RImg } from '../components/remoteMedia';
 import { medicinesApi } from '../services/api/api.medicines';
 import type { Medicine } from '../types';
 
@@ -136,9 +137,9 @@ export function MedicinesPage() {
                   {(m.photoUrls?.length ?? 0) > 0 && (
                     <div className="mt-2.5 flex gap-1.5 overflow-x-auto">
                       {m.photoUrls!.slice(0, 6).map((u, i) => (
-                        <img
+                        <RImg
                           key={u}
-                          src={absoluteUrl(u)}
+                          src={u}
                           alt={`${m.name} 照片 ${i + 1}`}
                           className="h-14 w-14 shrink-0 rounded-md object-cover"
                         />

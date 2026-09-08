@@ -1,8 +1,8 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2NvbXBvbmVudHMvTWVkaWFDYXJvdXNlbC50c3h8MjAyNi0wOXwzMWZiOGFhODIx */
 import { ChevronLeft, ChevronRight, Play, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { absoluteUrl } from '../services/http';
 import { isVideoUrl } from './MediaGrid';
+import { RImg, RVideo } from './remoteMedia';
 
 /**
  * 媒体横向轮播（提醒详情/官方计划跟练图）：scroll-snap 滑动切换 + 页码指示 + 点击全屏。
@@ -48,9 +48,9 @@ export function MediaCarousel({
         >
           {urls.map((u) =>
             isVideoUrl(u) ? (
-              <video
+              <RVideo
                 key={u}
-                src={absoluteUrl(u)}
+                src={u}
                 controls
                 playsInline
                 preload="metadata"
@@ -64,7 +64,7 @@ export function MediaCarousel({
                 className={`${aspect} w-full shrink-0 snap-center`}
                 aria-label="查看大图"
               >
-                <img src={absoluteUrl(u)} alt="媒体内容" loading="lazy" className="h-full w-full object-cover" />
+                <RImg src={u} alt="媒体内容" loading="lazy" className="h-full w-full object-cover" />
               </button>
             ),
           )}
@@ -157,7 +157,7 @@ export function FullscreenViewer({
       >
         {urls.map((u) => (
           <div key={u} className="flex h-full w-full shrink-0 snap-center items-center justify-center p-4">
-            <img src={absoluteUrl(u)} alt="大图预览" className="max-h-full max-w-full object-contain" />
+            <RImg src={u} alt="大图预览" className="max-h-full max-w-full object-contain" />
           </div>
         ))}
       </div>

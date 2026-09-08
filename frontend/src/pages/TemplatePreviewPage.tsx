@@ -6,7 +6,7 @@ import { LoadingState } from '../components/ui/Feedback';
 import { MediaCarousel } from '../components/MediaCarousel';
 import { useConnectionStore } from '../stores/connectionStore';
 import { socialApi } from '../services/api/api.social';
-import { absoluteUrl } from '../services/http';
+import { RImg } from '../components/remoteMedia';
 import type { PlanTemplate } from '../services/api/api.social';
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -158,9 +158,9 @@ export function TemplatePreviewPage() {
                         {(c.content?.imageUrls?.length ?? 0) > 0 && (
                           <span className="mt-1 flex gap-1">
                             {c.content!.imageUrls!.slice(0, 4).map((u) => (
-                              <img
+                              <RImg
                                 key={u}
-                                src={absoluteUrl(u)}
+                                src={u}
                                 alt=""
                                 loading="lazy"
                                 className="h-10 w-10 rounded-md bg-bg object-cover"

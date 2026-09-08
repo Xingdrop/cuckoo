@@ -5,7 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { ErrorBanner, EmptyState, LoadingState } from '../components/ui/Feedback';
 import { exercisesApi } from '../services/api/api.exercises';
 import type { Exercise } from '../services/api/api.exercises';
-import { absoluteUrl, errorMessage } from '../services/http';
+import { errorMessage } from '../services/http';
+import { RImg } from '../components/remoteMedia';
 import { MediaCarousel } from '../components/MediaCarousel';
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -92,8 +93,8 @@ export function ExercisesPage() {
                             aria-label={`查看${ex.name}详情`}
                           >
                             {ex.imageUrl && (
-                              <img
-                                src={absoluteUrl(ex.imageUrl)}
+                              <RImg
+                                src={ex.imageUrl}
                                 alt=""
                                 loading="lazy"
                                 className="h-16 w-16 shrink-0 rounded-card bg-bg object-cover"

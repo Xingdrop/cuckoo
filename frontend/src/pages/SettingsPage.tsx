@@ -9,8 +9,9 @@ import { authApi } from '../services/api/api.auth';
 import { usersApi } from '../services/api/api.users';
 import { appApi, type AppApkInfo } from '../services/api/api.app';
 import { loadAiConfig, saveAiConfig } from '../assistant/assistant';
-import { absoluteUrl, refreshApiBase } from '../services/http';
+import { refreshApiBase } from '../services/http';
 import { errorMessage } from '../services/http';
+import { RImg } from '../components/remoteMedia';
 import { useAuthStore } from '../stores/authStore';
 import { useConnectionStore } from '../stores/connectionStore';
 import { useGuestStore } from '../guest/guestStore';
@@ -266,7 +267,7 @@ export function SettingsPage() {
             <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-primary-50 text-lg font-semibold text-primary-600">
               {user ? (
                 user.avatarUrl ? (
-                  <img src={absoluteUrl(user.avatarUrl)} alt="头像" className="h-full w-full object-cover" />
+                  <RImg src={user.avatarUrl} alt="头像" className="h-full w-full object-cover" />
                 ) : (
                   user.username.slice(0, 1).toUpperCase()
                 )

@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ErrorBanner, EmptyState, LoadingState } from '../components/ui/Feedback';
 import { profileApi } from '../services/api/api.plans';
-import { absoluteUrl, errorMessage } from '../services/http';
+import { errorMessage } from '../services/http';
+import { RImg } from '../components/remoteMedia';
 import { useAuthStore } from '../stores/authStore';
 
 /** 关注/粉丝列表（2026-08：个人主页数字入口） */
@@ -54,7 +55,7 @@ export function FollowListPage() {
                 >
                   <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-primary-50 text-sm font-semibold text-primary-600">
                     {u.avatarUrl ? (
-                      <img src={absoluteUrl(u.avatarUrl)} alt="头像" className="h-full w-full object-cover" />
+                      <RImg src={u.avatarUrl} alt="头像" className="h-full w-full object-cover" />
                     ) : (
                       u.username.slice(0, 1).toUpperCase()
                     )}

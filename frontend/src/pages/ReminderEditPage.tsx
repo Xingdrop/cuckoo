@@ -2,7 +2,8 @@
 import { ChevronLeft, Clock, ImagePlus, Play, Plus, X } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { absoluteUrl, errorMessage } from '../services/http';
+import { errorMessage } from '../services/http';
+import { RImg, RVideo } from '../components/remoteMedia';
 import { filesApi } from '../services/api/api.files';
 import { isVideoUrl } from '../components/MediaGrid';
 import { compressMediaFile } from '../utils/media';
@@ -552,7 +553,7 @@ export function ReminderEditPage() {
               {reminderMedia.map((u, i) =>
                 isVideoUrl(u) ? (
                   <div key={`${u}-${i}`} className="relative aspect-square w-full overflow-hidden rounded-btn bg-black">
-                    <video src={absoluteUrl(u)} className="h-full w-full object-cover" preload="metadata" muted playsInline />
+                    <RVideo src={u} className="h-full w-full object-cover" preload="metadata" muted playsInline />
                     <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
                       <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white">
                         <Play size={14} fill="currentColor" />
@@ -564,7 +565,7 @@ export function ReminderEditPage() {
                   </div>
                 ) : (
                   <span key={`${u}-${i}`} className="relative aspect-square w-full overflow-hidden rounded-btn bg-ink-100">
-                    <img src={absoluteUrl(u)} alt={`媒体 ${i + 1}`} className="h-full w-full object-cover" />
+                    <RImg src={u} alt={`媒体 ${i + 1}`} className="h-full w-full object-cover" />
                     <button
                       type="button"
                       onClick={() => setReminderMedia((prev) => prev.filter((x) => x !== u))}

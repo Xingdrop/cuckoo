@@ -5,7 +5,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ErrorBanner } from '../components/ui/Feedback';
 import { familyApi, type ChatMessageItem, type FamilyPeer } from '../services/api/api.family';
 import { filesApi } from '../services/api/api.files';
-import { absoluteUrl, errorMessage } from '../services/http';
+import { errorMessage } from '../services/http';
+import { RImg } from '../components/remoteMedia';
 import { compressMediaFile } from '../utils/media';
 import { useAuthStore } from '../stores/authStore';
 
@@ -137,8 +138,8 @@ export function FamilyChatPage() {
                   }`}
                 >
                   {m.photoUrl && (
-                    <img
-                      src={absoluteUrl(m.photoUrl)}
+                    <RImg
+                      src={m.photoUrl}
                       alt="图片消息"
                       className="mb-1 max-h-52 w-auto rounded-lg object-cover"
                     />

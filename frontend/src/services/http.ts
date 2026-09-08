@@ -39,7 +39,7 @@ export function refreshApiBase() {
 /** #26：把服务端相对路径（/uploads/…）转为当前服务器绝对地址（APK 连局域网服务器时图片/视频可显示） */
 export function absoluteUrl(u?: string | null): string {
   if (!u) return '';
-  if (/^https?:\/\//i.test(u) || u.startsWith('data:')) return u;
+  if (/^https?:\/\//i.test(u) || u.startsWith('data:') || u.startsWith('blob:')) return u;
   // guide 插画：优先本地缓存（登录时校验缓存，离线/APK 直读本机）
   if (u.includes('/uploads/guide/')) return guideSrc(u);
   const custom = localStorage.getItem('cuckoo_api_base');

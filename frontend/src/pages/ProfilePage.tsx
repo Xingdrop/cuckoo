@@ -8,7 +8,8 @@ import type { ProfileView } from '../services/api/api.plans';
 import { authApi } from '../services/api/api.auth';
 import { filesApi } from '../services/api/api.files';
 import { compressMediaFile } from '../utils/media';
-import { absoluteUrl, errorMessage } from '../services/http';
+import { errorMessage } from '../services/http';
+import { RImg } from '../components/remoteMedia';
 import { useAuthStore } from '../stores/authStore';
 
 function fmtDate(iso: string): string {
@@ -115,7 +116,7 @@ export function ProfilePage() {
               <label className={`relative mx-auto block h-20 w-20 ${profile.isSelf ? 'cursor-pointer' : ''}`}>
                 <span className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-primary-100 bg-primary-50 text-3xl font-semibold text-primary-600">
                   {profile.user.avatarUrl ? (
-                    <img src={absoluteUrl(profile.user.avatarUrl)} alt="头像" className="h-full w-full object-cover" />
+                    <RImg src={profile.user.avatarUrl} alt="头像" className="h-full w-full object-cover" />
                   ) : (
                     profile.user.username.slice(0, 1).toUpperCase()
                   )}

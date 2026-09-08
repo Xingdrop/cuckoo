@@ -2,7 +2,7 @@
 import { Camera, CheckCircle2, ChevronRight, FileText, Link as LinkIcon, Repeat, X } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { remindersApi } from '../services/api/api.reminders';
-import { absoluteUrl } from '../services/http';
+import { RImg } from './remoteMedia';
 import type { CalendarItem, ReminderLogStatus } from '../types';
 import { MediaCarousel } from './MediaCarousel';
 
@@ -300,8 +300,8 @@ export function ReminderDetailModal({
                 <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
                   {photoLogs.map((l) => (
                     <figure key={l.id} className="w-24 shrink-0">
-                      <img
-                        src={absoluteUrl(l.photoUrl!)}
+                      <RImg
+                        src={l.photoUrl!}
                         alt="拍照记录"
                         loading="lazy"
                         className="aspect-square w-full rounded-btn object-cover"

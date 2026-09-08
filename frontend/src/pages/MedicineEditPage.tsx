@@ -2,7 +2,8 @@
 import { ChevronLeft, ImagePlus, Trash2, X } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { absoluteUrl, errorMessage } from '../services/http';
+import { errorMessage } from '../services/http';
+import { RImg } from '../components/remoteMedia';
 import { medicinesApi, MedicineInput } from '../services/api/api.medicines';
 import { filesApi } from '../services/api/api.files';
 import { useLocal } from '../guest/localMode';
@@ -289,7 +290,7 @@ export function MedicineEditPage() {
           <div className="mt-2 flex flex-wrap gap-2">
             {photoUrls.map((u, i) => (
               <span key={u} className="relative h-20 w-20 overflow-hidden rounded-card bg-ink-100">
-                <img src={absoluteUrl(u)} alt={`药品照片 ${i + 1}`} className="h-full w-full object-cover" />
+                <RImg src={u} alt={`药品照片 ${i + 1}`} className="h-full w-full object-cover" />
                 <button
                   type="button"
                   onClick={() => setPhotoUrls((prev) => prev.filter((x) => x !== u))}

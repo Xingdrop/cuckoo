@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { EmptyState, ErrorBanner, LoadingState } from '../components/ui/Feedback';
 import { familyApi, type PartnerSummary } from '../services/api/api.family';
-import { absoluteUrl, errorMessage } from '../services/http';
+import { errorMessage } from '../services/http';
+import { RImg } from '../components/remoteMedia';
 
 const STATUS_LABEL: Record<string, string> = {
   completed: '已完成',
@@ -174,8 +175,8 @@ export function FamilyPartnerPage() {
                               <span className="rounded-full bg-ink-50 px-2 py-0.5 text-[11px] text-ink-400">待执行</span>
                             )}
                             {t.photoUrl && (
-                              <img
-                                src={absoluteUrl(t.photoUrl)}
+                              <RImg
+                                src={t.photoUrl}
                                 alt="打卡照片"
                                 className="h-9 w-9 rounded-md object-cover"
                               />
@@ -198,7 +199,7 @@ export function FamilyPartnerPage() {
                 <ul className="mt-3 grid grid-cols-3 gap-2">
                   {data.photoLogs.map((p, i) => (
                     <li key={i} className="overflow-hidden rounded-lg">
-                      <img src={absoluteUrl(p.photoUrl)} alt={p.reminderTitle ?? '照片'} className="aspect-square w-full object-cover" />
+                      <RImg src={p.photoUrl} alt={p.reminderTitle ?? '照片'} className="aspect-square w-full object-cover" />
                       <p className="mt-0.5 truncate text-[10px] text-ink-500">
                         {p.time} {p.reminderTitle ?? ''}
                       </p>

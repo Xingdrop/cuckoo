@@ -8,7 +8,8 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { ErrorBanner, LoadingState } from '../components/ui/Feedback';
 import { contactsApi, type EmergencyContactItem } from '../services/api/api.contacts';
 import { familyApi, type FamilyBindingItem } from '../services/api/api.family';
-import { absoluteUrl, errorMessage } from '../services/http';
+import { errorMessage } from '../services/http';
+import { RImg } from '../components/remoteMedia';
 import { useAuthStore } from '../stores/authStore';
 import { bindCodeSchema, contactSchema, type ContactInput } from '../types/schemas';
 
@@ -247,7 +248,7 @@ export function FamilyPage() {
                   <div className="flex items-center gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-50 text-sm font-semibold text-primary-600">
                       {b.peer.avatarUrl ? (
-                        <img src={absoluteUrl(b.peer.avatarUrl)} alt="" className="h-full w-full object-cover" />
+                        <RImg src={b.peer.avatarUrl} alt="" className="h-full w-full object-cover" />
                       ) : (
                         b.peer.username.slice(0, 1).toUpperCase()
                       )}

@@ -126,7 +126,9 @@ export type ReminderLogStatus =
   | 'missed'
   | 'challenge_completed'
   | 'manual'
-  | 'photo';
+  | 'photo'
+  /** #58（2026-09-09）：纯留言记录（不改完成状态；完成时自动升级） */
+  | 'note';
 
 export interface ReminderLog {
   id: string;

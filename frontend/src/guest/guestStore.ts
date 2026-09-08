@@ -36,11 +36,13 @@ export interface GuestLog {
   id: string;
   reminderId: string | null;
   scheduledTime: string; // ISO
-  status: 'completed' | 'skipped' | 'delayed' | 'missed' | 'challenge_completed' | 'manual' | 'photo';
+  status: 'completed' | 'skipped' | 'delayed' | 'missed' | 'challenge_completed' | 'manual' | 'photo' | 'note';
   amount: number;
   createdAt: string;
   /** 2026-09-06：可选文字记录（提醒弹窗随手记） */
   note?: string | null;
+  /** #26/#58：拍照记录（拍照/挑战打卡/补拍） */
+  photoUrl?: string | null;
 }
 
 export interface GuestMedicine {
@@ -225,7 +227,13 @@ interface GuestState {
   /** #26：日志带照片（拍照/挑战打卡） */
   photoUrl?: string | null;
 
-  ack: (id: string, status: 'completed' | 'skipped' | 'photo', at?: string, photoUrl?: string, note?: string) => void;
+  ack: (
+    id: string,
+    status: 'completed' | 'skipped' | 'photo' | 'note' | 'missed' | 'delayed' | 'challenge_completed' | 'manual',
+    at?: string,
+    photoUrl?: string,
+    note?: string,
+  ) => void;
   /** #26：替换某条日志的照片（保留原记录与时间语义） */
   updateLogPhoto: (logId: string, photoUrl: string) => void;
   recordWater: (ml: number) => void;
@@ -473,13 +481,32 @@ export const useGuestStore = create<GuestState>()(
         },
 
         ack: (id, status, at, photoUrl, note) => {
+          const target = at ?? new Date(`${todayKey()}T12:00:00`).toISOString();
+          // #58（2026-09-09）：同槽幂等合并（与后端 ack 语义一致）——此前无脑追加会产生重复日志，
+          // 且对「留言」槽标记完成时状态不会升级，表现为"完成不了"
+          const existing = get().logs.find((l) => l.reminderId === id && l.scheduledTime === target);
+          const TERMINAL = ['completed', 'challenge_completed', 'skipped'];
+          if (existing) {
+            set((s) => ({
+              logs: s.logs.map((l) => {
+                if (l.id !== existing.id) return l;
+                const es = String(l.status);
+                let next = status;
+                if (TERMINAL.includes(es)) next = es as typeof status;
+                else if (es === 'photo' && !TERMINAL.includes(status)) next = 'photo' as typeof status;
+                return { ...l, status: next, photoUrl: photoUrl ?? l.photoUrl, note: note ?? l.note, createdAt: nowIso() };
+              }),
+            }));
+            persistNow();
+            return;
+          }
           set((s) => ({
             logs: [
               ...s.logs,
               {
                 id: uid('l'),
                 reminderId: id,
-                scheduledTime: at ?? new Date(`${todayKey()}T12:00:00`).toISOString(),
+                scheduledTime: target,
                 status,
                 amount: 0,
                 photoUrl: photoUrl ?? null,

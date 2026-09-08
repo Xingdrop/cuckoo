@@ -150,6 +150,14 @@ export function DashboardPage() {
     void load(selected);
   }, [selected, load]);
 
+  // #53（2026-09-09）：提醒弹窗操作（完成/延迟/跳过/拍照）后立即刷新看板——
+  // 调度器 handleAction 会广播 cuckoo:reminders-changed，此前看板不监听，只能等轮询
+  useEffect(() => {
+    const onChanged = () => void load(selected);
+    window.addEventListener('cuckoo:reminders-changed', onChanged);
+    return () => window.removeEventListener('cuckoo:reminders-changed', onChanged);
+  }, [load, selected]);
+
   // #25：左右滑动切换日期——document 级捕获，任何区域（含已错过列表/空白处）均可横滑
   useEffect(() => {
     let sx: number | null = null;
@@ -278,8 +286,11 @@ export function DashboardPage() {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 2600);
   };
+  /** #9（2026-09-09 真机修复）：拍照目标改用 ref——此前 setState 后立刻调 onCamPicked，
+   * 闭包里的 camTarget 还是旧值（null）→ 静默 return，「补拍照片永远不上传」的根因 */
+  const camTargetRef = useRef<CalendarItem | null>(null);
   const openCameraFor = async (item: CalendarItem, _time?: string) => {
-    setCamTarget(item);
+    camTargetRef.current = item;
     // #8（2026-09-07）：APK 用 @capacitor/camera 原生拍照（WebView file chooser 会闪退）
     // Web 端返回 undefined → 回退隐藏 input；原生取消返回 null → 仅清理状态
     const nativeFile = await captureNativePhoto();
@@ -288,14 +299,13 @@ export function DashboardPage() {
       return;
     }
     if (nativeFile) void onCamPicked(nativeFile);
-    else setCamTarget(null);
+    else camTargetRef.current = null;
   };
-  const [camTarget, setCamTarget] = useState<CalendarItem | null>(null);
   /** #8：详情弹窗开着补拍 → 照片上报成功后 bump，让弹窗重新拉取当日记录以显示新照片 */
   const [detailRefresh, setDetailRefresh] = useState(0);
   const onCamPicked = async (file: File | undefined) => {
-    const target = camTarget;
-    setCamTarget(null);
+    const target = camTargetRef.current;
+    camTargetRef.current = null;
     if (!file || !target) return;
     try {
       const compressed = await compressMediaFile(file);
@@ -469,7 +479,7 @@ export function DashboardPage() {
               )}
             </p>
             {selected === today && stats && (
-              <p className="mt-1.5 h-4 truncate text-[10px] font-medium text-accent-700">连续 {stats.streakDays} 天</p>
+              <p className="mt-1.5 h-4 truncate text-[10px] font-medium text-accent-700">🔥 连续 {stats.streakDays} 天</p>
             )}
           </button>
 
@@ -532,10 +542,10 @@ export function DashboardPage() {
                     style={{ width: `${Math.min(100, water.rate)}%` }}
                   />
                 </div>
-                {/* 底部信息行（与完成率卡「连续 N 天」行等高，消除卡片空白）#7：前置连续达标天数 */}
+                {/* 底部信息行（与完成率卡「连续 N 天」行等高，消除卡片空白）#7：前置连续达标天数（💧 与完成率 🔥 区分） */}
                 <p className="mt-1 h-4 truncate text-[10px] leading-4 text-ink-400">
                   {water.streakDays > 0 && (
-                    <span className="font-medium text-accent-700">连续 {water.streakDays} 天 · </span>
+                    <span className="font-medium text-primary-600">💧 连续 {water.streakDays} 天 · </span>
                   )}
                   {selected !== today ? (
                     <>{selected.slice(5)} · {water.waterMl}ml</>
@@ -947,6 +957,11 @@ export function DashboardPage() {
           onRetake={() => {
             // #8（2026-09-07）：保持弹窗开着，拍完回显照片（此前关闭弹窗 → 用户以为闪退且看不到照片）
             void openCameraFor(detailItem);
+          }}
+          onDataChanged={() => {
+            // #58/#60（2026-09-09）：留言保存后立即回显——bump refreshKey 让弹窗重拉当日日志 + 看板同步刷新
+            setDetailRefresh((v) => v + 1);
+            void load(selected);
           }}
         />
       )}

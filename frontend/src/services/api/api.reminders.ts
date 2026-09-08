@@ -96,6 +96,12 @@ export const remindersApi = {
       ? Promise.resolve({ ok: true })
       : http.post(`/reminders/${id}/delay`, { minutes }).then((r) => r.data),
 
+  /** #58（2026-09-09）：详情弹窗随手记（纯留言，不改完成状态；1~500 字） */
+  saveNote: (id: string, body: { scheduledTime: string; note: string }) =>
+    useLocal()
+      ? Promise.resolve(guestApi.ack(id, 'note', body.scheduledTime, undefined, body.note))
+      : http.post(`/reminders/${id}/note`, body).then((r) => r.data),
+
   logs: (id: string, page = 1, pageSize = 20) =>
     useLocal()
       ? Promise.resolve(guestApi.logs(id, page, pageSize))

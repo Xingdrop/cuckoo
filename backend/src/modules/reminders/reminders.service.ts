@@ -472,6 +472,21 @@ export class RemindersService {
           return { ok: true, log: { ...existing, photoUrl: dto.photoUrl, actualTime: new Date() }, duplicate: true, replaced: true };
         }
 
+        // #58（2026-09-09）：留言槽升级——对「留言」槽完成/放弃/拍照时状态随之升级。
+        // 否则走 duplicate 分支只更 note 不改状态，「标记完成」在留言过的槽位上会失效。
+        if (existing.status === ReminderLogStatus.NOTE && (isTerminal || dto.status === ReminderLogStatus.PHOTO)) {
+          const patch: Partial<ReminderLog> = {
+            status: dto.status,
+            actualTime: new Date(),
+            photoUrl: dto.photoUrl ?? existing.photoUrl,
+            note: dto.note ?? existing.note,
+          };
+          const log = { ...existing, ...patch } as ReminderLog;
+          await this.settleStock(manager, reminder, log, userId, isCompleted);
+          await logRepo.update({ id: existing.id }, patch);
+          return { ok: true, log, duplicate: true, upgraded: true };
+        }
+
         // #8：延迟后完成/放弃 → 落到原计划时刻的 delayed 日志（同槽一条记录）。
         // 2026-09-07 真机修复：详情弹窗/看板用「原时刻」上报，与「原时刻+延迟分钟」相差 ≥1 分钟，
         // 原 60 秒窗口判定不成立 → 走 duplicate 分支静默丢弃 → 行永远显示「即将提醒」。
@@ -605,6 +620,52 @@ export class RemindersService {
     // 成就检查（FR-708，fire-and-forget：失败不影响 ack 结果；规则表驱动 + UNIQUE 幂等）
     void this.achievements.check(userId).catch(() => undefined);
     return result;
+  }
+
+  /**
+   * #58（2026-09-09）：详情弹窗随手记（纯留言）——写入/更新该槽位日志的 note。
+   * 槽位无日志 → 新建 NOTE 状态日志（不改完成状态、不推进调度、不计入完成率）；
+   * 已有日志（待完成除外）→ 仅更新 note，保留原状态；不存在的提醒/越权 → 404。
+   */
+  async upsertNote(userId: string, id: string, scheduledTimeIso: string, note: string) {
+    const trimmed = note.trim();
+    if (!trimmed || trimmed.length > 500) {
+      throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '留言须为 1~500 字' });
+    }
+    const reminder = await this.reminderRepo.findOne({ where: { id, userId } });
+    if (!reminder) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: '提醒不存在' });
+    }
+    const scheduledTime = new Date(scheduledTimeIso);
+    if (Number.isNaN(scheduledTime.getTime())) {
+      throw new BadRequestException({ code: 'VALIDATION_FAILED', message: 'scheduledTime 无效' });
+    }
+    return this.dataSource.transaction(async (manager) => {
+      const logRepo = manager.getRepository(ReminderLog);
+      const existing = await logRepo.findOne({ where: { reminderId: id, scheduledTime } });
+      if (existing) {
+        await logRepo.update({ id: existing.id }, { note: trimmed, actualTime: new Date() });
+        return { ok: true, logId: existing.id };
+      }
+      const log = logRepo.create({
+        id: randomUUID(),
+        reminderId: id,
+        userId,
+        scheduledTime,
+        actualTime: new Date(),
+        status: ReminderLogStatus.NOTE,
+        delayMinutes: 0,
+        photoUrl: null,
+        medicineId: reminder.medicineId,
+        medicineNameSnapshot: null,
+        category: reminder.category,
+        amount: 0,
+        stockDeducted: 0,
+        note: trimmed,
+      });
+      await logRepo.save(log);
+      return { ok: true, logId: log.id };
+    });
   }
 
   /**

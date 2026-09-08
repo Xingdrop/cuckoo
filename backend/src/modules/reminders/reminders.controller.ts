@@ -130,6 +130,18 @@ export class RemindersController {
     return this.remindersService.ack(userId, id, dto);
   }
 
+  @Post(':id/note')
+  @ApiOperation({ summary: '#58：详情弹窗随手记（纯留言，不改完成状态，1~500 字）' })
+  note(
+    @CurrentUser('sub') userId: string,
+    @Param('id') id: string,
+    @Body() dto: { scheduledTime?: string; note?: string },
+  ) {
+    if (!dto.scheduledTime) throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '缺少 scheduledTime' });
+    if (!dto.note) throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '缺少 note' });
+    return this.remindersService.upsertNote(userId, id, dto.scheduledTime, dto.note);
+  }
+
   @Post(':id/delay')
   @ApiOperation({ summary: '延迟提醒（FR-205/206）' })
   delay(

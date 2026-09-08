@@ -182,6 +182,9 @@ export function useReminderScheduler() {
       // missed：仅记录并刷新列表，弹窗保留（用户仍可补完成/延迟/放弃）
       if (status !== 'missed') setActive(null);
       void load(true);
+      // #53（2026-09-09）：广播给各页面（今日看板等）立即重拉数据——此前只刷新调度器
+      // 内部列表，看板要等下一轮轮询才变（真机反馈"26 的闹铃 27 才刷新"）
+      window.dispatchEvent(new CustomEvent('cuckoo:reminders-changed'));
     }
   };
 

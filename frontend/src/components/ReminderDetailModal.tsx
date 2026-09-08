@@ -27,12 +27,14 @@ function delayedTime(time: string, delayMinutes?: number): string | null {
   return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
-/** #6（2026-09-07 真机反馈）：延迟槽位标签——新时刻与原时刻同字号，延迟说明单独一行小字 */
+/** #6/#8（2026-09-09 真机反馈）：延迟槽位标签——原时刻加删除线（保留"被修改"语义），
+ * 新时刻同行完整显示（外层改为独立一行布局，不再被右侧按钮挤压截断） */
 function DelayedSlotLabel({ time, delayMinutes }: { time: string; delayMinutes: number }) {
   return (
     <span className="block leading-tight">
       <span className="font-mono text-sm text-ink-700">
-        {time} <span className="text-warning-700">→ {delayedTime(time, delayMinutes)}</span>
+        <span className="text-ink-400 line-through">{time}</span>
+        <span className="text-warning-700"> → {delayedTime(time, delayMinutes)}</span>
       </span>
       <span className="mt-0.5 block text-[11px] text-warning-700">已延迟 {delayMinutes} 分钟</span>
     </span>
@@ -59,6 +61,7 @@ const STATUS_CHIP: Record<string, { text: string; cls: string }> = {
   skipped: { text: '已跳过', cls: 'bg-ink-100 text-ink-500' },
   missed: { text: '已错过', cls: 'bg-danger-500/15 text-danger-700' },
   manual: { text: '已补记', cls: 'bg-primary-500/15 text-primary-700' },
+  note: { text: '留言', cls: 'bg-ink-100 text-ink-600' },
 };
 
 const statusChip = (s: ReminderLogStatus | null) =>
@@ -93,6 +96,7 @@ export function ReminderDetailModal({
   onClose,
   onComplete,
   onRetake,
+  onDataChanged,
   refreshKey = 0,
 }: {
   item: CalendarItem;
@@ -103,10 +107,14 @@ export function ReminderDetailModal({
   onComplete: (time?: string) => void;
   /** 补拍照片（外层拉起相机/相册） */
   onRetake: () => void;
+  /** #58：留言/照片等数据变更后通知外层（刷新看板 + bump refreshKey 让本弹窗重拉日志） */
+  onDataChanged?: () => void;
   /** #8：外层照片上报成功后递增 → 重新拉取当日记录显示新照片 */
   refreshKey?: number;
 }) {
   const [logs, setLogs] = useState<DayLog[] | null>(null);
+  const [noteText, setNoteText] = useState('');
+  const [noteBusy, setNoteBusy] = useState(false);
   const c = item.content ?? {};
 
   /** 当日日志（照片记录 + 时点状态兜底；本地/云端双路径已在 api 层适配） */
@@ -146,9 +154,32 @@ export function ReminderDetailModal({
   );
 
   const slots = item.untimed ? [] : item.times;
-  /** 待完成时点（无状态记录）——「标记完成」优先作用于它；延迟中（≠已处理）也可直接完成（2026-09-07 #8） */
-  const pendingSlot = slots.find((s) => !s.status || s.status === 'delayed');
+  /** 待完成时点（无状态记录/留言/延迟中）——「标记完成」优先作用于它（note 槽完成时后端自动升级状态） */
+  const isActionable = (s: ReminderLogStatus | null | undefined) => !s || s === 'delayed' || s === 'note';
+  const pendingSlot = slots.find((s) => isActionable(s.status));
   const missedSlots = slots.filter((s) => s.status === 'missed');
+
+  /** #58：留言落点——待完成/错过/首个时点；不定时 → 当日正午（与 ack 口径一致） */
+  const noteScheduledTime = () => {
+    const [y, m, d] = date.split('-').map(Number);
+    const t = pendingSlot?.time ?? missedSlots[0]?.time ?? slots[0]?.time;
+    if (item.untimed || !t) return new Date(y, m - 1, d, 12, 0).toISOString();
+    const [hh, mm] = t.split(':').map(Number);
+    return new Date(y, m - 1, d, hh, mm).toISOString();
+  };
+  const submitNote = async () => {
+    const t = noteText.trim();
+    if (!t || noteBusy) return;
+    setNoteBusy(true);
+    try {
+      await remindersApi.saveNote(item.reminderId, { scheduledTime: noteScheduledTime(), note: t });
+      setNoteText('');
+      // 立即回显：外层刷新看板 + bump refreshKey → 本弹窗重拉当日日志
+      onDataChanged?.();
+    } finally {
+      setNoteBusy(false);
+    }
+  };
 
   const mediaUrls = useMemo(() => {
     const imgs = (c.imageUrls ?? []).map((u) => u);
@@ -158,7 +189,7 @@ export function ReminderDetailModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-5" onClick={onClose}>
       <div
-        className="max-h-[82dvh] w-full max-w-sm overflow-y-auto rounded-card bg-surface shadow-2xl"
+        className="max-h-[82dvh] min-h-[24rem] w-full max-w-sm overflow-y-auto rounded-card bg-surface shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 头部：图标 + 标题 + 重复规则 */}
@@ -202,6 +233,7 @@ export function ReminderDetailModal({
               />
             ) : slots.length === 1 ? (
               <SlotRow
+                stacked={!!slots[0].delayMinutes}
                 label={
                   slots[0].delayMinutes ? (
                     <DelayedSlotLabel time={slots[0].time} delayMinutes={slots[0].delayMinutes} />
@@ -218,9 +250,10 @@ export function ReminderDetailModal({
                 {slots.map((s) => {
                   const chip = statusChip(s.status);
                   return (
-                    <li key={s.time} className="flex items-center gap-2 px-3 py-2.5">
+                    <li key={s.time} className="flex flex-wrap items-center gap-x-2 gap-y-1.5 px-3 py-2.5">
                       {s.delayMinutes ? (
-                        <span className="min-w-0 shrink-0">
+                        /* #8（2026-09-09）：延迟槽位独占一行，避免被右侧按钮挤压截断（"00:26 → 00:" 显示不全） */
+                        <span className="min-w-0 flex-1 basis-full">
                           <DelayedSlotLabel time={s.time} delayMinutes={s.delayMinutes} />
                         </span>
                       ) : (
@@ -230,8 +263,8 @@ export function ReminderDetailModal({
                         {chip.text}
                       </span>
                       <span className="min-w-0 flex-1" />
-                      {/* 待完成或延迟中（延迟≠已处理）均可直接标记完成（2026-09-07 #8） */}
-                      {(!s.status || s.status === 'delayed') && (
+                      {/* 待完成/留言/延迟中（延迟≠已处理）均可直接标记完成（2026-09-07 #8） */}
+                      {isActionable(s.status) && (
                         <button
                           onClick={() => onComplete(s.time)}
                           className="flex h-7 shrink-0 items-center gap-1 rounded-lg bg-primary-500 px-2.5 text-[11px] font-medium text-white"
@@ -247,7 +280,7 @@ export function ReminderDetailModal({
                           <CheckCircle2 size={12} /> 补记
                         </button>
                       )}
-                      {(!s.status || s.status === 'delayed') && (
+                      {isActionable(s.status) && (
                         <button
                           onClick={onRetake}
                           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-ink-100 text-ink-600"
@@ -288,31 +321,27 @@ export function ReminderDetailModal({
             </a>
           )}
 
-          {/* 当日拍照记录（提醒后补拍的照片） */}
-          {(photoLogs.length > 0 || logs === null) && (
+          {/* 当日拍照记录（提醒后补拍的照片）
+              #6（2026-09-09）：加载中不再渲染本区块——此前先显示「加载中…」再整块消失，
+              观感为"先弹一个奇怪的弹窗再变正常"（内容跳动） */}
+          {logs !== null && photoLogs.length > 0 && (
             <section>
               <p className="text-xs font-medium text-ink-500">📷 当日拍照记录（{photoLogs.length}）</p>
-              {logs === null ? (
-                <p className="mt-2 text-xs text-ink-400">加载中…</p>
-              ) : photoLogs.length === 0 ? (
-                <p className="mt-1.5 text-xs text-ink-400">这一天还没有拍照记录，点下方「补拍照片」添加</p>
-              ) : (
-                <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
-                  {photoLogs.map((l) => (
-                    <figure key={l.id} className="w-24 shrink-0">
-                      <RImg
-                        src={l.photoUrl!}
-                        alt="拍照记录"
-                        loading="lazy"
-                        className="aspect-square w-full rounded-btn object-cover"
-                      />
-                      <figcaption className="mt-1 text-center text-[10px] text-ink-400">
-                        {new Date(l.scheduledTime).toTimeString().slice(0, 5)}
-                      </figcaption>
-                    </figure>
-                  ))}
-                </div>
-              )}
+              <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
+                {photoLogs.map((l) => (
+                  <figure key={l.id} className="w-24 shrink-0">
+                    <RImg
+                      src={l.photoUrl!}
+                      alt="拍照记录"
+                      loading="lazy"
+                      className="aspect-square w-full rounded-btn object-cover"
+                    />
+                    <figcaption className="mt-1 text-center text-[10px] text-ink-400">
+                      {new Date(l.scheduledTime).toTimeString().slice(0, 5)}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
             </section>
           )}
 
@@ -349,6 +378,28 @@ export function ReminderDetailModal({
             <p className="text-xs text-ink-400">该提醒未附加内容说明</p>
           )}
 
+          {/* #58（2026-09-09）：随手记留言输入框——保存后立即回显到上方「当日记录」 */}
+          <div className="rounded-card bg-bg px-3 py-2.5">
+            <textarea
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              maxLength={500}
+              rows={2}
+              placeholder="随手记一句（可选，≤500 字）"
+              className="w-full resize-none rounded-btn border border-ink-100 bg-surface px-3 py-2 text-sm text-ink-700 outline-none placeholder:text-ink-400 focus:border-primary-300"
+            />
+            <div className="mt-2 flex items-center justify-between">
+              <span className="text-[11px] text-ink-400">{noteText.length}/500</span>
+              <button
+                onClick={() => void submitNote()}
+                disabled={!noteText.trim() || noteBusy}
+                className="flex h-8 items-center gap-1 rounded-btn bg-primary-500 px-3.5 text-xs font-medium text-white disabled:opacity-40"
+              >
+                {noteBusy ? '保存中…' : '保存留言'}
+              </button>
+            </div>
+          </div>
+
           {/* 底部操作 */}
           <div className="flex gap-2.5 pt-1">
             <button
@@ -382,17 +433,22 @@ function SlotRow({
   status,
   onDone,
   doneText,
+  stacked = false,
 }: {
   label: ReactNode;
   status: ReminderLogStatus | null;
   onDone: () => void;
   doneText: string;
+  /** #8（2026-09-09）：延迟槽位标签独占一行，状态/按钮换到第二行，避免被挤压截断 */
+  stacked?: boolean;
 }) {
   const chip = statusChip(status);
   return (
-    <div className="flex items-center gap-2 rounded-card bg-bg px-3 py-2.5">
-      <span className="min-w-0 flex-1 truncate text-sm text-ink-700">{label}</span>
-      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${chip.cls}`}>{chip.text}</span>
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-card bg-bg px-3 py-2.5">
+      <span className={`min-w-0 text-sm text-ink-700 ${stacked ? 'basis-full' : 'flex-1'}`}>{label}</span>
+      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${chip.cls} ${stacked ? 'ml-auto' : ''}`}>
+        {chip.text}
+      </span>
       {(!status || status === 'delayed') && (
         <button
           onClick={onDone}

@@ -21,6 +21,8 @@ export enum ReminderLogStatus {
   MANUAL = 'manual',
   /** #26：拍照记录（独立于完成标记——拍照即提交，可再次拍照替换） */
   PHOTO = 'photo',
+  /** #58（2026-09-09）：纯留言记录（不改变完成状态，不计入完成率分母变化——视同待完成槽位有互动） */
+  NOTE = 'note',
 }
 
 /** 提醒执行记录。UNIQUE(reminderId, scheduledTime) 保证同一时刻只记录一次（幂等） */

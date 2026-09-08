@@ -9,7 +9,7 @@ import { authApi } from '../services/api/api.auth';
 import { usersApi } from '../services/api/api.users';
 import { appApi, type AppApkInfo } from '../services/api/api.app';
 import { loadAiConfig, saveAiConfig } from '../assistant/assistant';
-import { refreshApiBase } from '../services/http';
+import { refreshApiBase, absoluteUrl } from '../services/http';
 import { errorMessage } from '../services/http';
 import { RImg } from '../components/remoteMedia';
 import { useAuthStore } from '../stores/authStore';
@@ -164,18 +164,31 @@ export function SettingsPage() {
     navigate('/login');
   };
 
-  /** #25：导出全量数据——离线/游客本地打包；APK 用原生文件系统写盘（WebView 下载受限） */
+  /** #25/#33：导出全量数据——登录态生成 24h /uploads 直链并自动复制（APK WebView 下载/分享受限，链接在任意浏览器可开）；游客/离线走本地打包 */
   const handleExport = async () => {
     setBusy(true);
     setError(null);
     try {
-      const json = useLocal()
-        ? (() => {
-            const bundle = useGuestStore.getState().exportBundle();
-            return JSON.stringify({ ...bundle, exportedAt: new Date().toISOString() }, null, 2);
-          })()
-        : await usersApi.exportData();
       const fileName = `cuckoo-data-${new Date().toISOString().slice(0, 10)}.json`;
+      if (!useLocal()) {
+        try {
+          const { url, expiresInHours } = await usersApi.exportLink();
+          const link = absoluteUrl(url);
+          try {
+            await navigator.clipboard.writeText(link);
+            setNotice(`下载链接已复制到剪贴板（${expiresInHours} 小时内有效），在任意浏览器打开即可下载`);
+          } catch {
+            setNotice(`无法访问剪贴板，请手动复制链接（${expiresInHours} 小时内有效）：${link}`);
+          }
+          return;
+        } catch {
+          // 离线/接口失败 → 落到本地打包（下方）
+        }
+      }
+      const json = (() => {
+        const bundle = useGuestStore.getState().exportBundle();
+        return JSON.stringify({ ...bundle, exportedAt: new Date().toISOString() }, null, 2);
+      })();
       const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
       if (cap?.isNativePlatform?.()) {
         // APK：优先系统分享面板（用户可另存到任意位置——Documents 属 app 专属目录，文件管理器看不到，是「导出找不到文件」的根因）

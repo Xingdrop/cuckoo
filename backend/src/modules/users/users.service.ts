@@ -2,6 +2,8 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
+import * as fs from 'node:fs';
+import { join } from 'node:path';
 import { DataSource, In, Repository } from 'typeorm';
 import { computeNextTrigger } from '../../common/reminder-schedule';
 import { AuthService } from '../auth/auth.service';
@@ -322,6 +324,26 @@ export class UsersService {
       emergencyContacts: contacts,
       achievements,
     };
+  }
+
+  /** #33（2026-09-09）：导出下载链接——APK WebView 下载/分享受限，改为生成局域网 /uploads 直链（浏览器打开即下载），24h 过期、生成时顺带清理 */
+  async createExportLink(userId: string) {
+    const data = await this.exportData(userId);
+    const dir = join(process.cwd(), process.env.UPLOAD_DIR ?? 'uploads', 'exports');
+    fs.mkdirSync(dir, { recursive: true });
+    const dayMs = 24 * 3_600_000;
+    for (const f of fs.readdirSync(dir)) {
+      const p = join(dir, f);
+      try {
+        if (Date.now() - fs.statSync(p).mtimeMs > dayMs) fs.unlinkSync(p);
+      } catch {
+        /* 清理失败忽略 */
+      }
+    }
+    const name = `cuckoo-export-${userId.slice(0, 8)}-${Date.now()}.json`;
+    fs.writeFileSync(join(dir, name), JSON.stringify(data, null, 2), 'utf8');
+    void this.audit.record('user.export-link', userId, { targetType: 'user', targetId: userId });
+    return { url: `/uploads/exports/${name}`, expiresInHours: 24 };
   }
 
   /**

@@ -129,6 +129,12 @@ export class UsersController {
     return data;
   }
 
+  @Post('me/export-link')
+  @ApiOperation({ summary: '生成数据导出下载链接（/uploads 直链，24 小时有效）' })
+  exportLink(@CurrentUser('sub') userId: string) {
+    return this.usersService.createExportLink(userId);
+  }
+
   @Post('me/import')
   @ApiOperation({ summary: '游客数据导入合并（#3：按同类数据 created_at 较新优先）' })
   importData(@CurrentUser('sub') userId: string, @Body() bundle: Record<string, unknown>) {

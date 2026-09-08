@@ -9,6 +9,9 @@ export const usersApi = {
     return (res.data as Blob).text();
   },
 
+  /** #33（2026-09-09）：生成导出下载链接（/uploads 直链，24 小时有效）——复制到剪贴板后在任意浏览器打开即可下载 */
+  exportLink: () => http.post<{ url: string; expiresInHours: number }>('/users/me/export-link').then((r) => r.data),
+
   /** 注销账号（软删除 + 数据清理） */
   deleteAccount: () => http.delete<{ success: boolean }>('/users/me').then((r) => r.data),
 

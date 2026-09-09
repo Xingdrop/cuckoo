@@ -326,7 +326,10 @@ export class UsersService {
     };
   }
 
-  /** #33（2026-09-09）：导出下载链接——APK WebView 下载/分享受限，改为生成局域网 /uploads 直链（浏览器打开即下载），24h 过期、生成时顺带清理 */
+  /**
+   * #1（2026-09-09 深夜）：导出改为人类可读的 HTML 报告——普通人双击/浏览器打开即看，
+   * 不再丢一个 JSON 文件（原始 JSON 仍可经 GET /users/me/export 获取，供备份/迁移）。
+   */
   async createExportLink(userId: string) {
     const data = await this.exportData(userId);
     const dir = join(process.cwd(), process.env.UPLOAD_DIR ?? 'uploads', 'exports');
@@ -340,8 +343,8 @@ export class UsersService {
         /* 清理失败忽略 */
       }
     }
-    const name = `cuckoo-export-${userId.slice(0, 8)}-${Date.now()}.json`;
-    fs.writeFileSync(join(dir, name), JSON.stringify(data, null, 2), 'utf8');
+    const name = `cuckoo-report-${userId.slice(0, 8)}-${Date.now()}.html`;
+    fs.writeFileSync(join(dir, name), buildHtmlReport(data), 'utf8');
     void this.audit.record('user.export-link', userId, { targetType: 'user', targetId: userId });
     return { url: `/uploads/exports/${name}`, expiresInHours: 24 };
   }
@@ -379,4 +382,161 @@ export class UsersService {
   private deviceRepo() { return this.dataSource.getRepository(Device); }
   private contactRepo() { return this.dataSource.getRepository(EmergencyContact); }
   private achievementRepo() { return this.dataSource.getRepository(Achievement); }
+}
+
+// ============ #1（2026-09-09 深夜）：HTML 导出报告（人类可读，浏览器打开即看） ============
+
+type ExportBundle = Awaited<ReturnType<UsersService['exportData']>>;
+
+const esc = (v: unknown) =>
+  String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c);
+
+/** SQLite 存 UTC（"YYYY-MM-DD HH:mm:ss[.SSS]"）→ 本地时间展示 */
+const fmtLocal = (s: string | null | undefined) => {
+  if (!s) return '';
+  const d = new Date(String(s).includes('T') ? String(s) : `${String(s).replace(' ', 'T')}Z`);
+  if (Number.isNaN(d.getTime())) return String(s);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+
+const LOG_STATUS: Record<string, { label: string; color: string }> = {
+  completed: { label: '已完成', color: '#16803c' },
+  challenge_completed: { label: '拍照打卡完成', color: '#16803c' },
+  manual: { label: '手动打卡', color: '#16803c' },
+  skipped: { label: '已放弃', color: '#6b7280' },
+  missed: { label: '已错过', color: '#c03939' },
+  delayed: { label: '已延迟', color: '#b45309' },
+  photo: { label: '拍照记录', color: '#2563eb' },
+  note: { label: '留言', color: '#7c3aed' },
+};
+
+const CATEGORY_EMOJI: Record<string, string> = {
+  medication: '💊', exercise: '🏃', water: '💧', rest: '😴', work: '💼', custom: '📌',
+};
+
+const repeatText = (r: { type?: string; intervalValue?: number; intervalUnit?: string } | null | undefined) => {
+  if (!r) return '';
+  if (r.type === 'daily') return '每天';
+  if (r.type === 'once') return '单次';
+  if (r.type === 'interval') return `每 ${r.intervalValue ?? 1} ${r.intervalUnit === 'minute' ? '分钟' : r.intervalUnit === 'week' ? '周' : '小时'}`;
+  if (r.type === 'week') return '每周指定日';
+  return r.type ?? '';
+};
+
+/**
+ * 自包含 HTML 报告：概览 → 提醒清单 → 近 7 天执行记录 → 药品库存。
+ * 内联样式、无外部依赖，手机/桌面浏览器直接打开。
+ */
+function buildHtmlReport(data: ExportBundle): string {
+  const logs7 = [...(data.reminderLogs ?? [])]
+    .filter((l) => l.scheduledTime && Date.now() - new Date(String(l.scheduledTime).includes('T') ? String(l.scheduledTime) : `${String(l.scheduledTime).replace(' ', 'T')}Z`).getTime() < 7 * 86_400_000)
+    .sort((a, b) => String(b.scheduledTime).localeCompare(String(a.scheduledTime)))
+    .slice(0, 300);
+  const reminderTitle = new Map((data.reminders ?? []).map((r) => [r.id, r.title] as const));
+  const doneCount = (data.reminderLogs ?? []).filter((l) => l.status === 'completed' || l.status === 'challenge_completed').length;
+  const sections: string[] = [];
+
+  const card = (inner: string) => `<div class="card">${inner}</div>`;
+  const table = (head: string[], rows: string[][]) =>
+    rows.length === 0
+      ? '<p class="empty">暂无数据</p>'
+      : `<table><thead><tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows
+          .map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`)
+          .join('')}</tbody></table>`;
+
+  sections.push(
+    card(
+      `<h2>概览</h2><div class="stats">
+        <div class="stat"><b>${data.reminders?.length ?? 0}</b><span>提醒</span></div>
+        <div class="stat"><b>${data.reminderLogs?.length ?? 0}</b><span>执行记录</span></div>
+        <div class="stat"><b>${doneCount}</b><span>累计完成</span></div>
+        <div class="stat"><b>${data.medicines?.length ?? 0}</b><span>药品</span></div>
+      </div>
+      <p class="muted">账号：${esc(data.user?.username ?? '—')}　导出时间：${fmtLocal(data.exportedAt)}</p>`,
+    ),
+  );
+
+  sections.push(
+    card(
+      `<h2>我的提醒</h2>${table(
+        ['提醒', '时间', '重复', '状态'],
+        (data.reminders ?? []).map((r) => [
+          `${CATEGORY_EMOJI[r.category] ?? '📌'} ${esc(r.title)}`,
+          esc((r.times ?? []).join('、')) || '不定时',
+          esc(repeatText(r.repeatRule)),
+          r.isActive ? '<span class="ok">开启</span>' : '<span class="off">已停用</span>',
+        ]),
+      )}</div>`,
+    ),
+  );
+
+  sections.push(
+    card(
+      `<h2>近 7 天执行记录</h2>${table(
+        ['时间', '提醒', '结果', '记录'],
+        logs7.map((l) => {
+          const st = LOG_STATUS[l.status] ?? { label: l.status, color: '#374151' };
+          const extra = [l.note, l.photoUrl ? '📷 有照片' : ''].filter(Boolean).join('　');
+          return [
+            esc(fmtLocal(String(l.scheduledTime))),
+            esc(reminderTitle.get(String(l.reminderId)) ?? '—'),
+            `<span style="color:${st.color};font-weight:600">${st.label}</span>`,
+            esc(extra),
+          ];
+        }),
+      )}</div>`,
+    ),
+  );
+
+  sections.push(
+    card(
+      `<h2>我的药品</h2>${table(
+        ['药品', '剂量', '库存', '服用说明'],
+        (data.medicines ?? []).map((m) => [
+          `💊 ${esc((m as { name?: string }).name)}`,
+          esc((m as { dosage?: string }).dosage),
+          esc(String((m as { stock?: number }).stock ?? '')),
+          esc((m as { instructions?: string }).instructions),
+        ]),
+      )}</div>`,
+    ),
+  );
+
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>布谷数据导出报告</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: #f6f4ef; color: #40312a;
+         font: 14px/1.6 "PingFang SC","HarmonyOS Sans SC","Microsoft YaHei",sans-serif; }
+  h1 { font-size: 20px; margin: 4px 0 12px; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  .card { background: #fff; border-radius: 14px; padding: 14px; margin-bottom: 12px;
+          box-shadow: 0 1px 3px rgba(0,0,0,.06); overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; color: #8a7462; font-weight: 500; padding: 6px 8px;
+       border-bottom: 1px solid #f0e4d8; white-space: nowrap; }
+  td { padding: 7px 8px; border-bottom: 1px solid #f7f1e8; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .stats { display: flex; gap: 10px; text-align: center; }
+  .stat { flex: 1; background: #f6f4ef; border-radius: 10px; padding: 10px 4px; }
+  .stat b { display: block; font-size: 20px; color: #2f7d63; }
+  .stat span { font-size: 11px; color: #8a7462; }
+  .muted { color: #8a7462; font-size: 12px; margin: 10px 0 0; }
+  .empty { color: #8a7462; font-size: 12.5px; margin: 4px 0; }
+  .ok { color: #16803c; font-weight: 600; }
+  .off { color: #9ca3af; }
+  footer { text-align: center; color: #b09a88; font-size: 11px; padding: 8px 0 16px; }
+</style>
+</head>
+<body>
+<h1>布谷数据导出报告</h1>
+${sections.join('\n')}
+<footer>本报告由布谷 App 生成，仅包含你的数据 · 原始 JSON 备份可联系开发者获取</footer>
+</body>
+</html>`;
 }

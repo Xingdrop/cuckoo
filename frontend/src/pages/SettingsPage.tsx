@@ -505,7 +505,7 @@ export function SettingsPage() {
             <Download size={18} className="shrink-0 text-primary-600" />
             <div>
               <p className="text-sm font-medium">导出我的数据</p>
-              <p className="mt-0.5 text-xs text-ink-500">下载 JSON（提醒/日志/药品/计划/设置全量；离线也可用）</p>
+              <p className="mt-0.5 text-xs text-ink-500">生成可读报告（浏览器直接打开查看提醒/记录/药品）</p>
             </div>
           </button>
           {/* #22/#26：合并游客数据——预览+确认合并；可单独清空游客数据 */}

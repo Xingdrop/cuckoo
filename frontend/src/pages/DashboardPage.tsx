@@ -75,6 +75,19 @@ function slotTime(t: { time: string; delayMinutes?: number }): string {
   return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
+/** #7（2026-09-09）：延迟中的槽位若新时刻（原时刻+延迟）已过超 30 分钟宽限仍无响应 → 视为已错过。
+ * 此前后端错过扫描只处理 nextTriggerAt 的精确匹配，延迟槽（原时刻日志+delayMinutes）永远停留在
+ * 待办（真机反馈"都 22 点了 0 点的延迟提醒还挂在待办"）。分钟制跨午夜安全。 */
+function delayedSlotExpired(time: string, delayMinutes: number | undefined, nowTime: string): boolean {
+  if (!delayMinutes) return false;
+  const [h, m] = time.split(':').map(Number);
+  const base = h * 60 + m;
+  let eff = base + delayMinutes;
+  if (eff < base) eff += 1440; // 跨午夜（23:50 延迟 20 分 → 次日 00:10）
+  const [nh, nm] = nowTime.split(':').map(Number);
+  return eff + 30 <= nh * 60 + nm;
+}
+
 /**
  * P-03 今日看板（日期切换版）
  * - 顶部：日期 + 农历/节日 + 快捷导航（3天前~3天后）+ 左右滑动切换
@@ -108,6 +121,13 @@ export function DashboardPage() {
   const guestActive = useGuestStore((s) => s.active);
   /** #25：今日提醒点击查看详情 */
   const [detailItem, setDetailItem] = useState<CalendarItem | null>(null);
+  // #7（2026-09-09 晚）：30s 时钟强制重渲染——错过判定用 nowTime，无重渲染时
+  // 「22:10 的提醒 22:12 还挂在待办」要等下次数据变化才翻转
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((v) => v + 1), 30_000);
+    return () => clearInterval(t);
+  }, []);
   /** #24：点击日期 → 原生日期选择器（自选日期） */
   const datePickerRef = useRef<HTMLInputElement>(null);
   const openDatePicker = () => {
@@ -201,12 +221,13 @@ export function DashboardPage() {
       item,
       isDone: t.status === 'completed' || t.status === 'challenge_completed',
       // 已错过：missed/skipped 状态，或（未完成 且 时间已过：今天已过 / 历史日期）
-      // delayed（延迟执行中）不算错过，显示在待办
+      // delayed（延迟执行中）不算错过，但新时刻已过超 30 分钟无响应 → 视为错过（#7 2026-09-09）
       // #4：不定时无固定时刻 → 永不判错过（保持 pending，可完成/放弃）
       isMissed:
         !item.untimed &&
         (t.status === 'missed' ||
           t.status === 'skipped' ||
+          (t.status === 'delayed' && delayedSlotExpired(t.time, t.delayMinutes, nowTime)) ||
           (t.status === null &&
             (selected < today || (selected === today && t.time < nowTime)))),
     })),
@@ -532,7 +553,8 @@ export function DashboardPage() {
             </div>
             {water ? (
               <>
-                <p className="mt-2 truncate text-2xl font-bold leading-none text-primary-600">
+                {/* 2026-09-09：mt-3.5 与左侧完成率 % 的基线对齐（此前 mt-2 导致数字偏高） */}
+                <p className="mt-3.5 truncate text-2xl font-bold leading-none text-primary-600">
                   {water.waterMl}
                   <span className="ml-0.5 text-xs font-normal text-ink-400">ml</span>
                 </p>
@@ -542,17 +564,18 @@ export function DashboardPage() {
                     style={{ width: `${Math.min(100, water.rate)}%` }}
                   />
                 </div>
-                {/* 底部信息行（与完成率卡「连续 N 天」行等高，消除卡片空白）#7：前置连续达标天数（💧 与完成率 🔥 区分） */}
-                <p className="mt-1 h-4 truncate text-[10px] leading-4 text-ink-400">
+                {/* 底部信息行（与完成率卡「连续 N 天」行等高）：✨ 与完成率 🔥 区分但同样有热情；
+                    2026-09-09 晚：不再固定单行截断——系统字体放大时换行显示，杜绝「已达标 …」被截 */}
+                <p className="mt-1 min-h-4 text-[10px] leading-4 text-ink-400">
                   {water.streakDays > 0 && (
-                    <span className="font-medium text-primary-600">💧 连续 {water.streakDays} 天 · </span>
+                    <span className="font-medium text-primary-600">✨ 连续 {water.streakDays} 天 · </span>
                   )}
                   {selected !== today ? (
                     <>{selected.slice(5)} · {water.waterMl}ml</>
                   ) : water.rate >= 100 ? (
-                    <span className="font-medium text-primary-600">✓ 已达标 {water.waterMl}/{water.waterGoalMl}ml</span>
+                    <span className="font-medium text-primary-600">✓ 已达标</span>
                   ) : (
-                    <>还可喝 {Math.max(0, water.waterGoalMl - water.waterMl)} / {water.waterGoalMl}ml</>
+                    <>还可喝 {Math.max(0, water.waterGoalMl - water.waterMl)}ml</>
                   )}
                 </p>
               </>
@@ -1062,6 +1085,7 @@ function IntervalCard({
     (t) =>
       t.status === 'missed' ||
       t.status === 'skipped' ||
+      (t.status === 'delayed' && delayedSlotExpired(t.time, t.delayMinutes, nowTime)) ||
       (t.status === null && (selected < today || (selected === today && t.time < nowTime))),
   ).length;
   const pending = total - done - missed;

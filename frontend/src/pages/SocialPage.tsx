@@ -42,8 +42,6 @@ const TABS = [
 type TabKey = (typeof TABS)[number][0];
 const TAB_ORDER_KEY = 'cuckoo.social.tabOrder';
 const DEFAULT_TAB_ORDER: TabKey[] = TABS.map(([k]) => k);
-/** 拖动期间阻止页面滚动/下拉刷新（非 passive 监听，仅在长按拖动时挂载） */
-const preventTouchMove = (e: TouchEvent) => e.preventDefault();
 const loadTabOrder = (uid: string): TabKey[] => {
   try {
     const raw = JSON.parse(localStorage.getItem(`${TAB_ORDER_KEY}.${uid}`) ?? '[]') as string[];
@@ -118,33 +116,124 @@ export function SocialPage() {
     }
   }, []);
 
-  // #14（真机修复「长按有提示但滑不动」）：连续 pointermove 间 React 渲染未提交时闭包里的
-  // tabOrder/dragIdx 是旧值 → 换位被来回抵消。改为 orderRef/dragIdxRef 作权威值，
-  // 监听器挂 document（长按后动态挂载，松手即卸载），不依赖组件重渲染。
+  // #14（真机修复「长按有提示但滑不动」2026-09-09 三轮）：tab 栏是 touch-pan-x 横滑容器，
+  // 长按进入拖动态后手指一动，WebView 仍可能启动原生 pan-x 并发出 pointercancel 掐断
+  // pointer 流（表现：震动+缩放动画有，但拖不动）。pointer 通道在触摸端不可靠 →
+  // 触摸端改用原生 touch 事件驱动：拖动态 touchmove 一律 preventDefault（这是唯一
+  // 能在滚动启动前否决它的通道），换位逻辑从 touchmove 坐标直接推导，彻底绕开 pointercancel。
   const orderRef = useRef<TabKey[]>(tabOrder);
   const dragIdxRef = useRef<number | null>(null);
+  const stripRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     orderRef.current = tabOrder;
   }, [tabOrder]);
 
-  // #14：tab 长按开始（350ms 震动进入拖动态）
-  // 真机修复（2026-09-09）：tab 栏本身可横向滑动，350ms 内手指轻微抖动会让浏览器
-  // 启动原生 pan-x 滚动并发出 pointercancel 掐断 pointer 流——若不中止计时器，
-  // 之后照样震动进入拖动态却收不到任何 pointermove（表现为"有动画但拖不动"）。
-  // 因此：等待期抖动 >8px 或 pointercancel → 中止长按；进入拖动态后首 touchmove
-  // preventDefault 阻止滚动抢占，pointer 流才得以持续。
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    let touchId: number | null = null;
+    let sx = 0;
+    let sy = 0;
+    let pressedIdx = -1;
+    let timer: number | null = null;
+    let dragging = false;
+    const clearTimer = () => {
+      if (timer !== null) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    };
+    const persist = (order: TabKey[]) => {
+      try {
+        localStorage.setItem(`${TAB_ORDER_KEY}.${user?.id ?? 'guest'}`, JSON.stringify(order));
+      } catch {
+        /* 存储不可用时忽略 */
+      }
+    };
+    const swap = (from: number, target: number) => {
+      const order = [...orderRef.current];
+      const [moved] = order.splice(from, 1);
+      order.splice(target, 0, moved);
+      orderRef.current = order;
+      dragIdxRef.current = target;
+      setTabOrder(order);
+      setDragIdx(target);
+      persist(order);
+    };
+    const onFinish = () => {
+      clearTimer();
+      if (dragging) {
+        // 长按进入过拖动态：本次点击不触发 tab 切换
+        suppressClick.current = true;
+        dragIdxRef.current = null;
+        setDragIdx(null);
+      }
+      dragging = false;
+      pressedIdx = -1;
+      touchId = null;
+    };
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      const btn = (e.target as HTMLElement).closest('[data-tab-idx]') as HTMLElement | null;
+      if (!btn || btn.dataset.tabIdx === undefined) return;
+      const t = e.touches[0];
+      touchId = t.identifier;
+      sx = t.clientX;
+      sy = t.clientY;
+      pressedIdx = Number(btn.dataset.tabIdx);
+      clearTimer();
+      timer = window.setTimeout(() => {
+        timer = null;
+        dragging = true;
+        dragIdxRef.current = pressedIdx;
+        setDragIdx(pressedIdx);
+        navigator.vibrate?.(30);
+      }, 350);
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      const t = Array.from(e.touches).find((x) => x.identifier === touchId);
+      if (!t || pressedIdx < 0) return;
+      if (!dragging) {
+        // 等待长按期：明显移动 = 滑动意图 → 中止长按，让原生横滑接管
+        if (Math.hypot(t.clientX - sx, t.clientY - sy) > 8) {
+          clearTimer();
+          pressedIdx = -1;
+        }
+        return;
+      }
+      // 拖动态：否决原生滚动（首个 touchmove 即拦截，滚动不会启动 → 无 pointercancel）
+      e.preventDefault();
+      const from = dragIdxRef.current;
+      if (from === null) return;
+      const hit = document.elementFromPoint(t.clientX, t.clientY)?.closest('[data-tab-idx]') as HTMLElement | null;
+      if (!hit || hit.dataset.tabIdx === undefined) return;
+      const target = Number(hit.dataset.tabIdx);
+      if (!Number.isNaN(target) && target !== from) swap(from, target);
+    };
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onFinish);
+    el.addEventListener('touchcancel', onFinish);
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onFinish);
+      el.removeEventListener('touchcancel', onFinish);
+      clearTimer();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  /** 鼠标端长按拖动（触摸端由上方 touch 事件接管，互不干扰） */
   const pressStartRef = useRef<{ x: number; y: number } | null>(null);
   const onTabPointerDown = (e: React.PointerEvent, idx: number) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
     clearPress();
     pressStartRef.current = { x: e.clientX, y: e.clientY };
     pressTimer.current = window.setTimeout(() => {
       pressTimer.current = null;
       dragIdxRef.current = idx;
       setDragIdx(idx);
-      navigator.vibrate?.(30);
-      document.addEventListener('touchmove', preventTouchMove, { passive: false });
-
       const onMove = (ev: PointerEvent) => {
         const from = dragIdxRef.current;
         if (from === null) return;
@@ -169,9 +258,7 @@ export function SocialPage() {
         document.removeEventListener('pointermove', onMove);
         document.removeEventListener('pointerup', onUp);
         document.removeEventListener('pointercancel', onUp);
-        document.removeEventListener('touchmove', preventTouchMove);
         if (dragIdxRef.current !== null) {
-          // 长按进入过拖动态：本次点击不触发 tab 切换
           suppressClick.current = true;
           dragIdxRef.current = null;
           setDragIdx(null);
@@ -182,8 +269,9 @@ export function SocialPage() {
       document.addEventListener('pointercancel', onUp);
     }, 350);
   };
-  /** 等待长按期间：手指明显移动（滑动意图）或被原生滚动接管 → 中止长按 */
+  /** 等待长按期间（鼠标）：明显移动 → 中止长按 */
   const onTabPointerMoveWhileWaiting = (e: React.PointerEvent) => {
+    if (e.pointerType !== 'mouse') return;
     if (pressTimer.current === null || !pressStartRef.current) return;
     const dx = e.clientX - pressStartRef.current.x;
     const dy = e.clientY - pressStartRef.current.y;
@@ -432,8 +520,9 @@ export function SocialPage() {
         </div>
       </header>
 
-      {/* 分类 tab（#3：随内容滚动；#14：长按 350ms 可拖动排序，顺序按账户记忆） */}
+      {/* 分类 tab（#3：随内容滚动；#14：长按 350ms 可拖动排序——触摸端 touch 事件驱动，鼠标端 pointer） */}
       <div
+        ref={stripRef}
         className="mt-2 flex touch-pan-x select-none gap-1 overflow-x-auto px-4 py-1.5"
         onContextMenu={(e) => dragIdx !== null && e.preventDefault()}
       >

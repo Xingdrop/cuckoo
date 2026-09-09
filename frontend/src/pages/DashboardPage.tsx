@@ -106,6 +106,8 @@ export function DashboardPage() {
   /** #6：已完成/已错过分组折叠 */
   const [doneOpen, setDoneOpen] = useState(false);
   const [missedOpen, setMissedOpen] = useState(false);
+  // #4（2026-09-09 深夜）：已放弃独立折叠组
+  const [abandonedOpen, setAbandonedOpen] = useState(false);
   /** #4：各日期独立喝水统计（key=YYYY-MM-DD） */
   const [waterStats, setWaterStats] = useState<Record<string, WaterInfo>>({});
   /** #20：完成率选择器 */
@@ -220,16 +222,19 @@ export function DashboardPage() {
       status: t.status,
       item,
       isDone: t.status === 'completed' || t.status === 'challenge_completed',
-      // 已错过：missed/skipped 状态，或（未完成 且 时间已过：今天已过 / 历史日期）
+      // #4（2026-09-09 深夜）：已放弃（skipped）单独成组，不再混入已错过
+      // 已错过：missed 状态，或（未完成非终态 且 时间已过：今天已过 / 历史日期）
       // delayed（延迟执行中）不算错过，但新时刻已过超 30 分钟无响应 → 视为错过（#7 2026-09-09）
+      // #2（2026-09-09 深夜）：photo/note 只是非终态记录——槽时刻已过同样判错过，
+      // 此前 photo 槽无错过判定，22:10 拍照后未处理 23 点仍挂待办
       // #4：不定时无固定时刻 → 永不判错过（保持 pending，可完成/放弃）
       isMissed:
         !item.untimed &&
         (t.status === 'missed' ||
-          t.status === 'skipped' ||
           (t.status === 'delayed' && delayedSlotExpired(t.time, t.delayMinutes, nowTime)) ||
-          (t.status === null &&
+          ((t.status === null || t.status === 'photo' || t.status === 'note') &&
             (selected < today || (selected === today && t.time < nowTime)))),
+      isAbandoned: t.status === 'skipped',
     })),
   );  // #18：间隔提醒（当日多次）聚合为**单卡**——不再在三个分组中重复出现
   const intervalIds = new Set(slots.filter((s) => isIntervalMulti(s.item)).map((s) => s.item.reminderId));
@@ -242,13 +247,17 @@ export function DashboardPage() {
     ).values(),
   ];
   const pendingSlots = regularSlots
-    .filter((s) => !s.isDone && !s.isMissed)
+    .filter((s) => !s.isDone && !s.isMissed && !s.isAbandoned)
     .sort((a, b) => a.time.localeCompare(b.time));
   const doneSlots = regularSlots
     .filter((s) => s.isDone)
     .sort((a, b) => a.time.localeCompare(b.time));
   const missedSlots = regularSlots
     .filter((s) => s.isMissed)
+    .sort((a, b) => a.time.localeCompare(b.time));
+  // #4（2026-09-09 深夜）：已放弃单独分组——用户主动放弃 ≠ 被动错过
+  const abandonedSlots = regularSlots
+    .filter((s) => s.isAbandoned)
     .sort((a, b) => a.time.localeCompare(b.time));
 
   /** #20：完成率仅统计「计入完成率」的提醒 */
@@ -837,22 +846,14 @@ export function DashboardPage() {
                       )}
                     </span>
                     </button>
-                    {s.status === 'skipped' ? (
-                      <span
-                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink-300 text-white"
-                        aria-label="已放弃"
-                      >
-                        <X size={12} />
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => setCompleteConfirm({ item: s.item, time: s.item.untimed ? undefined : s.time })}
-                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-danger-500 text-white"
-                        aria-label="已错过，点击修改为已完成"
-                      >
-                        <X size={12} />
-                      </button>
-                    )}
+                    {/* 已放弃已独立成组，错过组内全部为真错过 → 点击可改已完成 */}
+                    <button
+                      onClick={() => setCompleteConfirm({ item: s.item, time: s.item.untimed ? undefined : s.time })}
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-danger-500 text-white"
+                      aria-label="已错过，点击修改为已完成"
+                    >
+                      <X size={12} />
+                    </button>
                     <button
                       onClick={() => {
                         openCameraFor(s.item, s.item.untimed ? undefined : s.time);
@@ -862,22 +863,86 @@ export function DashboardPage() {
                     >
                       <Camera size={12} />
                     </button>
-                    {/* #4：已放弃（跳过）的允许再次确认完成 */}
-                    {s.status === 'skipped' && (
-                      <button
-                        onClick={() => {
-                          const noon = new Date(`${selected}T12:00:00`);
-                          void remindersApi
-                            .ack(s.item.reminderId, { status: 'completed', scheduledTime: noon.toISOString() })
-                            .catch(() => undefined)
-                            .then(() => load(selected));
-                        }}
-                        aria-label="再次完成"
-                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-500 text-white"
-                      >
-                        <Check size={13} />
-                      </button>
-                    )}
+                  </li>
+                );
+              })}
+              </ul>
+              )}
+            </div>
+          )}
+
+          {/* #4（2026-09-09 深夜）：已放弃分组（主动跳过，中性灰；允许再次确认完成） */}
+          {!loading && !error && abandonedSlots.length > 0 && (
+            <div className="mt-5">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setAbandonedOpen((v) => !v)}
+                  className="flex items-center gap-2"
+                  aria-expanded={abandonedOpen}
+                >
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ink-300 text-[10px] font-bold text-white">
+                    ✕
+                  </span>
+                  <h3 className="text-xs font-medium uppercase tracking-wide text-ink-500">
+                    已放弃（{abandonedSlots.length}）
+                  </h3>
+                  <ChevronDown size={13} className={`text-ink-400 transition-transform ${abandonedOpen ? '' : '-rotate-90'}`} />
+                </button>
+                <span className="h-px flex-1 bg-ink-300/40" />
+              </div>
+              {abandonedOpen && (
+              <ul className="mt-2 space-y-2">
+                {abandonedSlots.map((s, i) => {
+                  return (
+                  <li
+                    key={`a-${s.item.reminderId}-${s.time}-${i}`}
+                    className="flex items-center gap-3 rounded-card border-l-4 border-ink-300 bg-ink-100/50 px-4 py-3"
+                  >
+                    <button
+                      onClick={() => setDetailItem(s.item)}
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      aria-label="查看详情"
+                    >
+                    <span className="w-10 shrink-0 text-right text-[10px] font-semibold text-ink-500">{s.item.untimed ? '不定时' : s.time}</span>
+                    <span className="text-lg opacity-60">
+                      {s.item.categoryIcon ?? CATEGORY_EMOJI[s.item.category] ?? '📌'}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm text-ink-700">
+                        {s.item.category === 'custom' && s.item.categoryLabel
+                          ? `${s.item.categoryLabel} · `
+                          : ''}
+                        {s.item.title}
+                      </span>
+                      {s.item.content.text && (
+                        <span className="mt-0.5 block truncate text-xs text-ink-500">{s.item.content.text}</span>
+                      )}
+                    </span>
+                    </button>
+                    <span
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink-300 text-white"
+                      aria-label="已放弃"
+                    >
+                      <X size={12} />
+                    </span>
+                    {/* 主动放弃 ≠ 任务失败：保留再次完成入口（ack 回精确槽时刻） */}
+                    <button
+                      onClick={() => {
+                        const [y, m, d] = selected.split('-').map(Number);
+                        const [hh, mm] = s.item.untimed ? [12, 0] : s.time.split(':').map(Number);
+                        void remindersApi
+                          .ack(s.item.reminderId, {
+                            status: 'completed',
+                            scheduledTime: new Date(y, m - 1, d, hh, mm).toISOString(),
+                          })
+                          .catch(() => undefined)
+                          .then(() => load(selected));
+                      }}
+                      aria-label="再次完成"
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-500 text-white"
+                    >
+                      <Check size={13} />
+                    </button>
                   </li>
                 );
               })}
@@ -1081,12 +1146,13 @@ function IntervalCard({
   const [expanded, setExpanded] = useState(false);
   const total = item.times.length;
   const done = item.times.filter((t) => t.status === 'completed' || t.status === 'challenge_completed').length;
+  // #2/#4（2026-09-09 深夜）：photo/note 非终态超时判错过；skipped 归已放弃不混入错过
   const missed = item.times.filter(
     (t) =>
       t.status === 'missed' ||
-      t.status === 'skipped' ||
       (t.status === 'delayed' && delayedSlotExpired(t.time, t.delayMinutes, nowTime)) ||
-      (t.status === null && (selected < today || (selected === today && t.time < nowTime))),
+      ((t.status === null || t.status === 'photo' || t.status === 'note') &&
+        (selected < today || (selected === today && t.time < nowTime))),
   ).length;
   const pending = total - done - missed;
   const chip = (n: number, text: string, cls: string) =>
@@ -1137,9 +1203,12 @@ function IntervalCard({
           {item.times.map((t, i) => {
             const doneRow = t.status === 'completed' || t.status === 'challenge_completed';
             const skippedRow = t.status === 'skipped';
+            // #2（2026-09-09 深夜）：photo/note 非终态超时同步判错过（与主列表一致）
             const missedRow =
               t.status === 'missed' ||
-              (t.status === null && (selected < today || (selected === today && t.time < nowTime)));
+              (t.status === 'delayed' && delayedSlotExpired(t.time, t.delayMinutes, nowTime)) ||
+              ((t.status === null || t.status === 'photo' || t.status === 'note') &&
+                (selected < today || (selected === today && t.time < nowTime)));
             return (
               <li key={i} className="flex items-center gap-2 px-1 py-0.5 text-xs">
                 <span>{doneRow ? '✅' : skippedRow || missedRow ? '⭕' : '🕒'}</span>

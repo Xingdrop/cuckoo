@@ -18,6 +18,18 @@ import { PushService } from './push.service';
 
 const DEFAULT_MISSED_THRESHOLD_MINUTES = 30;
 
+/** 终态：完成类/延迟/放弃/已错过——不再参与漏服判定。photo/note 是非终态记录（不算响应） */
+function isTerminalStatus(s: ReminderLogStatus | null | undefined): boolean {
+  return (
+    s === ReminderLogStatus.COMPLETED ||
+    s === ReminderLogStatus.CHALLENGE_COMPLETED ||
+    s === ReminderLogStatus.MANUAL ||
+    s === ReminderLogStatus.DELAYED ||
+    s === ReminderLogStatus.SKIPPED ||
+    s === ReminderLogStatus.MISSED
+  );
+}
+
 /**
  * 漏服扫描（FR-307）：每分钟扫描超时未响应的提醒 → 置 missed → 通知本人（含 Push）+ 亲友。
  * 服务端权威判定（页面关闭也生效）；阈值取用户级 UserSetting.missedThresholdMinutes（默认 30）。
@@ -70,49 +82,54 @@ export class MissedScanner {
           (r.repeatRule.type === 'interval' && r.repeatRule.intervalUnit === 'hour'),
       )) {
         const next = reminder.nextTriggerAt!;
-        const responded = await this.logRepo.findOne({
+        // #2（2026-09-09 深夜）：photo/note 只是非终态记录（拍照/留言后退出弹窗未终处理）——
+        // 不再视作「已响应」。此前 responded 命中即 continue，nextTriggerAt 永卡过去，
+        // 该提醒后续永不触发（22:10 拍照后 23 点仍挂待办且次日不再响的根因）。
+        const slotLog = await this.logRepo.findOne({
           where: { reminderId: reminder.id, scheduledTime: next },
         });
-        if (responded) continue; // 已有响应（完成/延迟/跳过），不判定
+        if (slotLog && isTerminalStatus(slotLog.status)) continue; // 终态（完成/延迟/放弃/错过），不判定
 
         // 阈值检查（用户级 missedThresholdMinutes，默认 30 分钟）
         const thresholdMs =
           (thresholdByUser.get(reminder.userId) ?? DEFAULT_MISSED_THRESHOLD_MINUTES) * 60_000;
         if (now.getTime() - next.getTime() < thresholdMs) continue;
 
-        // 置 missed + 写日志（幂等：同 reminder+scheduledTime）
-        const existing = await this.logRepo.findOne({
-          where: { reminderId: reminder.id, scheduledTime: next },
-        });
-        if (existing) continue;
-
-        // #7（2026-09-09 晚）：延迟重弹后一直没处理——「原槽 + 延迟分钟 ≈ next」的原槽
-        // delayed 日志就地升级 missed（同槽一条记录），不再按 next 造幻影槽导致
-        // 原槽 delayed 永挂「即将提醒」、当日列表错过数对不上。
-        const delayedLog = await findDelayedLogForSlot(this.logRepo, reminder.id, next);
-        if (delayedLog) {
+        if (slotLog) {
+          // photo/note 非终态：就地升级 missed（保留照片/留言，同槽一条记录）
           await this.logRepo.update(
-            { id: delayedLog.id },
+            { id: slotLog.id },
             { status: ReminderLogStatus.MISSED, actualTime: now },
           );
         } else {
-          await this.logRepo.save(
-            this.logRepo.create({
-              id: randomUUID(),
-              reminderId: reminder.id,
-              userId: reminder.userId,
-              scheduledTime: next,
-              actualTime: now,
-              status: ReminderLogStatus.MISSED,
-              delayMinutes: 0,
-              photoUrl: null,
-              medicineId: reminder.medicineId,
-              medicineNameSnapshot: null,
-              category: reminder.category,
-              amount: 0,
-              stockDeducted: 0,
-            }),
-          );
+          // #7（2026-09-09 晚）：延迟重弹后一直没处理——「原槽 + 延迟分钟 ≈ next」的原槽
+          // delayed 日志就地升级 missed（同槽一条记录），不再按 next 造幻影槽导致
+          // 原槽 delayed 永挂「即将提醒」、当日列表错过数对不上。
+          const delayedLog = await findDelayedLogForSlot(this.logRepo, reminder.id, next);
+          if (delayedLog) {
+            await this.logRepo.update(
+              { id: delayedLog.id },
+              { status: ReminderLogStatus.MISSED, actualTime: now },
+            );
+          } else {
+            await this.logRepo.save(
+              this.logRepo.create({
+                id: randomUUID(),
+                reminderId: reminder.id,
+                userId: reminder.userId,
+                scheduledTime: next,
+                actualTime: now,
+                status: ReminderLogStatus.MISSED,
+                delayMinutes: 0,
+                photoUrl: null,
+                medicineId: reminder.medicineId,
+                medicineNameSnapshot: null,
+                category: reminder.category,
+                amount: 0,
+                stockDeducted: 0,
+              }),
+            );
+          }
         }
 
         // #8：推进调度——否则 nextTriggerAt 永远停在过去，循环提醒错过一次后将不再触发

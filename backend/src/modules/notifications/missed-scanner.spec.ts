@@ -236,4 +236,46 @@ describe('MissedScanner（UT-MISS）', () => {
     // 调度推进与通知照常
     expect(sendToUser).toHaveBeenCalledWith('u1', expect.anything());
   });
+
+  it('UT-MISS-09 #2 拍照/留言后未终处理：非终态日志不再视为已响应——超阈值就地升级 missed 并推进调度', async () => {
+    reminderRepo.find.mockResolvedValue([makeReminder()]); // nextTriggerAt = now-40min > 30min 阈值
+    settingRepo.find.mockResolvedValue([{ userId: 'u1', missedThresholdMinutes: 30 } as UserSetting]);
+    // 该槽已有一条 photo 记录（拍照后退出弹窗，未点完成/放弃）——此前 continue 导致永卡待办
+    logRepo.findOne.mockResolvedValue({
+      id: 'plog1',
+      reminderId: 'r1',
+      scheduledTime: minutesAgo(40),
+      status: 'photo',
+      photoUrl: '/uploads/x.jpg',
+    });
+
+    await scanner.scan();
+
+    // 就地升级 missed（保留照片记录），不新建槽
+    expect(logRepo.update).toHaveBeenCalledWith(
+      { id: 'plog1' },
+      expect.objectContaining({ status: 'missed' }),
+    );
+    expect(logRepo.save).not.toHaveBeenCalledWith(expect.objectContaining({ status: 'missed' }));
+    // 调度推进 + 通知照常（nextTriggerAt 不再永卡过去）
+    expect(sendToUser).toHaveBeenCalledWith('u1', expect.anything());
+  });
+
+  it('UT-MISS-10 #2 photo 槽未超阈值：保持现状不判定（用户仍可回来完成）', async () => {
+    reminderRepo.find.mockResolvedValue([makeReminder({ nextTriggerAt: minutesAgo(10) })]);
+    settingRepo.find.mockResolvedValue([{ userId: 'u1', missedThresholdMinutes: 30 } as UserSetting]);
+    logRepo.findOne.mockResolvedValue({
+      id: 'plog2',
+      reminderId: 'r1',
+      scheduledTime: minutesAgo(10),
+      status: 'photo',
+      photoUrl: null,
+    });
+
+    await scanner.scan();
+
+    expect(logRepo.update).not.toHaveBeenCalled();
+    expect(logRepo.save).not.toHaveBeenCalledWith(expect.objectContaining({ status: 'missed' }));
+    expect(sendToUser).not.toHaveBeenCalled();
+  });
 });

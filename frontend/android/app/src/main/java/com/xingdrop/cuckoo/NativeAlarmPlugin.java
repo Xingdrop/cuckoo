@@ -27,13 +27,36 @@ public class NativeAlarmPlugin extends Plugin {
 
     private static final String STORE = "native_alarm_store";
 
-    /** 排一条闹钟：id 为通知 id（int），at 为触发时刻（epoch ms，字符串避免 JS 数值精度问题） */
+    /** 最近一次由通知点击/全屏意图带入的闹钟 id（JS 侧 consumeLastAlarmId 消费后清零） */
+    private static volatile int sLastAlarmId = -1;
+    /** 对应业务提醒 id（reminder.id 原始字符串——hashId 单向无法反查，排程时随内容存 SP） */
+    private static volatile String sLastAlarmRid = null;
+
+    /** MainActivity（onCreate/onNewIntent）转发通知点击携带的 alarmId/alarmRid */
+    public static void setLastAlarm(int id, String rid) {
+        sLastAlarmId = id;
+        sLastAlarmRid = rid;
+    }
+
+    /** JS 消费：返回最近一次通知点击/全屏弹出的闹钟 id 与业务提醒 id（无则 -1/null），取后即清 */
+    @PluginMethod
+    public void consumeLastAlarmId(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("alarmId", sLastAlarmId);
+        ret.put("alarmRid", sLastAlarmRid);
+        sLastAlarmId = -1;
+        sLastAlarmRid = null;
+        call.resolve(ret);
+    }
+
+    /** 排一条闹钟：id 为通知 id（int，由 rid 哈希而来），at 为触发时刻（epoch ms，字符串避免 JS 数值精度问题），rid 为业务提醒 id（触发后直达弹窗用） */
     @PluginMethod
     public void schedule(PluginCall call) {
         Integer id = call.getInt("id");
         Long at = parseAt(call.getString("at"));
         String title = call.getString("title", "");
         String body = call.getString("body", "");
+        String rid = call.getString("rid");
         if (id == null || id < 0 || at == null || at <= System.currentTimeMillis()) {
             call.reject("invalid id or at");
             return;
@@ -47,6 +70,7 @@ public class NativeAlarmPlugin extends Plugin {
             o.put("title", title);
             o.put("body", body);
             o.put("at", at);
+            if (rid != null) o.put("rid", rid);
             sp.edit().putString("n_" + id, o.toString()).apply();
         } catch (Exception ignored) {
         }

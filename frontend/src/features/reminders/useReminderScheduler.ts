@@ -121,6 +121,53 @@ export function useReminderScheduler() {
     return () => window.removeEventListener('online', retryOffline);
   }, [user?.id, retryOffline]);
 
+  // #（2026-09-09）：通知点击/全屏意图直达弹窗——app 冷启动或回前台时消费原生侧
+  // 暂存的 alarmRid（来自 NativeAlarmReceiver 的 intent extra），定位提醒后立即全屏展示。
+  // 不受「补弹 ≤3 分钟」窗口限制：用户点了通知就该看到对应提醒。
+  const openByRid = useCallback(async (rid: string) => {
+    if (!user || activeRef.current?.id === rid) return;
+    const inList = reminders.find((r) => r.id === rid);
+    if (inList) {
+      shownRef.current.add(rid);
+      setActive(inList);
+      return;
+    }
+    try {
+      const list = await remindersApi.list();
+      const r = list.find((x) => x.id === rid);
+      if (r) {
+        shownRef.current.add(rid);
+        setActive(r);
+      }
+    } catch {
+      // 静默：下一轮轮询的补弹逻辑兜底
+    }
+  }, [user, reminders]);
+
+  useEffect(() => {
+    if (!user) return;
+    let disposed = false;
+    const consume = async () => {
+      if (document.visibilityState !== 'visible' && document.hasFocus() === false) return;
+      try {
+        const m = await import('../../utils/nativeReminders');
+        const { alarmRid } = await m.consumeLastAlarm();
+        if (!disposed && alarmRid) void openByRid(alarmRid);
+      } catch {
+        // 非 Android / 插件未注册
+      }
+    };
+    void consume();
+    document.addEventListener('visibilitychange', consume);
+    window.addEventListener('focus', consume);
+    return () => {
+      disposed = true;
+      document.removeEventListener('visibilitychange', consume);
+      window.removeEventListener('focus', consume);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, openByRid]);
+
   // 调度：下一个到期提醒
   useEffect(() => {
     if (!user || activeRef.current) return;

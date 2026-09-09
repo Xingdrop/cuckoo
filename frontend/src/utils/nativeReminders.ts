@@ -23,14 +23,32 @@ const EMOJI: Record<string, string> = {
 
 /** 自建原生插件 NativeAlarm（setAlarmClock 调度，见 NativeAlarmPlugin.java） */
 interface NativeAlarmApi {
-  schedule(opts: { id: number; title: string; body: string; at: string }): Promise<{ id?: number }>;
+  schedule(opts: {
+    id: number;
+    title: string;
+    body: string;
+    at: string;
+    rid?: string;
+  }): Promise<{ id?: number }>;
   cancel(opts: { id: number }): Promise<void>;
   cancelAll(): Promise<void>;
   list(): Promise<{ ids?: number[] }>;
+  consumeLastAlarmId(): Promise<{ alarmId?: number; alarmRid?: string | null }>;
 }
 
 /** 自建原生插件 NativeAlarm（setAlarmClock 调度，见 NativeAlarmPlugin.java）——v5+ 必须用 registerPlugin 访问 */
 const NativeAlarm = registerPlugin<NativeAlarmApi>('NativeAlarm');
+
+/** 消费最近一次通知点击/全屏意图携带的闹钟信息（app 启动/回前台时调用，取后即清） */
+export async function consumeLastAlarm(): Promise<{ alarmId: number; alarmRid: string | null }> {
+  if (Capacitor.getPlatform() !== 'android') return { alarmId: -1, alarmRid: null };
+  try {
+    const r = await NativeAlarm.consumeLastAlarmId();
+    return { alarmId: Number(r.alarmId ?? -1), alarmRid: r.alarmRid ?? null };
+  } catch {
+    return { alarmId: -1, alarmRid: null };
+  }
+}
 
 /** 稳定字符串哈希 → 32 位正整数（通知 id 要求 int） */
 function hashId(s: string): number {
@@ -90,6 +108,7 @@ export async function syncNativeSchedule(list: Reminder[]): Promise<void> {
     title: string;
     body: string;
     at: number;
+    reminderId: string;
   }
   const items: Item[] = [];
   for (const r of list) {
@@ -102,6 +121,7 @@ export async function syncNativeSchedule(list: Reminder[]): Promise<void> {
       title: `${EMOJI[r.category] ?? '📌'} ${r.title}`,
       body: text.length > 80 ? `${text.slice(0, 80)}…` : text || '到点啦，点击打开处理',
       at,
+      reminderId: r.id,
     });
   }
   // 指纹去重：同一批触发点只排一次
@@ -128,6 +148,7 @@ export async function syncNativeSchedule(list: Reminder[]): Promise<void> {
           title: i.title,
           body: i.body,
           at: String(i.at),
+          rid: i.reminderId,
         });
       }
       console.log('[LN] scheduled via NativeAlarm(setAlarmClock):', items.length);

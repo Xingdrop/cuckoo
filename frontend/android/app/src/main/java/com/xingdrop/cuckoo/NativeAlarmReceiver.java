@@ -55,6 +55,16 @@ public class NativeAlarmReceiver extends BroadcastReceiver {
         }
 
         Intent open = new Intent(ctx, MainActivity.class);
+        // 2026-09-09：携带闹钟 id 与业务提醒 id——点击/全屏弹出直达对应提醒弹窗（JS 侧消费）
+        open.putExtra("alarmId", id);
+        if (json != null) {
+            try {
+                String rid = new JSONObject(json).optString("rid", null);
+                if (rid != null) open.putExtra("alarmRid", rid);
+            } catch (Exception ignored) {
+            }
+        }
+        open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent contentPi = PendingIntent.getActivity(ctx, id, open,
                 PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
@@ -68,6 +78,11 @@ public class NativeAlarmReceiver extends BroadcastReceiver {
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
+
+        // 2026-09-09：全屏意图——锁屏/息屏/后台时由系统直接全屏弹出（setAlarmClock 类通知
+        // 豁免后台启动限制）。需要渠道 importance HIGH + USE_FULL_SCREEN_INTENT 权限；
+        // ColorOS 亮屏后台还需「后台弹出界面」权限，引导见设置页。
+        b.setFullScreenIntent(contentPi, true);
 
         if (Build.VERSION.SDK_INT >= 33
                 && ctx.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)

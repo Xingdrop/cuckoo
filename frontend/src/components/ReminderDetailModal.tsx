@@ -154,8 +154,11 @@ export function ReminderDetailModal({
   );
 
   const slots = item.untimed ? [] : item.times;
-  /** 待完成时点（无状态记录/留言/延迟中）——「标记完成」优先作用于它（note 槽完成时后端自动升级状态） */
-  const isActionable = (s: ReminderLogStatus | null | undefined) => !s || s === 'delayed' || s === 'note';
+  /** 待完成时点（无状态记录/留言/延迟中/已拍照）——「标记完成」优先作用于它
+   *  #31（2026-09-10）：photo 纳入可操作——拍照记录 ≠ 完成，槽上仍可点「标记完成」；
+   *  此前 photo 槽不算待办 → 底部误显示「今日已完成」，而列表仍归待办/错过（视角不一致） */
+  const isActionable = (s: ReminderLogStatus | null | undefined) =>
+    !s || s === 'delayed' || s === 'note' || s === 'photo';
   const pendingSlot = slots.find((s) => isActionable(s.status));
   const missedSlots = slots.filter((s) => s.status === 'missed');
 
@@ -449,7 +452,7 @@ function SlotRow({
       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${chip.cls} ${stacked ? 'ml-auto' : ''}`}>
         {chip.text}
       </span>
-      {(!status || status === 'delayed') && (
+      {(!status || status === 'delayed' || status === 'photo') && (
         <button
           onClick={onDone}
           className="flex h-7 shrink-0 items-center gap-1 rounded-lg bg-primary-500 px-2.5 text-[11px] font-medium text-white"

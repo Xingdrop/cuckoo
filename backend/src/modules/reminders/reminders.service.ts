@@ -509,18 +509,52 @@ export class RemindersService {
           return { ok: true, log: { ...existing, photoUrl: dto.photoUrl, actualTime: new Date() }, duplicate: true, replaced: true };
         }
 
-        // #58（2026-09-09）：留言槽升级——对「留言」槽完成/放弃/拍照时状态随之升级。
-        // 否则走 duplicate 分支只更 note 不改状态，「标记完成」在留言过的槽位上会失效。
-        if (existing.status === ReminderLogStatus.NOTE && (isTerminal || dto.status === ReminderLogStatus.PHOTO)) {
+        // #58/#31（2026-09-10）：留言/拍照都是「非终态互动」——槽上再点完成/放弃/延迟时
+        // 状态随之升级并推进调度。此前只处理 NOTE 且升级不推进 nextTriggerAt：photo 槽
+        // 点「完成」落到 duplicate 分支被静默丢弃（状态不升级、调度不推进）→ 提醒永挂
+        // 待办 + 补弹 3 分钟窗口内弹窗重开（「拍完照点完成仍保留提醒窗口」「显示已完成
+        // 却不归入已完成」的共同根因）。
+        if (
+          (existing.status === ReminderLogStatus.NOTE || existing.status === ReminderLogStatus.PHOTO) &&
+          (isTerminal || dto.status === ReminderLogStatus.DELAYED)
+        ) {
           const patch: Partial<ReminderLog> = {
             status: dto.status,
             actualTime: new Date(),
             photoUrl: dto.photoUrl ?? existing.photoUrl,
             note: dto.note ?? existing.note,
           };
+          if (dto.status === ReminderLogStatus.DELAYED) patch.delayMinutes = dto.delayMinutes ?? 0;
           const log = { ...existing, ...patch } as ReminderLog;
           await this.settleStock(manager, reminder, log, userId, isCompleted);
-          await logRepo.update({ id: existing.id }, patch);
+          await logRepo.update({ id: existing.id }, {
+            ...patch,
+            medicineNameSnapshot: log.medicineNameSnapshot,
+            stockDeducted: log.stockDeducted,
+          });
+          // 推进调度：延迟 → now+delay；单次 → null；循环 → 以原槽时刻为基准算下一触发
+          if (dto.status === ReminderLogStatus.DELAYED) {
+            await reminderRepo.update(
+              { id, userId },
+              { nextTriggerAt: new Date(Date.now() + (dto.delayMinutes ?? 0) * 60_000) },
+            );
+          } else if (reminder.repeatRule.type === RepeatType.ONCE) {
+            await reminderRepo.update({ id, userId }, { nextTriggerAt: null });
+          } else {
+            await reminderRepo.update(
+              { id, userId },
+              {
+                nextTriggerAt: computeFollowingTrigger(
+                  reminder.repeatRule,
+                  existing.scheduledTime,
+                  reminder.startDate,
+                  reminder.endDate,
+                  timezone,
+                  reminder.times,
+                ),
+              },
+            );
+          }
           return { ok: true, log, duplicate: true, upgraded: true };
         }
 

@@ -178,6 +178,9 @@ export function useReminderScheduler() {
     if (delay > 86_400_000) return;
 
     timerRef.current = setTimeout(() => {
+      // #31（2026-09-10）：调度器路径也登记已弹——否则该提醒在补弹 3 分钟窗口内
+      // 因调度未推进被轮询重新弹起（「点完成还保留提醒窗口」的放大器）
+      shownRef.current.add(next.id);
       setActive(next);
     }, Math.max(0, delay));
 

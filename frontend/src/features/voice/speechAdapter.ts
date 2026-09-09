@@ -76,10 +76,13 @@ export async function startDictation(handlers: {
       handlers.onFinal(t);
     };
     const show = () => handlers.onPartial(`${committed}${current}`);
-    /** 会话边界：上一会话文本落账（原生续听后 session 递增） */
+    /** 会话边界：上一会话文本落账并清空 current（新会话从零开始——
+     *  #31（2026-09-10）：此前漏清 current，下一会话无 partial 时 final 会把旧会话
+     *  文本既计入 committed 又留在 current → 拼接重复 */
     const rollSession = (s: number) => {
       if (s !== currentSession) {
         if (current) committed += current;
+        current = '';
         currentSession = s;
       }
     };

@@ -36,6 +36,11 @@
 
         </activity>
 
+        <!-- 2026-09-09：setAlarmClock 触发器（绕过 ColorOS 对精确闹钟的降级，见 NativeAlarmPlugin） -->
+        <receiver
+            android:name=".NativeAlarmReceiver"
+            android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

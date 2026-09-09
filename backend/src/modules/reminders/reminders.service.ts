@@ -50,6 +50,35 @@ function toLocalTimeStr(d: Date | string, timezone: string): string {
   return `${String(l.hour).padStart(2, '0')}:${String(l.minute).padStart(2, '0')}`;
 }
 
+/**
+ * #7（2026-09-09 晚）：找「原计划槽 + delayMinutes ≈ 目标时刻」的 delayed 日志。
+ * 延迟重弹后的 ack/漏服扫描拿到的槽是「新时刻」，精确查询必落空 → 回匹配原槽日志。
+ * SQLite datetime 秒级精度：nextTriggerAt 毫秒被截断，容差 90s（预设最短延迟 5 分钟，互不误伤）。
+ * 供 reminders.service（ack 归槽）与 missed-scanner（原槽升级 missed）共用。
+ */
+export async function findDelayedLogForSlot(
+  logRepo: Repository<ReminderLog>,
+  reminderId: string,
+  target: Date,
+): Promise<ReminderLog | null> {
+  const candidates = await logRepo.find({
+    where: { reminderId, status: ReminderLogStatus.DELAYED },
+    order: { scheduledTime: 'DESC' },
+    take: 50,
+  });
+  let best: ReminderLog | null = null;
+  let bestDiff = Number.POSITIVE_INFINITY;
+  for (const log of candidates) {
+    if (!log.delayMinutes) continue;
+    const diff = Math.abs(log.scheduledTime.getTime() + log.delayMinutes * 60_000 - target.getTime());
+    if (diff <= 90_000 && diff < bestDiff) {
+      best = log;
+      bestDiff = diff;
+    }
+  }
+  return best;
+}
+
 @Injectable()
 export class RemindersService {
   constructor(
@@ -461,7 +490,15 @@ export class RemindersService {
       const isTerminal = isCompleted || dto.status === ReminderLogStatus.SKIPPED;
 
       // 幂等：同一时刻已记录则按语义处理（不重复扣库存/重排）
-      const existing = await logRepo.findOne({ where: { reminderId: id, scheduledTime } });
+      let existing = await logRepo.findOne({ where: { reminderId: id, scheduledTime } });
+      // #7（2026-09-09 晚）：延迟重弹后的 ack——上报槽 = 原槽 + 延迟分钟（弹窗重弹时
+      // nextTriggerAt 已是新时刻），精确槽无日志，原槽挂着 delayed → 永远「即将提醒」。
+      // 按「原槽 + delayMinutes ≈ 上报时刻」回匹配原槽日志视同同槽：完成/放弃就地升级，
+      // 再延迟就地累计，杜绝幻影槽 + 原槽 delayed 悬挂。
+      if (!existing) {
+        const delayedSlot = await findDelayedLogForSlot(logRepo, id, scheduledTime);
+        if (delayedSlot) existing = delayedSlot;
+      }
       if (existing) {
         // #26：拍照记录重复上报 = 替换照片（更新 photoUrl 与时间，不改状态）；文字记录随报随更
         if (dto.status === ReminderLogStatus.PHOTO && dto.photoUrl) {

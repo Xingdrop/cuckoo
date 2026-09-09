@@ -7,6 +7,7 @@ import { DataSource, In, LessThan, Repository } from 'typeorm';
 import { Interval } from '@nestjs/schedule';
 import { computeFollowingTrigger } from '../../common/reminder-schedule';
 import { ReminderLog, ReminderLogStatus } from '../reminders/reminder-log.entity';
+import { findDelayedLogForSlot } from '../reminders/reminders.service';
 import { Reminder } from '../reminders/reminder.entity';
 import { EmergencyContact } from '../contacts/emergency-contact.entity';
 import { User } from '../users/user.entity';
@@ -85,23 +86,34 @@ export class MissedScanner {
         });
         if (existing) continue;
 
-        await this.logRepo.save(
-          this.logRepo.create({
-            id: randomUUID(),
-            reminderId: reminder.id,
-            userId: reminder.userId,
-            scheduledTime: next,
-            actualTime: now,
-            status: ReminderLogStatus.MISSED,
-            delayMinutes: 0,
-            photoUrl: null,
-            medicineId: reminder.medicineId,
-            medicineNameSnapshot: null,
-            category: reminder.category,
-            amount: 0,
-            stockDeducted: 0,
-          }),
-        );
+        // #7（2026-09-09 晚）：延迟重弹后一直没处理——「原槽 + 延迟分钟 ≈ next」的原槽
+        // delayed 日志就地升级 missed（同槽一条记录），不再按 next 造幻影槽导致
+        // 原槽 delayed 永挂「即将提醒」、当日列表错过数对不上。
+        const delayedLog = await findDelayedLogForSlot(this.logRepo, reminder.id, next);
+        if (delayedLog) {
+          await this.logRepo.update(
+            { id: delayedLog.id },
+            { status: ReminderLogStatus.MISSED, actualTime: now },
+          );
+        } else {
+          await this.logRepo.save(
+            this.logRepo.create({
+              id: randomUUID(),
+              reminderId: reminder.id,
+              userId: reminder.userId,
+              scheduledTime: next,
+              actualTime: now,
+              status: ReminderLogStatus.MISSED,
+              delayMinutes: 0,
+              photoUrl: null,
+              medicineId: reminder.medicineId,
+              medicineNameSnapshot: null,
+              category: reminder.category,
+              amount: 0,
+              stockDeducted: 0,
+            }),
+          );
+        }
 
         // #8：推进调度——否则 nextTriggerAt 永远停在过去，循环提醒错过一次后将不再触发
         try {

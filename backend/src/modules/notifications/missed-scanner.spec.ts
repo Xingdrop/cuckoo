@@ -16,7 +16,7 @@ import { UserSetting } from '../users/user-setting.entity';
 describe('MissedScanner（UT-MISS）', () => {
   let scanner: MissedScanner;
   let reminderRepo: { find: jest.Mock };
-  let logRepo: { findOne: jest.Mock; create: (x: unknown) => unknown; save: jest.Mock };
+  let logRepo: { findOne: jest.Mock; find: jest.Mock; create: (x: unknown) => unknown; save: jest.Mock; update: jest.Mock };
   let notifRepo: { save: jest.Mock; create: (x: unknown) => unknown };
   let notifLogRepo: { findOne: jest.Mock; create: (x: unknown) => unknown; save: jest.Mock };
   let contactRepo: { find: jest.Mock };
@@ -48,8 +48,11 @@ describe('MissedScanner（UT-MISS）', () => {
     reminderRepo = { find: jest.fn().mockResolvedValue([]) };
     logRepo = {
       findOne: jest.fn().mockResolvedValue(null),
+      // #7：延迟槽匹配查询（findDelayedLogForSlot）——默认无 delayed 日志 → 走新建 missed 路径
+      find: jest.fn().mockResolvedValue([]),
       create: (x: unknown) => x,
       save: jest.fn().mockImplementation(async (x: unknown) => x),
+      update: jest.fn().mockResolvedValue(undefined),
     };
     notifRepo = { save: jest.fn().mockImplementation(async (x: unknown) => x), create: (x: unknown) => x };
     notifLogRepo = {
@@ -205,6 +208,32 @@ describe('MissedScanner（UT-MISS）', () => {
     expect(logRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ reminderId: 'r1', status: 'missed' }),
     );
+    expect(sendToUser).toHaveBeenCalledWith('u1', expect.anything());
+  });
+
+  it('UT-MISS-08 #7 延迟重弹未处理：原槽 delayed 日志就地升级 missed（不造幻影槽）', async () => {
+    // 原槽 09:20 延迟 5 分钟 → 新时刻 09:25 = nextTriggerAt（now-40min 之外的语义由 mock 决定）
+    reminderRepo.find.mockResolvedValue([makeReminder()]);
+    settingRepo.find.mockResolvedValue([{ userId: 'u1', missedThresholdMinutes: 30 } as UserSetting]);
+    // 延迟槽匹配命中：原槽 = next - 5min，delayMinutes=5
+    const delayedLog = {
+      id: 'dlog1',
+      reminderId: 'r1',
+      scheduledTime: minutesAgo(45),
+      delayMinutes: 5,
+      status: 'delayed',
+    };
+    logRepo.find.mockResolvedValue([delayedLog]);
+
+    await scanner.scan();
+
+    // 就地 update 原槽日志为 missed，不再 save 新槽
+    expect(logRepo.update).toHaveBeenCalledWith(
+      { id: 'dlog1' },
+      expect.objectContaining({ status: 'missed' }),
+    );
+    expect(logRepo.save).not.toHaveBeenCalledWith(expect.objectContaining({ status: 'missed' }));
+    // 调度推进与通知照常
     expect(sendToUser).toHaveBeenCalledWith('u1', expect.anything());
   });
 });

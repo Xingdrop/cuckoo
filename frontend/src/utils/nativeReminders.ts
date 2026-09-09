@@ -1,5 +1,5 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3V0aWxzL25hdGl2ZVJlbWluZGVycy50c3wyMDI2LTA5fDE1MWY2NTRlZjc= */
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import type { Reminder } from '../types';
 
 /**
@@ -20,6 +20,17 @@ const EMOJI: Record<string, string> = {
   work: '💼',
   custom: '📌',
 };
+
+/** 自建原生插件 NativeAlarm（setAlarmClock 调度，见 NativeAlarmPlugin.java） */
+interface NativeAlarmApi {
+  schedule(opts: { id: number; title: string; body: string; at: string }): Promise<{ id?: number }>;
+  cancel(opts: { id: number }): Promise<void>;
+  cancelAll(): Promise<void>;
+  list(): Promise<{ ids?: number[] }>;
+}
+
+/** 自建原生插件 NativeAlarm（setAlarmClock 调度，见 NativeAlarmPlugin.java）——v5+ 必须用 registerPlugin 访问 */
+const NativeAlarm = registerPlugin<NativeAlarmApi>('NativeAlarm');
 
 /** 稳定字符串哈希 → 32 位正整数（通知 id 要求 int） */
 function hashId(s: string): number {
@@ -101,12 +112,31 @@ export async function syncNativeSchedule(list: Reminder[]): Promise<void> {
     const ok = await ensureChannelAndPermission();
     if (!ok) return;
     const { LocalNotifications } = await import('@capacitor/local-notifications');
+    // 2026-09-09 闹钟根治：ColorOS 在 AlarmManager 服务层把 setExactAndAllowWhileIdle
+    // 静默放宽为 1h 窗口（插件自报 granted 但 dumpsys windowLength=3600000，已实锤）。
+    // Android 原生一律走 NativeAlarm（setAlarmClock，豁免 Doze/OEM 降级）。
+    // 旧插件残留闹钟清理（切换前排的 exact/inexact 闹钟），防止双轨重复弹
     const pending = await LocalNotifications.getPending();
     if (pending.notifications.length) {
       await LocalNotifications.cancel({ notifications: pending.notifications });
     }
+    if (Capacitor.getPlatform() === 'android') {
+      await NativeAlarm.cancelAll();
+      for (const i of items) {
+        await NativeAlarm.schedule({
+          id: i.id,
+          title: i.title,
+          body: i.body,
+          at: String(i.at),
+        });
+      }
+      console.log('[LN] scheduled via NativeAlarm(setAlarmClock):', items.length);
+      lastFp = fp;
+      return;
+    }
+    // 非安卓原生回退路径（Web 在函数入口已 return，此分支理论不可达）
     if (items.length) {
-      await LocalNotifications.schedule({
+      const res = await LocalNotifications.schedule({
         notifications: items.map((i) => ({
           id: i.id,
           title: i.title,
@@ -117,6 +147,8 @@ export async function syncNativeSchedule(list: Reminder[]): Promise<void> {
           largeIcon: 'ic_launcher',
         })),
       });
+      // v8.3：schedule 若回退为 inexact 闹钟会带 warning 字段
+      console.log('[LN] scheduled:', items.length, 'warning:', JSON.stringify((res as { warning?: unknown }).warning));
     }
     lastFp = fp;
   } catch {

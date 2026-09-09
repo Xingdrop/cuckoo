@@ -55,82 +55,95 @@ export async function startDictation(handlers: {
         return { stop: () => undefined };
       }
     }
-    let last = '';
-    // 2026-09-07（#9）：onFinal 必须恰好回调一次（含空文本）——此前松手时若无识别文本
-    // onFinal 永不触发，上层 recording 状态卡死（按钮一直显示「松手结束」）
-    let finished = false;
-    let failed = false;
-    // 2026-09-07（#9 二轮）：原生识别器在静音 ~2s 或启动后无语音时会自动结束（无事件通知），
-    // 用户仍在长按 → 识别已死 → 松手拿到空文本误报「未识别到语音」。
-    // → 按住期间 watchdog 监测事件流，停摆即自动重启识别；重启前锁定已识别文本，跨段拼接。
-    let base = '';
+    // ===== 2026-09-09 晚重构：committed/current 会话模型 =====
+    // 插件 Android 实现（源码已核）：partialResults:true 时 start() 先 resolve，
+    // 原生 onError→call.reject 对 JS 不可见（call 已答复）；静音 ~2s 识别器自动结束且无通知；
+    // 每次 start() 都 destroy+recreate。旧版 restart 在 stop→start 窗口里把 last 清零，
+    // stopListening 触发的最终结果晚到 → 丢词/重复拼接 →「还在长按就没收到语音」。
+    // 现在：current=当前会话全文（插件每次事件都带会话级全文，替换不追加），
+    // committed=已完成语句；重启边界 committed+=current；松手等待窗内事件替换 current（不叠加）。
+    console.log('[SR] dictation start (native)');
+    let committed = '';
+    let current = '';
     let active = true;
     let restarting = false;
     let lastEventAt = Date.now();
+    let finished = false;
+    let failed = false;
     const emitFinal = (t: string) => {
       if (finished || failed) return;
       finished = true;
+      console.log('[SR] final:', JSON.stringify(t));
       handlers.onFinal(t);
     };
-    const handle = await SpeechRecognition.addListener('partialResults', (data: { matches: string[] }) => {
+    const show = () => handlers.onPartial(`${committed}${current}`);
+    const partialHandle = await SpeechRecognition.addListener('partialResults', (data: { matches: string[] }) => {
       lastEventAt = Date.now();
       const m = data.matches?.[0] ?? '';
-      if (m && m !== last) {
-        last = m;
-        handlers.onPartial(`${base}${m}`);
+      if (m) {
+        current = m; // 会话级全文：替换语义
+        show();
       }
     });
+    // 说话开始/结束事件也计入活跃度——识别服务预热期无 partial，避免被误判停摆重启
+    const stateHandle = await SpeechRecognition.addListener('listeningState', () => {
+      lastEventAt = Date.now();
+    });
+    const startOnce = async () => {
+      await SpeechRecognition.start({
+        language: 'zh-CN',
+        maxResults: 1,
+        partialResults: true,
+        popup: false, // false 才有 partialResults（且不遮挡手势层）
+      });
+    };
     const restart = async () => {
       if (!active || restarting) return;
       restarting = true;
       try {
-        base = base + last; // 锁定本轮已识别文本
-        last = '';
+        console.log('[SR] restart, committed=', JSON.stringify(committed), 'current=', JSON.stringify(current));
+        // 当前会话文本落账（识别器将被销毁，stop 触发的最终结果晚到也不重复计）
+        if (current) {
+          committed += current;
+          current = '';
+          show();
+        }
         try {
           await SpeechRecognition.stop();
         } catch {
           /* 可能已自行结束 */
         }
-        await new Promise((r) => setTimeout(r, 120));
+        // 留出 stopListening→onResults 事件窗口；该事件只做活性刷新，不再叠加文本
+        await new Promise((r) => setTimeout(r, 350));
         if (!active) {
           restarting = false;
           return;
         }
-        await SpeechRecognition.start({
-          language: 'zh-CN',
-          maxResults: 1,
-          partialResults: true,
-          popup: false,
-        });
-      } catch {
-        /* busy 等瞬时失败 → watchdog 下一轮再试 */
+        await startOnce();
+        console.log('[SR] restarted ok');
+      } catch (e) {
+        console.log('[SR] restart failed:', String(e).slice(0, 80));
+        /* 启动失败（busy 等瞬时）→ lastEventAt 保持旧值，watchdog 下一轮再试 */
+      } finally {
+        // 无论成败都推进活跃时钟，保证重试间隔 ≥ 阈值，避免紧密空转
+        lastEventAt = Date.now();
+        restarting = false;
       }
-      restarting = false;
     };
     const watchdog = setInterval(() => {
-      if (active && !restarting && Date.now() - lastEventAt > 2200) void restart();
+      if (active && !restarting && Date.now() - lastEventAt > 2500) void restart();
     }, 1000);
-    // #54（2026-09-09）：首次 start 偶发 busy（上一会话未完全释放）→ 自动重试一次，
-    // 仍失败才报错——此前直接报「识别服务忙」把整次长按废掉，用户感知为"一按就中断"
+    // 首次 start 偶发 busy（上一会话未完全释放）→ 自动重试一次，仍失败才报错
     const startWithRetry = async () => {
       try {
-        await SpeechRecognition.start({
-          language: 'zh-CN',
-          maxResults: 1,
-          partialResults: true,
-          popup: false, // false 才有 partialResults（且不遮挡手势层）
-        });
+        await startOnce();
       } catch (e) {
-        if (finished || !active) return; // 松手后的正常结束不当年错误
-        await new Promise((r) => setTimeout(r, 350));
+        if (finished || !active) return;
+        console.log('[SR] first start failed, retry:', String(e).slice(0, 80));
+        await new Promise((r) => setTimeout(r, 400));
         if (!active || finished) return;
         try {
-          await SpeechRecognition.start({
-            language: 'zh-CN',
-            maxResults: 1,
-            partialResults: true,
-            popup: false,
-          });
+          await startOnce();
         } catch (e2) {
           failed = true;
           handlers.onError?.(friendlySrError(String(e2 ?? e)));
@@ -141,23 +154,31 @@ export async function startDictation(handlers: {
 
     return {
       stop: async () => {
+        console.log('[SR] dictation stop, committed=', JSON.stringify(committed), 'current=', JSON.stringify(current));
         active = false;
         clearInterval(watchdog);
-        // 2026-09-07（真机修复「一说话就中断提示未识别到语音」）：
-        // 原生识别器的最终 matches 在 stopListening() 之后才经 onResults→partialResults 事件送达，
-        // 必须先调 stop() 并留出短暂窗口接住最终结果，再移除监听；否则 last 恒为空 → 误报「未识别到语音」
+        // 松手：stopListening 后最终 matches 经 partialResults 事件送达（源码核实），
+        // 留 800ms 捕获窗；事件为会话级全文 → 替换 current（不叠加，杜绝重复拼接）
         try {
           await SpeechRecognition.stop();
         } catch {
           /* 部分机型已自动结束 */
         }
-        await new Promise((r) => setTimeout(r, 600));
+        const deadline = Date.now() + 800;
+        while (Date.now() < deadline && !current) {
+          await new Promise((r) => setTimeout(r, 80));
+        }
         try {
-          await handle.remove();
+          await partialHandle.remove();
         } catch {
           /* 已移除 */
         }
-        emitFinal(`${base}${last}`.trim());
+        try {
+          await stateHandle.remove();
+        } catch {
+          /* 已移除 */
+        }
+        emitFinal(`${committed}${current}`.trim());
       },
     };
   }

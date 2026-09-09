@@ -149,27 +149,27 @@ export function MedicinesPage() {
                   <div className="mt-3 flex items-center gap-2 border-t border-ink-100 pt-2.5">
                     <button
                       onClick={() => quickTake(m)}
-                      className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-btn bg-primary-500 text-[13px] font-medium text-white shadow-sm transition-colors active:bg-primary-600"
+                      className="flex h-8 min-w-0 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-btn bg-primary-500 text-xs font-medium text-white shadow-sm transition-colors active:bg-primary-600"
                     >
-                      <Minus size={14} /> 服用一次
+                      <Minus size={12} className="shrink-0" /> 服用一次
                     </button>
                     <button
                       onClick={() => quickAdd(m)}
-                      className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-btn bg-primary-50 text-[13px] font-medium text-primary-700 transition-colors active:bg-primary-100"
+                      className="flex h-8 min-w-0 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-btn bg-primary-50 text-xs font-medium text-primary-700 transition-colors active:bg-primary-100"
                     >
-                      <Plus size={14} /> 补充库存
+                      <Plus size={12} className="shrink-0" /> 补充库存
                     </button>
                     <button
                       onClick={() => navigate(`/medicines/${m.id}/edit`)}
-                      className="flex h-9 items-center justify-center rounded-btn px-3 text-[13px] text-ink-500 transition-colors active:bg-ink-100"
+                      className="flex h-8 shrink-0 items-center justify-center whitespace-nowrap rounded-btn px-2 text-xs text-ink-500 transition-colors active:bg-ink-100"
                     >
                       编辑
                     </button>
                     <button
                       onClick={() => navigate(`/medicines/${m.id}/logs`)}
-                      className="flex h-9 items-center justify-center gap-1 rounded-btn px-3 text-[13px] text-ink-500 transition-colors active:bg-ink-100"
+                      className="flex h-8 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-btn px-2 text-xs text-ink-500 transition-colors active:bg-ink-100"
                     >
-                      <CalendarClock size={14} /> 历史
+                      <CalendarClock size={12} className="shrink-0" /> 历史
                     </button>
                   </div>
                 </li>

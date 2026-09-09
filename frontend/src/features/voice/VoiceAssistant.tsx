@@ -8,7 +8,7 @@ import { nativeSpeechAvailable, startDictation, type DictationHandle } from './s
  * #26 语音助手 v2（2026-09-06 交互重做）：
  * 长按语音按钮 → 开始识别（实时文字）→ 松手 →
  * AI 解析出「将要进行的调整」预案（不执行）→ 用户点「确认执行」才落地。
- * 识别：APK=原生插件（@capacitor-community/speech-recognition）；浏览器=Web Speech API。
+ * 识别：APK=自建 NativeSpeech 原生插件（常驻识别器+无缝续听）；浏览器=Web Speech API。
  */
 
 interface PlanState {

@@ -11,6 +11,8 @@ public class MainActivity extends BridgeActivity {
         // 2026-09-09：注册 setAlarmClock 调度插件（绕过 ColorOS 对精确闹钟的 1h 窗口降级）。
         // 注意：Capacitor v6+ 要求 registerPlugin 在 super.onCreate 之前调用，否则插件不会注入 bridge。
         registerPlugin(NativeAlarmPlugin.class);
+        // #6（2026-09-09 深夜）：常驻识别器语音插件——会话结束/出错自动无缝续听，治「长按中断/没收到语音」
+        registerPlugin(NativeSpeechPlugin.class);
         handleAlarmIntent(getIntent());
         super.onCreate(savedInstanceState);
     }
@@ -21,6 +23,17 @@ public class MainActivity extends BridgeActivity {
         // app 已在后台时点击通知/全屏意图走 onNewIntent（launchMode singleTask）
         handleAlarmIntent(intent);
         // 通知 WebView 侧 App 插件 resume 逻辑正常触发（Capacitor 在 onNewIntent 里处理）
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // #5（2026-09-09 深夜）：从原生相机/相册返回后 WebView 偶发整体失焦——
+        // 所有按钮点击无响应（Capacitor 已知问题，ColorOS 高发）。
+        // onResume 强制 WebView 重新持有焦点，恢复触摸事件派发。
+        if (bridge != null && bridge.getWebView() != null) {
+            bridge.getWebView().requestFocus();
+        }
     }
 
     /** 提取通知点击/全屏意图携带的闹钟 id 与业务提醒 id，转交插件供 JS 消费（直达对应提醒弹窗） */

@@ -79,7 +79,13 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
     photoUrl?: string,
   ) => {
     setBusy(true);
-    await onAction(status, minutes, photoUrl, note.trim() || undefined);
+    try {
+      await onAction(status, minutes, photoUrl, note.trim() || undefined);
+    } finally {
+      // #3（2026-09-09 深夜）：photo/missed 不关弹窗，busy 必须复位——
+      // 此前 setBusy(true) 后无 finally，拍照后完成/延迟/放弃全部卡在 disabled
+      setBusy(false);
+    }
   };
 
   const maxDelayCount = reminder.delaySettings.maxDelayCount ?? 3;

@@ -164,7 +164,8 @@ export function SettingsPage() {
     navigate('/login');
   };
 
-  /** #25/#33：导出全量数据——登录态生成 24h /uploads 直链并自动复制（APK WebView 下载/分享受限，链接在任意浏览器可开）；游客/离线走本地打包 */
+  /** #25/#33：导出全量数据——登录态生成 24h /uploads 直链并**自动拉起浏览器下载**（2026-09-09 用户要求：
+   * 不再复制链接+提示，直接打开；attachment 头让浏览器直接进下载）。游客/离线走本地打包 */
   const handleExport = async () => {
     setBusy(true);
     setError(null);
@@ -172,14 +173,11 @@ export function SettingsPage() {
       const fileName = `cuckoo-data-${new Date().toISOString().slice(0, 10)}.json`;
       if (!useLocal()) {
         try {
-          const { url, expiresInHours } = await usersApi.exportLink();
+          const { url } = await usersApi.exportLink();
           const link = absoluteUrl(url);
-          try {
-            await navigator.clipboard.writeText(link);
-            setNotice(`下载链接已复制到剪贴板（${expiresInHours} 小时内有效），在任意浏览器打开即可下载`);
-          } catch {
-            setNotice(`无法访问剪贴板，请手动复制链接（${expiresInHours} 小时内有效）：${link}`);
-          }
+          // APK + Web 统一 window.open——Capacitor WebView 对外域 target=_blank 默认
+          // 走系统浏览器（@capacitor/app v8 已移除 launchUrl，勿再引用）
+          window.open(link, '_blank', 'noopener');
           return;
         } catch {
           // 离线/接口失败 → 落到本地打包（下方）
@@ -367,6 +365,22 @@ export function SettingsPage() {
             disabled={!online || pushEnabled === null || !pushSupport || busy}
             onChange={togglePush}
           />
+        </section>
+
+        {/* #8（2026-09-09 晚）：国产 ROM 后台弹窗引导——FSI/精确闹钟就位后，
+            「非 App 界面不弹」的残余根因几乎都是系统侧管控（ColorOS 一键清理=强制停止会
+            取消全部闹钟；后台弹出界面/锁屏显示/自启动被拒会静默吞掉全屏意图） */}
+        <section className="rounded-card bg-surface p-4 shadow-sm">
+          <p className="text-sm font-medium">后台提醒收不到？</p>
+          <p className="mt-1 text-xs leading-5 text-ink-500">
+            已申请系统级精确闹钟与全屏提醒权限，若后台/锁屏仍不弹，请在系统设置中放行：
+            <br />
+            ① 电池 → 允许后台运行（或「不优化」布谷）
+            <br />
+            ② 最近任务里下拉布谷 → 加锁，避免一键清理强制停止（强制停止会取消全部闹钟）
+            <br />
+            ③ 应用信息 → 通知 → 允许「横幅/锁屏/全屏显示」；权限管理允许「后台弹出界面 + 自启动」
+          </p>
         </section>
 
         {/* 测试提醒 */}

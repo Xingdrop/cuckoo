@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { filesApi } from '../../services/api/api.files';
 import { LinkedText } from '../../components/LinkedText';
 import { MediaCarousel } from '../../components/MediaCarousel';
+import { RImg } from '../../components/remoteMedia';
 import { loadFeedbackPrefs, startRingLoop, startVibrateLoop } from '../../utils/alert-feedback';
 import { captureNativePhoto } from '../../utils/cameraCapture';
 import type { Reminder } from '../../types';
@@ -38,6 +39,8 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
   /** 拍照语义：challenge=挑战打卡（challenge_completed）；log=随手拍照记录（photo） */
   const [photoMode, setPhotoMode] = useState<'challenge' | 'log'>('challenge');
   const [photoBusy, setPhotoBusy] = useState(false);
+  /** #9a（2026-09-09 晚）：拍照/选图上传成功后立即回显（photo 记录不关弹窗，可重拍替换） */
+  const [snapped, setSnapped] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const fileRef = useRef<HTMLInputElement | null>(null);
   const galleryRef = useRef<HTMLInputElement | null>(null);
@@ -82,13 +85,16 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
   const maxDelayCount = reminder.delaySettings.maxDelayCount ?? 3;
   const customEnabled = reminder.delaySettings.customEnabled ?? true;
 
-  /** 拍照/相册选择 → 上传 → 完成挑战或拍照记录 */
+  /** 拍照/相册选择 → 上传 → 立即回显 → 完成挑战或拍照记录 */
   const uploadAndComplete = async (file: File) => {
     setPhotoBusy(true);
     try {
       const { url } = await filesApi.upload(file);
+      setSnapped(url);
       await act(photoMode === 'challenge' ? 'challenge_completed' : 'photo', undefined, url);
     } catch {
+      /* 上传失败：photoBusy 复位后留在相机区可重试 */
+    } finally {
       setPhotoBusy(false);
     }
   };
@@ -161,6 +167,17 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
             <p className="mb-3 text-center text-sm text-white/80">
               {photoMode === 'challenge' ? '拍摄打卡照片' : '拍照记录（可拍照或从相册选择）'}
             </p>
+            {/* #9a：拍完立即回显——照片已上传记录，可重拍替换（原槽 photo 日志，后端幂等替换） */}
+            {snapped && (
+              <div className="mb-3 flex items-center gap-3">
+                <RImg src={snapped} alt="已拍照片" className="h-24 w-24 shrink-0 rounded-card object-cover" />
+                <p className="text-xs leading-5 text-primary-300">
+                  ✓ 照片已记录
+                  <br />
+                  可重拍替换，或返回继续处理提醒
+                </p>
+              </div>
+            )}
             <input
               ref={fileRef}
               type="file"
@@ -193,7 +210,7 @@ export function ReminderOverlay({ reminder, onAction }: Props) {
                 }}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-btn bg-white/15 py-3.5 text-sm transition-colors hover:bg-white/25 disabled:opacity-50"
               >
-                <Camera size={18} /> {photoBusy ? '上传中…' : '拍照'}
+                <Camera size={18} /> {photoBusy ? '上传中…' : snapped ? '重拍' : '拍照'}
               </button>
               <button
                 disabled={photoBusy}

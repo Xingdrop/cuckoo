@@ -11,6 +11,7 @@ import { appApi, type AppApkInfo } from '../services/api/api.app';
 import { loadAiConfig, saveAiConfig } from '../assistant/assistant';
 import { refreshApiBase, absoluteUrl } from '../services/http';
 import { errorMessage } from '../services/http';
+import { exportPhotosToPhone } from '../services/photoExport';
 import { RImg } from '../components/remoteMedia';
 import { useAuthStore } from '../stores/authStore';
 import { useConnectionStore } from '../stores/connectionStore';
@@ -164,6 +165,28 @@ export function SettingsPage() {
     navigate('/login');
   };
 
+  /** #36（2026-09-10 深夜）：APK 导出时把照片以真实文件写入手机公共
+   *  「Download/布谷照片/」（MediaStore，无需权限），绝对路径直接展示——
+   *  用户此前找不到照片文件；Web 端不适用（照片仍内嵌报告） */
+  const startPhotoExport = () => {
+    void exportPhotosToPhone()
+      .then((r) => {
+        if (!r) return;
+        if (!r.dir) {
+          setNotice('没有可导出的照片记录');
+          return;
+        }
+        const extra = [
+          r.skipped ? `已存在 ${r.skipped} 张` : '',
+          r.failed ? `失败 ${r.failed} 张` : '',
+        ]
+          .filter(Boolean)
+          .join('，');
+        setNotice(`照片已导出到手机目录：${r.dir}（新增 ${r.saved} 张${extra ? `，${extra}` : ''}）`);
+      })
+      .catch(() => setNotice('照片导出到手机失败，请检查网络后重试'));
+  };
+
   /** #25/#33：导出全量数据——登录态生成 24h /uploads 直链并**自动拉起浏览器下载**（2026-09-09 用户要求：
    * 不再复制链接+提示，直接打开；attachment 头让浏览器直接进下载）。游客/离线走本地打包 */
   const handleExport = async () => {
@@ -178,6 +201,8 @@ export function SettingsPage() {
           // APK + Web 统一 window.open——Capacitor WebView 对外域 target=_blank 默认
           // 走系统浏览器（@capacitor/app v8 已移除 launchUrl，勿再引用）
           window.open(link, '_blank', 'noopener');
+          // #36：APK 同时把照片文件落到 Download/布谷照片/（绝对路径可在文件管理查看）
+          startPhotoExport();
           return;
         } catch {
           // 离线/接口失败 → 落到本地打包（下方）
@@ -189,6 +214,8 @@ export function SettingsPage() {
       })();
       const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
       if (cap?.isNativePlatform?.()) {
+        // #36：游客模式下照片多为 data: URI，同样落到 Download/布谷照片/（非阻塞）
+        startPhotoExport();
         // APK：优先系统分享面板（用户可另存到任意位置——Documents 属 app 专属目录，文件管理器看不到，是「导出找不到文件」的根因）
         try {
           const file = new File([json], fileName, { type: 'application/json' });
@@ -402,13 +429,13 @@ export function SettingsPage() {
           <h2 className="px-4 py-3 text-sm font-medium">语音助手</h2>
           <SettingRow
             label="语音助手"
-            desc="开启后今日页底部显示语音按钮，长按按钮说话、松手后 AI 解析预案并确认执行（浏览器需 HTTPS/允许麦克风；APK 使用原生语音识别，首次使用需允许麦克风权限）"
+            desc="开启后今日页底部显示语音按钮，点按开始说话、再次点按结束后 AI 解析预案并确认执行（浏览器需 HTTPS/允许麦克风；APK 使用原生语音识别，首次使用需允许麦克风权限）"
             checked={ai.enabled}
             disabled={busy}
             onChange={(v) => {
               saveAiConfig({ ...ai, enabled: v });
               setAi({ ...ai, enabled: v });
-              setNotice(v ? '语音助手已开启（可在今日页长按唤醒）' : '语音助手已关闭');
+              setNotice(v ? '语音助手已开启（可在今日页点按唤醒）' : '语音助手已关闭');
             }}
           />
           <div className="px-4 py-3">
@@ -506,7 +533,7 @@ export function SettingsPage() {
             <div>
               <p className="text-sm font-medium">导出我的数据</p>
               <p className="mt-0.5 text-xs text-ink-500">
-                生成单文件报告（含照片，离线可看）· 保存到系统下载目录（Download），该位置由浏览器管理
+                生成单文件报告（含照片，离线可看）· 报告存到系统下载目录；照片另存到手机「Download/布谷照片」文件夹（绝对路径，文件管理可直接查看）
               </p>
             </div>
           </button>

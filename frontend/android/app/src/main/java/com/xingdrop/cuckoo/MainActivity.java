@@ -13,6 +13,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(NativeAlarmPlugin.class);
         // #6（2026-09-09 深夜）：常驻识别器语音插件——会话结束/出错自动无缝续听，治「长按中断/没收到语音」
         registerPlugin(NativeSpeechPlugin.class);
+        // #36（2026-09-10 深夜）：照片导出插件——MediaStore 写公共 Download/布谷照片，返回绝对路径
+        registerPlugin(NativePhotoSaverPlugin.class);
         handleAlarmIntent(getIntent());
         super.onCreate(savedInstanceState);
     }

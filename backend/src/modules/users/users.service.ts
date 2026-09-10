@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import { join } from 'node:path';
+import sharp from 'sharp';
 import { DataSource, In, Repository } from 'typeorm';
 import { computeNextTrigger } from '../../common/reminder-schedule';
 import { AuthService } from '../auth/auth.service';
@@ -344,7 +345,7 @@ export class UsersService {
       }
     }
     const name = `cuckoo-report-${userId.slice(0, 8)}-${Date.now()}.html`;
-    fs.writeFileSync(join(dir, name), buildHtmlReport(data), 'utf8');
+    fs.writeFileSync(join(dir, name), await buildHtmlReport(data), 'utf8');
     void this.audit.record('user.export-link', userId, { targetType: 'user', targetId: userId });
     return { url: `/uploads/exports/${name}`, expiresInHours: 24 };
   }
@@ -425,10 +426,28 @@ const repeatText = (r: { type?: string; intervalValue?: number; intervalUnit?: s
 };
 
 /**
- * 自包含 HTML 报告：概览 → 提醒清单 → 近 7 天执行记录 → 药品库存。
- * 内联样式、无外部依赖，手机/桌面浏览器直接打开。
+ * 照片内嵌（#34，2026-09-10 深夜）：photoUrl（/uploads/...）→ base64 data URI。
+ * 浏览器只会下载报告这一个文件——照片必须内嵌才能离线查看（此前 <img src="/uploads/...">
+ * 下载后全 404）。sharp 压缩（宽 ≤480 / JPEG q72）控制单文件体积；读图失败回退文字标记。
  */
-function buildHtmlReport(data: ExportBundle): string {
+async function embedPhoto(photoUrl: string | null | undefined): Promise<string> {
+  if (!photoUrl) return '';
+  try {
+    const rel = photoUrl.replace(/^\/+uploads\//, '').replace(/^\/+/, '');
+    const abs = join(process.cwd(), process.env.UPLOAD_DIR ?? 'uploads', rel);
+    if (!fs.existsSync(abs)) return '';
+    const buf = await sharp(abs).rotate().resize({ width: 480, withoutEnlargement: true }).jpeg({ quality: 72 }).toBuffer();
+    return `<img src="data:image/jpeg;base64,${buf.toString('base64')}" alt="照片记录" style="max-width:120px;border-radius:8px;display:block;margin:2px 0;">`;
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * 自包含 HTML 报告：概览 → 提醒清单 → 近 7 天执行记录（含照片内嵌）→ 药品库存。
+ * 内联样式、无外部依赖、照片 base64 内嵌——单文件离线可看，手机/桌面浏览器直接打开。
+ */
+async function buildHtmlReport(data: ExportBundle): Promise<string> {
   const logs7 = [...(data.reminderLogs ?? [])]
     .filter((l) => l.scheduledTime && Date.now() - new Date(String(l.scheduledTime).includes('T') ? String(l.scheduledTime) : `${String(l.scheduledTime).replace(' ', 'T')}Z`).getTime() < 7 * 86_400_000)
     .sort((a, b) => String(b.scheduledTime).localeCompare(String(a.scheduledTime)))
@@ -475,16 +494,19 @@ function buildHtmlReport(data: ExportBundle): string {
     card(
       `<h2>近 7 天执行记录</h2>${table(
         ['时间', '提醒', '结果', '记录'],
-        logs7.map((l) => {
-          const st = LOG_STATUS[l.status] ?? { label: l.status, color: '#374151' };
-          const extra = [l.note, l.photoUrl ? '📷 有照片' : ''].filter(Boolean).join('　');
-          return [
-            esc(fmtLocal(String(l.scheduledTime))),
-            esc(reminderTitle.get(String(l.reminderId)) ?? '—'),
-            `<span style="color:${st.color};font-weight:600">${st.label}</span>`,
-            esc(extra),
-          ];
-        }),
+        await Promise.all(
+          logs7.map(async (l) => {
+            const st = LOG_STATUS[l.status] ?? { label: l.status, color: '#374151' };
+            const photoHtml = await embedPhoto(l.photoUrl);
+            const extra = [l.note, photoHtml || (l.photoUrl ? '📷 有照片（文件已清理）' : '')].filter(Boolean).join('　');
+            return [
+              esc(fmtLocal(String(l.scheduledTime))),
+              esc(reminderTitle.get(String(l.reminderId)) ?? '—'),
+              `<span style="color:${st.color};font-weight:600">${st.label}</span>`,
+              extra,
+            ];
+          }),
+        ),
       )}</div>`,
     ),
   );

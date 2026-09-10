@@ -11,7 +11,7 @@ const STATUS_LABEL: Record<string, string> = {
   completed: '已完成',
   challenge_completed: '挑战完成',
   delayed: '已延迟',
-  skipped: '已跳过',
+  skipped: '已放弃',
   missed: '已错过',
   photo: '照片记录',
   manual: '手动记录',

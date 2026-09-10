@@ -58,7 +58,7 @@ const STATUS_CHIP: Record<string, { text: string; cls: string }> = {
   challenge_completed: { text: '已完成', cls: 'bg-primary-500/15 text-primary-700' },
   photo: { text: '已拍照', cls: 'bg-accent-100 text-accent-700' },
   delayed: { text: '已延迟', cls: 'bg-warning-500/15 text-warning-700' },
-  skipped: { text: '已跳过', cls: 'bg-ink-100 text-ink-500' },
+  skipped: { text: '已放弃', cls: 'bg-ink-100 text-ink-500' },
   missed: { text: '已错过', cls: 'bg-danger-500/15 text-danger-700' },
   manual: { text: '已补记', cls: 'bg-primary-500/15 text-primary-700' },
   note: { text: '留言', cls: 'bg-ink-100 text-ink-600' },
@@ -154,11 +154,12 @@ export function ReminderDetailModal({
   );
 
   const slots = item.untimed ? [] : item.times;
-  /** 待完成时点（无状态记录/留言/延迟中/已拍照）——「标记完成」优先作用于它
+  /** 待完成时点（无状态记录/留言/延迟中/已拍照/已放弃）——「标记完成」优先作用于它
    *  #31（2026-09-10）：photo 纳入可操作——拍照记录 ≠ 完成，槽上仍可点「标记完成」；
-   *  此前 photo 槽不算待办 → 底部误显示「今日已完成」，而列表仍归待办/错过（视角不一致） */
+   *  #33（2026-09-10 深夜）：skipped 纳入可操作——放弃 ≠ 完成，可改回标记完成
+   *  （与今日页已放弃分组的 ✓ 按钮一致）；此前 skipped 槽落入「今日已完成」分支误显示 */
   const isActionable = (s: ReminderLogStatus | null | undefined) =>
-    !s || s === 'delayed' || s === 'note' || s === 'photo';
+    !s || s === 'delayed' || s === 'note' || s === 'photo' || s === 'skipped';
   const pendingSlot = slots.find((s) => isActionable(s.status));
   const missedSlots = slots.filter((s) => s.status === 'missed');
 
@@ -452,7 +453,7 @@ function SlotRow({
       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${chip.cls} ${stacked ? 'ml-auto' : ''}`}>
         {chip.text}
       </span>
-      {(!status || status === 'delayed' || status === 'photo') && (
+      {(!status || status === 'delayed' || status === 'photo' || status === 'skipped') && (
         <button
           onClick={onDone}
           className="flex h-7 shrink-0 items-center gap-1 rounded-lg bg-primary-500 px-2.5 text-[11px] font-medium text-white"

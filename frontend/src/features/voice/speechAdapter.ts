@@ -40,6 +40,9 @@ export async function nativeSpeechAvailable(): Promise<boolean> {
   }
 }
 
+/** #35：权限缓存——首次 granted 后跳过 checkPermissions（省桥调用，按下即录启动更快） */
+let permissionGranted = false;
+
 /** 启动听写：onPartial 实时字幕；onFinal 最终文本（松手或静音结束后调用一次） */
 export async function startDictation(handlers: {
   onPartial: (text: string) => void;
@@ -49,14 +52,17 @@ export async function startDictation(handlers: {
   if (await nativeSpeechAvailable()) {
     const { registerPlugin } = await import('@capacitor/core');
     const NativeSpeech = registerPlugin('NativeSpeech') as unknown as NativeSpeechProxy;
-    // 权限（RECORD_AUDIO）就绪
-    const { speechRecognition } = await NativeSpeech.checkPermissions();
-    if (speechRecognition !== 'granted') {
-      const req = await NativeSpeech.requestPermissions();
-      if (req.speechRecognition !== 'granted') {
-        handlers.onError?.('麦克风/语音识别权限被拒绝，请在系统设置中开启');
-        return { stop: () => undefined };
+    // 权限（RECORD_AUDIO）就绪（已授权过则跳过检查，加快启动）
+    if (!permissionGranted) {
+      const { speechRecognition } = await NativeSpeech.checkPermissions();
+      if (speechRecognition !== 'granted') {
+        const req = await NativeSpeech.requestPermissions();
+        if (req.speechRecognition !== 'granted') {
+          handlers.onError?.('麦克风/语音识别权限被拒绝，请在系统设置中开启');
+          return { stop: () => undefined };
+        }
       }
+      permissionGranted = true;
     }
     // ===== #6（2026-09-09 深夜）：NativeSpeech 常驻识别器会话模型 =====
     // 原生识别器不销毁；端点检测结束/出错且仍在长按时原生立即续听（新 session 号）。
@@ -69,6 +75,7 @@ export async function startDictation(handlers: {
     let active = true;
     let finalArrived = false;
     let failed = false;
+    let stopped = false;
     let lastEventAt = Date.now();
     const emitFinal = (t: string) => {
       if (failed) return;
@@ -103,13 +110,21 @@ export async function startDictation(handlers: {
       if (!active) finalArrived = true;
       show();
     });
-    // 活性信号；权限缺失(9)原生不续听，必须上报（其余错误原生已自动续听，不打扰）
-    const errorHandle = await NativeSpeech.addListener('srError', (data: { code: number }) => {
+    // 活性信号；权限缺失(9)原生不续听，必须上报；连续网络/服务错误(2/4)明确提示——
+    // #35：此前静默续听表现为「一直没反应 → 松手空文本」，用户无从得知是网络问题
+    let netWarned = false;
+    const errorHandle = await NativeSpeech.addListener('srError', (data: { code: number; consecutive?: number }) => {
       lastEventAt = Date.now();
-      console.log('[SR] native srError code=', data.code);
+      console.log('[SR] native srError code=', data.code, 'consecutive=', data.consecutive);
       if (data.code === 9 && !failed) {
         failed = true;
         handlers.onError?.('麦克风/语音识别权限被拒绝，请在系统设置中开启');
+        return;
+      }
+      if (!netWarned && (data.code === 2 || data.code === 4) && (data.consecutive ?? 0) >= 3) {
+        netWarned = true;
+        failed = true;
+        handlers.onError?.('语音识别服务连接异常，请检查网络后重试');
       }
     });
     const stateHandle = await NativeSpeech.addListener('listeningState', () => {
@@ -144,16 +159,20 @@ export async function startDictation(handlers: {
 
     return {
       stop: async () => {
+        // #35：stop 严格一次（VoiceAssistant 竞态路径可能双调）——重复调用不再二次 emitFinal
+        if (stopped) return;
+        stopped = true;
         console.log('[SR] dictation stop, committed=', JSON.stringify(committed), 'current=', JSON.stringify(current));
         active = false;
         clearInterval(watchdog);
-        // 松手：stopListening 后本会话最终结果经 final 事件送达，留 800ms 捕获窗
+        // 松手：stopListening 后本会话最终结果经 final 事件送达，留 1.2s 捕获窗
+        // （原 800ms——部分机型 onResults 晚到，松手即断丢结尾）
         try {
           await NativeSpeech.stop();
         } catch {
           /* 已结束 */
         }
-        const deadline = Date.now() + 800;
+        const deadline = Date.now() + 1200;
         while (Date.now() < deadline && !finalArrived && !current) {
           await new Promise((r) => setTimeout(r, 60));
         }

@@ -134,7 +134,7 @@ export function GuestHomePage({ initial = 'today' }: { initial?: Tab }) {
                         : `喝水 +${l.amount}ml`}
                     </span>
                     <span className="text-ink-300">
-                      {l.status === 'completed' ? '已完成' : '已跳过'}
+                      {l.status === 'completed' ? '已完成' : '已放弃'}
                     </span>
                   </li>
                 ))}

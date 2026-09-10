@@ -1,115 +1,159 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2ZlYXR1cmVzL3ZvaWNlL1ZvaWNlQXNzaXN0YW50LnRzeHwyMDI2LTA5fDIwZWY2MmQxZTc= */
 import { Mic, MicOff, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { loadAiConfig, runAssistant, type AssistantOutcome } from '../../assistant/assistant';
 import { nativeSpeechAvailable, startDictation, type DictationHandle } from './speechAdapter';
+import { loadAiConfig, runAssistant, executePending } from '../../assistant/assistant';
 
 /**
- * #26 语音助手 v2（2026-09-06 交互重做）：
- * 长按语音按钮 → 开始识别（实时文字）→ 松手 →
- * AI 解析出「将要进行的调整」预案（不执行）→ 用户点「确认执行」才落地。
+ * 语音助手入口：底部悬浮「长按说话」按钮。
+ *
+ * #35（2026-09-10 深夜）长按手势整体重构——多轮小修仍报中断/丢字，根因是手势层
+ * 结构性缺陷，本次重写状态机：
+ * 1. 按下立即开始录音（原 350ms holdTimer + 异步启动桥延迟 ~0.5s，开头语音全丢）；
+ * 2. 松手监听挂 document 捕获阶段（原按钮级 onPointerUp 在真机上不可靠——滑出/
+ *    系统手势注入时事件丢失，录音永不结束或被 pointercancel 误杀）；
+ * 3. 识别就绪前松手的竞态显式建模（stopPending → 就绪后立即 stop）；
+ * 4. 短按误触（<350ms）与空识别结果静默丢弃，不再弹「未识别到语音」；
+ * 5. stop 严格一次（recRef 置空防重入），杜绝重复 emitFinal → 重复弹预案。
+ *
  * 识别：APK=自建 NativeSpeech 原生插件（常驻识别器+无缝续听）；浏览器=Web Speech API。
  */
 
-interface PlanState {
+interface PlanStep {
+  say?: string;
+  act?: string;
+  result?: string;
+}
+
+interface Plan {
   text: string;
   reply: string;
-  steps: AssistantOutcome['steps'];
+  steps: PlanStep[];
   actions: { id: string; params: Record<string, unknown> }[];
   error?: string;
 }
 
-export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) {
-  const [enabled, setEnabled] = useState(() => loadAiConfig().enabled);
-  const [supported, setSupported] = useState(false);
+interface Outcome {
+  steps: PlanStep[];
+  reply: string;
+  error?: string;
+}
 
+/** 误触阈值：短于该时长的按压视为误触，结果静默丢弃 */
+const PRESS_MS_MIN = 350;
+
+export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) {
+  const [enabled, setEnabled] = useState(false);
+  const [supported, setSupported] = useState(false);
   const [recording, setRecording] = useState(false);
   const [live, setLive] = useState('');
-  const [plan, setPlan] = useState<PlanState | null>(null);
-  const [outcome, setOutcome] = useState<AssistantOutcome | null>(null);
   const [busy, setBusy] = useState(false);
+  const [plan, setPlan] = useState<Plan | null>(null);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
 
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const recRef = useRef<DictationHandle | null>(null);
-  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const docRef = useRef<{ up: EventListener; cancel: EventListener } | null>(null);
   const pressingRef = useRef(false);
+  const pressStartRef = useRef(0);
+  const stopPendingRef = useRef(false);
 
   useEffect(() => {
     setEnabled(loadAiConfig().enabled);
-    // 支持检测（2026-09-06 修复）：原生插件可用 **或** 浏览器有 Web Speech API 都算支持——
-    // 之前只检测原生插件，导致 Web 端长按永远提示"不支持"，Web Speech 路径成死代码
+    // 支持检测：原生插件可用 **或** 浏览器有 Web Speech API 都算支持
     const w = window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown };
     const webOk = !!(w.SpeechRecognition ?? w.webkitSpeechRecognition);
     void nativeSpeechAvailable().then((n) => setSupported(n || webOk));
     return () => {
-      if (holdTimer.current) clearTimeout(holdTimer.current);
+      // 卸载兜底：停录音 + 摘 document 监听
+      pressingRef.current = false;
+      const h = recRef.current;
+      recRef.current = null;
+      void h?.stop();
+      detachDoc();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** 长按按钮（≥350ms）开始识别；松手结束识别 → 出预案 */
+  /** 松手监听挂 document 捕获阶段：无论手指滑到哪/系统是否注入手势，up/cancel 必达 */
+  const attachDoc = () => {
+    if (docRef.current) return;
+    const up = () => endPress();
+    const cancel = () => endPress();
+    document.addEventListener('pointerup', up, true);
+    document.addEventListener('pointercancel', cancel, true);
+    docRef.current = { up, cancel };
+  };
+  const detachDoc = () => {
+    if (!docRef.current) return;
+    document.removeEventListener('pointerup', docRef.current.up, true);
+    document.removeEventListener('pointercancel', docRef.current.cancel, true);
+    docRef.current = null;
+  };
+
+  /** 结束按压（幂等）：stop 严格一次（recRef 立即置空），未就绪则标记 pending */
+  const endPress = () => {
+    if (!pressingRef.current) return;
+    pressingRef.current = false;
+    const h = recRef.current;
+    if (h) {
+      recRef.current = null;
+      void h.stop();
+    } else if (stopPendingRef.current !== null) {
+      stopPendingRef.current = true; // 识别启动中松手 → 就绪后立即停
+    }
+  };
+
   const onPointerDown = (e: React.PointerEvent) => {
-    if (!enabled || busy || recording) return;
-    // #54（2026-09-09 真机复修）：显式捕获指针——手指轻微滑出按钮时事件仍送达本按钮，
-    // 杜绝滑动导致的 pointerleave/pointercancel 把识别掐断（触摸场景默认隐式捕获并不可靠）
+    if (!enabled || busy || recording) {
+      if (!enabled) onToast('语音助手未开启：设置 → 语音助手 可开启');
+      return;
+    }
+    if (!supported) {
+      onToast('当前环境不支持语音识别（浏览器需 HTTPS；APK 请更新到含语音插件的新版本）');
+      return;
+    }
+    // 指针捕获：手指滑出按钮事件仍送达（触摸场景系统隐式捕获不可靠）
     try {
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     } catch {
-      /* 不支持则退化为默认行为 */
+      /* 不支持则退化为 document 级监听兜底 */
     }
     pressingRef.current = true;
-    holdTimer.current = setTimeout(() => {
-      if (!pressingRef.current) return;
-      if (!supported) {
-        onToast('当前环境不支持语音识别（浏览器需 HTTPS；APK 请更新到含语音插件的新版本）');
-        return;
+    pressStartRef.current = Date.now();
+    stopPendingRef.current = false;
+    recRef.current = null;
+    setLive('');
+    setRecording(true); // 乐观进入录音态：UI 即刻反馈
+    attachDoc();
+    void startDictation({
+      onPartial: (t) => setLive(t),
+      onFinal: (t) => {
+        detachDoc();
+        setRecording(false);
+        const text = t.trim();
+        const held = Date.now() - pressStartRef.current;
+        // 误触（<350ms）或空结果：静默丢弃，不再弹「未识别到语音」
+        if (!text || held < PRESS_MS_MIN) return;
+        void makePlan(text);
+      },
+      onError: (msg) => {
+        detachDoc();
+        setRecording(false);
+        onToast(msg);
+      },
+    }).then((h) => {
+      recRef.current = h;
+      if (!pressingRef.current || stopPendingRef.current) {
+        // 就绪前已松手 → 立即停（结果经 onFinal 的误触判定静默/正常处理）
+        recRef.current = null;
+        void h.stop();
       }
-      void startDictation({
-        onPartial: (t) => setLive(t),
-        onFinal: (t) => {
-          setRecording(false);
-          void makePlan(t.trim());
-        },
-        onError: (msg) => {
-          setRecording(false);
-          onToast(msg);
-        },
-      }).then((h) => {
-        if (!pressingRef.current) {
-          // 2026-09-07：识别就绪前已松手（异步启动竞态）→ 直接结束，避免卡在「松手结束」
-          void h.stop();
-          return;
-        }
-        recRef.current = h;
-        setLive('');
-        setRecording(true);
-      });
-    }, 350);
-  };
-
-  const onPointerUp = () => {
-    pressingRef.current = false;
-    if (holdTimer.current) {
-      clearTimeout(holdTimer.current);
-      holdTimer.current = null;
-    }
-    if (recording) {
-      void recRef.current?.stop();
-    } else {
-      // 2026-09-06 修复：未开启/快速点击也要有反馈（此前未开启时点击完全无响应）
-      onToast(
-        !enabled
-          ? '语音助手未开启：设置 → 语音助手 可开启'
-          : '长按按钮说话，松手后确认要执行的调整',
-      );
-    }
+    });
   };
 
   /** 松手后：AI 解析预案（不执行） */
   const makePlan = async (text: string) => {
-    if (!text) {
-      onToast('未识别到语音');
-      return;
-    }
     setBusy(true);
     setLive(text);
     const out = await runAssistant(text, { autoRun: false });
@@ -128,7 +172,6 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
   const confirmPlan = async () => {
     if (!plan || busy) return;
     setBusy(true);
-    const { executePending } = await import('../../assistant/assistant');
     const out = await executePending(plan.actions, plan.text);
     setBusy(false);
     setPlan(null);
@@ -142,12 +185,9 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
         ref={btnRef}
         aria-label="语音助手（长按说话）"
         onPointerDown={onPointerDown}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
         onPointerLeave={(e) => {
-          // #54：触摸长按期间手指滑出按钮不应中断识别（显式捕获已保证事件不丢）；
-          // 仅鼠标按住拖出时才视为放弃
-          if (e.pointerType === 'mouse' && recording) onPointerUp();
+          // 鼠标按住拖出视为放弃；触摸由 document 监听统一处理
+          if (e.pointerType === 'mouse' && recording) endPress();
         }}
         onContextMenu={(e) => e.preventDefault()}
         style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
@@ -193,7 +233,9 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
                     ⚙️ <span className="font-medium">将要：</span>
                     {s.act}
                   </p>
-                  {s.result && <p className="mt-1 text-ink-400">{s.result}</p>}
+                  {s.result && (
+                    <p className="mt-1 text-ink-400">{s.result}</p>
+                  )}
                 </div>
               ))}
             {plan.steps.filter((s) => s.act).length === 0 && (

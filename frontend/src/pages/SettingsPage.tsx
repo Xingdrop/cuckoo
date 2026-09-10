@@ -505,7 +505,9 @@ export function SettingsPage() {
             <Download size={18} className="shrink-0 text-primary-600" />
             <div>
               <p className="text-sm font-medium">导出我的数据</p>
-              <p className="mt-0.5 text-xs text-ink-500">生成可读报告（浏览器直接打开查看提醒/记录/药品）</p>
+              <p className="mt-0.5 text-xs text-ink-500">
+                生成单文件报告（含照片，离线可看）· 保存到系统下载目录（Download），该位置由浏览器管理
+              </p>
             </div>
           </button>
           {/* #22/#26：合并游客数据——预览+确认合并；可单独清空游客数据 */}

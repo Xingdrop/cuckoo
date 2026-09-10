@@ -11,7 +11,7 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
   challenge_completed: { label: '拍照完成', cls: 'bg-primary-50 text-primary-600' },
   manual: { label: '手动记录', cls: 'bg-primary-50 text-primary-600' },
   delayed: { label: '延迟完成', cls: 'bg-accent-100 text-accent-700' },
-  skipped: { label: '已跳过', cls: 'bg-ink-100 text-ink-500' },
+  skipped: { label: '已放弃', cls: 'bg-ink-100 text-ink-500' },
   missed: { label: '漏服', cls: 'bg-danger-500/10 text-danger-700' },
 };
 

@@ -118,15 +118,31 @@ export function StatsPage() {
     }
   };
 
-  /** #26：一键导出某提醒的全部照片（浏览器逐个下载；APK 写入文档目录） */
+  /** #26：一键导出某提醒的全部照片（APK 写入公共 Download/布谷照片；浏览器逐个下载）
+   *  2026-09-10：Directory.Documents 是应用私有目录（Android/data，文件管理器不可见）
+   *  → 与设置页统一改走 NativePhotoSaver 公共目录 */
   const exportPhotoGroup = async (g: PhotoGroup) => {
     try {
       setPhotoMsg(`正在导出「${g.title}」${g.photos.length} 张照片…`);
-      const { Filesystem, Directory } = await import('@capacitor/filesystem').catch(() => ({
-        Filesystem: null,
-        Directory: null,
-      }));
       const native = Boolean((window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.());
+      if (native) {
+        const { exportPhotoListToPhone } = await import('../services/photoExport');
+        const items = g.photos.map((p, i) => ({
+          name: `${g.title.slice(0, 12).replace(/[\\/:*?"<>|]/g, '_')}-${new Date(p.at).toISOString().slice(0, 10)}-${i + 1}.jpg`,
+          url: p.url,
+        }));
+        const r = await exportPhotoListToPhone(items);
+        if (!r || !r.dir) {
+          setPhotoMsg('没有可导出的照片');
+        } else {
+          const extra = [r.skipped ? `已存在 ${r.skipped} 张` : '', r.failed ? `失败 ${r.failed} 张` : '']
+            .filter(Boolean)
+            .join('，');
+          setPhotoMsg(`照片已导出到手机目录：${r.dir}（新增 ${r.saved} 张${extra ? `，${extra}` : ''}）`);
+        }
+        setTimeout(() => setPhotoMsg(null), 4200);
+        return;
+      }
       let saved = 0;
       for (let i = 0; i < g.photos.length; i++) {
         const p = g.photos[i];
@@ -134,17 +150,12 @@ export function StatsPage() {
         const url = absoluteUrl(p.url);
         if (/^https?:\/\//i.test(url)) {
           const blob = await fetch(url).then((r) => r.blob());
-          if (native && Filesystem) {
-            const base64 = await blobToBase64(blob);
-            await Filesystem.writeFile({ path: name, data: base64, directory: Directory.Documents, recursive: true });
-          } else {
-            const o = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = o;
-            a.download = name;
-            a.click();
-            URL.revokeObjectURL(o);
-          }
+          const o = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = o;
+          a.download = name;
+          a.click();
+          URL.revokeObjectURL(o);
         } else {
           const a = document.createElement('a');
           a.href = url;
@@ -153,21 +164,13 @@ export function StatsPage() {
         }
         saved += 1;
       }
-      setPhotoMsg(`${native ? '已写入本机文档目录' : '已开始下载'}：「${g.title}」共 ${saved} 张`);
+      setPhotoMsg(`已开始下载：「${g.title}」共 ${saved} 张`);
       setTimeout(() => setPhotoMsg(null), 3200);
     } catch (e) {
       setPhotoMsg(`导出失败：${errorMessage(e)}`);
       setTimeout(() => setPhotoMsg(null), 3200);
     }
   };
-
-  const blobToBase64 = (blob: Blob) =>
-    new Promise<string>((resolve) => {
-      const fr = new FileReader();
-      fr.onload = () => resolve(String(fr.result ?? '').split(',')[1] ?? '');
-      fr.onerror = () => resolve('');
-      fr.readAsDataURL(blob);
-    });
 
   useEffect(() => {
     statsApi.heatmap(month).then(setHeatmap).catch(() => undefined);

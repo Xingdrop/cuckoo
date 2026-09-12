@@ -106,23 +106,22 @@ function fileNameFor(src: string, idx: number): string {
   return safe || `photo-${Date.now()}-${idx}.jpg`;
 }
 
-/** 导出全部照片到手机公共目录；非 APK 返回 null */
-export async function exportPhotosToPhone(): Promise<PhotoExportResult | null> {
+/** 导出指定照片列表到手机公共目录（统计页照片墙分组导出复用）；非 APK 返回 null */
+export async function exportPhotoListToPhone(items: { name: string; url: string }[]): Promise<PhotoExportResult | null> {
   if (!Capacitor.isNativePlatform()) return null;
-  const urls = await collectPhotoUrls();
   const result: PhotoExportResult = { dir: '', saved: 0, skipped: 0, failed: 0 };
-  if (!urls.length) return result;
+  if (!items.length) return result;
   const NativePhotoSaver = registerPlugin('NativePhotoSaver') as unknown as NativePhotoSaverProxy;
   const BATCH = 4; // 控制单次桥调用体积（base64 每张 ~数百 KB）
-  for (let i = 0; i < urls.length; i += BATCH) {
+  for (let i = 0; i < items.length; i += BATCH) {
     const batch: { name: string; data: string }[] = [];
-    for (let j = i; j < Math.min(i + BATCH, urls.length); j++) {
-      const data = await toBase64(urls[j]);
+    for (let j = i; j < Math.min(i + BATCH, items.length); j++) {
+      const data = await toBase64(items[j].url);
       if (!data) {
         result.failed++;
         continue;
       }
-      batch.push({ name: fileNameFor(urls[j], j), data });
+      batch.push({ name: items[j].name, data });
     }
     if (!batch.length) continue;
     const r = await NativePhotoSaver.savePhotos({ photos: batch });
@@ -132,4 +131,11 @@ export async function exportPhotosToPhone(): Promise<PhotoExportResult | null> {
     result.failed += r.failed;
   }
   return result;
+}
+
+/** 导出全部照片到手机公共目录；非 APK 返回 null */
+export async function exportPhotosToPhone(): Promise<PhotoExportResult | null> {
+  if (!Capacitor.isNativePlatform()) return null;
+  const urls = await collectPhotoUrls();
+  return exportPhotoListToPhone(urls.map((u, i) => ({ name: fileNameFor(u, i), url: u })));
 }

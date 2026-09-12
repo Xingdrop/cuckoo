@@ -1,7 +1,7 @@
 {
   "name": "cuckoo-backend",
   "private": true,
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "布谷 Cuckoo - 智能提醒与健康管理后端 API (NestJS)",
   "scripts": {
     "build": "nest build",

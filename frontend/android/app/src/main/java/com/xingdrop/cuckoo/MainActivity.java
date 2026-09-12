@@ -15,6 +15,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(NativeSpeechPlugin.class);
         // #36（2026-09-10 深夜）：照片导出插件——MediaStore 写公共 Download/布谷照片，返回绝对路径
         registerPlugin(NativePhotoSaverPlugin.class);
+        // #37（2026-09-10）：Vosk 离线语音识别——系统无 RecognitionService 时兜底
+        registerPlugin(NativeVoskPlugin.class);
         handleAlarmIntent(getIntent());
         super.onCreate(savedInstanceState);
     }

@@ -30,14 +30,34 @@ interface NativeSpeechProxy {
 
 export async function nativeSpeechAvailable(): Promise<boolean> {
   if (!Capacitor.isNativePlatform()) return false;
-  try {
-    const { registerPlugin } = await import('@capacitor/core');
-    const NativeSpeech = registerPlugin('NativeSpeech') as unknown as NativeSpeechProxy;
-    const { available } = await NativeSpeech.available();
-    return !!available;
-  } catch {
-    return false; // 旧 APK 无此插件
+  return (await resolveNativeEngine()) !== null;
+}
+
+/**
+ * #37（2026-09-10）：引擎解析——系统识别器（NativeSpeech）依赖 ROM 提供的
+ * RecognitionService；一加 Ace 3（ColorOS 无 Google 服务、小布不导出）上
+ * SpeechRecognizer 整体不可用（永远空结果 →「未识别到语音」）。
+ * 探测失败自动降级 NativeVosk（Vosk 中文小模型纯离线识别，事件协议一致）。
+ */
+let nativeEngine: NativeSpeechProxy | null = null;
+let nativeEngineName = '';
+
+async function resolveNativeEngine(): Promise<NativeSpeechProxy | null> {
+  if (nativeEngine) return nativeEngine;
+  const { registerPlugin } = await import('@capacitor/core');
+  for (const name of ['NativeSpeech', 'NativeVosk']) {
+    try {
+      const p = registerPlugin(name) as unknown as NativeSpeechProxy;
+      const { available } = await p.available();
+      if (available) {
+        nativeEngine = p;
+        return nativeEngine;
+      }
+    } catch {
+      /* 插件缺失 → 尝试下一个 */
+    }
   }
+  return null;
 }
 
 /** #35：权限缓存——首次 granted 后跳过 checkPermissions（省桥调用，按下即录启动更快） */
@@ -49,14 +69,13 @@ export async function startDictation(handlers: {
   onFinal: (text: string) => void;
   onError?: (msg: string) => void;
 }): Promise<DictationHandle> {
-  if (await nativeSpeechAvailable()) {
-    const { registerPlugin } = await import('@capacitor/core');
-    const NativeSpeech = registerPlugin('NativeSpeech') as unknown as NativeSpeechProxy;
+  const engine = Capacitor.isNativePlatform() ? await resolveNativeEngine() : null;
+  if (engine) {
     // 权限（RECORD_AUDIO）就绪（已授权过则跳过检查，加快启动）
     if (!permissionGranted) {
-      const { speechRecognition } = await NativeSpeech.checkPermissions();
+      const { speechRecognition } = await engine.checkPermissions();
       if (speechRecognition !== 'granted') {
-        const req = await NativeSpeech.requestPermissions();
+        const req = await engine.requestPermissions();
         if (req.speechRecognition !== 'granted') {
           handlers.onError?.('麦克风/语音识别权限被拒绝，请在系统设置中开启');
           return { stop: () => undefined };
@@ -68,7 +87,8 @@ export async function startDictation(handlers: {
     // 原生识别器不销毁；端点检测结束/出错且仍在长按时原生立即续听（新 session 号）。
     // committed=已完成会话全文累计；current=当前会话文本（事件为会话级全文，替换不追加）；
     // 会话边界（session 号变化）时 current 落账进 committed。
-    console.log('[SR] dictation start (NativeSpeech)');
+    // #37：引擎可为 NativeSpeech（系统识别）或 NativeVosk（离线模型），事件协议一致
+    console.log('[SR] dictation start, engine=', nativeEngineName);
     let committed = '';
     let current = '';
     let currentSession = -1;
@@ -93,7 +113,7 @@ export async function startDictation(handlers: {
         currentSession = s;
       }
     };
-    const partialHandle = await NativeSpeech.addListener('partial', (data: { session: number; matches: string[] }) => {
+    const partialHandle = await engine.addListener('partial', (data: { session: number; matches: string[] }) => {
       lastEventAt = Date.now();
       const m = data.matches?.[0] ?? '';
       if (!m) return;
@@ -102,7 +122,7 @@ export async function startDictation(handlers: {
       show();
     });
     // 松手后 stopListening 触发的会话最终结果经 final 事件送达——留窗捕获
-    const finalHandle = await NativeSpeech.addListener('final', (data: { session: number; matches: string[] }) => {
+    const finalHandle = await engine.addListener('final', (data: { session: number; matches: string[] }) => {
       lastEventAt = Date.now();
       rollSession(data.session);
       const m = data.matches?.[0] ?? '';
@@ -113,7 +133,7 @@ export async function startDictation(handlers: {
     // 活性信号；权限缺失(9)原生不续听，必须上报；连续网络/服务错误(2/4)明确提示——
     // #35：此前静默续听表现为「一直没反应 → 松手空文本」，用户无从得知是网络问题
     let netWarned = false;
-    const errorHandle = await NativeSpeech.addListener('srError', (data: { code: number; consecutive?: number }) => {
+    const errorHandle = await engine.addListener('srError', (data: { code: number; consecutive?: number }) => {
       lastEventAt = Date.now();
       console.log('[SR] native srError code=', data.code, 'consecutive=', data.consecutive);
       if (data.code === 9 && !failed) {
@@ -127,7 +147,7 @@ export async function startDictation(handlers: {
         handlers.onError?.('语音识别服务连接异常，请检查网络后重试');
       }
     });
-    const stateHandle = await NativeSpeech.addListener('listeningState', () => {
+    const stateHandle = await engine.addListener('listeningState', () => {
       lastEventAt = Date.now();
     });
     // watchdog 兜底：识别器卡死（连续 4s 无任何事件）→ 重新 startSession（原生 cancel+start，幂等安全）
@@ -135,20 +155,20 @@ export async function startDictation(handlers: {
       if (active && Date.now() - lastEventAt > 4000) {
         lastEventAt = Date.now();
         console.log('[SR] watchdog restart');
-        void NativeSpeech.start({ language: 'zh-CN' }).catch(() => undefined);
+        void engine.start({ language: 'zh-CN' }).catch(() => undefined);
       }
     }, 1000);
     // 首次 start 偶发 "recognizer not ready"（load 后 post 未完成）→ 自动重试一次
     const startWithRetry = async () => {
       try {
-        await NativeSpeech.start({ language: 'zh-CN' });
+        await engine.start({ language: 'zh-CN' });
       } catch (e) {
         if (!active || failed) return;
         console.log('[SR] first start failed, retry:', String(e).slice(0, 80));
         await new Promise((r) => setTimeout(r, 300));
         if (!active || failed) return;
         try {
-          await NativeSpeech.start({ language: 'zh-CN' });
+          await engine.start({ language: 'zh-CN' });
         } catch (e2) {
           failed = true;
           handlers.onError?.(`识别启动失败：${String(e2).slice(0, 40)}`);
@@ -168,7 +188,7 @@ export async function startDictation(handlers: {
         // 松手：stopListening 后本会话最终结果经 final 事件送达，留 1.2s 捕获窗
         // （原 800ms——部分机型 onResults 晚到，松手即断丢结尾）
         try {
-          await NativeSpeech.stop();
+          await engine.stop();
         } catch {
           /* 已结束 */
         }

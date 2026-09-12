@@ -75,6 +75,11 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
     if (phaseRef.current === 'idle') return;
     phaseRef.current = 'idle';
     setRecording(false);
+    // onError 路径句柄兜底：识别器可能仍在会话中（watchdog 会静默重开麦克风），
+    // 必须显式 stop 释放监听器；正常结束路径 recRef 已被 toggleRecord 置空，此处为 no-op
+    const liveHandle = recRef.current;
+    recRef.current = null;
+    void liveHandle?.stop();
     if (errMsg) {
       onToast(errMsg);
       return;

@@ -163,13 +163,13 @@ export class RemindersController {
   }
 
   @Post('logs/:logId/photo')
-  @ApiOperation({ summary: '#26：替换照片（拍照记录详情页再次拍照）' })
+  @ApiOperation({ summary: '#26：替换照片（拍照记录详情页再次拍照）；photoUrl 空串 = 删除照片' })
   replaceLogPhoto(
     @CurrentUser('sub') userId: string,
     @Param('logId') logId: string,
     @Body() dto: { photoUrl?: string },
   ) {
-    if (!dto.photoUrl) throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '缺少 photoUrl' });
+    if (dto.photoUrl === undefined) throw new BadRequestException({ code: 'VALIDATION_FAILED', message: '缺少 photoUrl' });
     return this.remindersService.replaceLogPhoto(userId, logId, dto.photoUrl);
   }
 }

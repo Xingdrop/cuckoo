@@ -53,6 +53,8 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
 
   const recRef = useRef<DictationHandle | null>(null);
   const phaseRef = useRef<VoicePhase>('idle');
+  /** 识别文字可编辑（2026-09-13）：预案面板里改文字 → 重新解析 → 新预案 */
+  const [editText, setEditText] = useState('');
 
   useEffect(() => {
     setEnabled(loadAiConfig().enabled);
@@ -139,6 +141,7 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
   const makePlan = async (text: string) => {
     setBusy(true);
     setLive(text);
+    setEditText(text);
     const out = await runAssistant(text, { autoRun: false });
     setBusy(false);
     setPlan({
@@ -149,6 +152,14 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
       error: out.error,
     });
     if (out.error) onToast('AI 处理未完成');
+  };
+
+  /** 识别有误 → 改文字后重新解析（生成新预案替换当前） */
+  const reParse = async () => {
+    const t = editText.trim();
+    if (busy || !t || t === plan?.text) return;
+    setPlan(null);
+    await makePlan(t);
   };
 
   /** 确认执行预案 */
@@ -201,7 +212,23 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
               <X size={16} />
             </button>
           </div>
-          <p className="mt-2 rounded-btn bg-bg px-3 py-2 text-sm text-ink-700">🎤 {plan.text}</p>
+          <p className="mt-2 text-[11px] text-ink-400">🎤 识别结果（识别有误可直接改文字后重新解析）</p>
+          <textarea
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            rows={2}
+            maxLength={200}
+            className="mt-1 w-full resize-none rounded-btn border border-ink-100 bg-bg px-3 py-2 text-sm text-ink-700 outline-none focus:border-primary-300"
+          />
+          {editText.trim() !== plan.text && (
+            <button
+              onClick={() => void reParse()}
+              disabled={busy || !editText.trim()}
+              className="mt-1 flex w-full items-center justify-center gap-1 rounded-btn bg-primary-50 py-1.5 text-xs font-medium text-primary-700 disabled:opacity-40"
+            >
+              {busy ? '解析中…' : '↻ 按修改后的文字重新解析'}
+            </button>
+          )}
           <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
             {plan.steps
               .filter((s) => s.act)

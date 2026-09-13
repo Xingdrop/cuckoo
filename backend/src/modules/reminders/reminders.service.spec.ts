@@ -442,4 +442,12 @@ describe('RemindersService ack 状态机（UT-ACK）', () => {
     await expect(service.delay(USER, r2.id, 1441)).rejects.toThrow(BadRequestException);
     await expect(service.delay(USER, r2.id, 2.5)).rejects.toThrow(BadRequestException);
   });
+
+  it('UT-ACK-16 替换照片：空串 = 删除照片（photoUrl 清空，记录保留）', async () => {
+    const r = await mkReminder();
+    await seedLog(r.id, ReminderLogStatus.PHOTO, SLOT, { photoUrl: '/uploads/p.jpg' });
+    const out = await service.replaceLogPhoto(USER, (await logsOf(r.id))[0].id, '');
+    expect(out.ok).toBe(true);
+    expect((await logsOf(r.id))[0].photoUrl).toBe('');
+  });
 });

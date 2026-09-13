@@ -1,5 +1,5 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2NvbXBvbmVudHMvUmVtaW5kZXJEZXRhaWxNb2RhbC50c3h8MjAyNi0wOXw0ZWM0YmRkNDQ5 */
-import { Camera, CheckCircle2, ChevronRight, FileText, Link as LinkIcon, Repeat, X } from 'lucide-react';
+import { Camera, CheckCircle2, ChevronRight, FileText, Link as LinkIcon, Repeat, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { remindersApi } from '../services/api/api.reminders';
 import { RImg } from './remoteMedia';
@@ -115,6 +115,10 @@ export function ReminderDetailModal({
   const [logs, setLogs] = useState<DayLog[] | null>(null);
   const [noteText, setNoteText] = useState('');
   const [noteBusy, setNoteBusy] = useState(false);
+  /** 2026-09-13：照片放大查看 + 删除（点击当日拍照记录缩略图） */
+  const [viewPhoto, setViewPhoto] = useState<{ id: string; url: string; at: string } | null>(null);
+  const [delConfirm, setDelConfirm] = useState(false);
+  const [delBusy, setDelBusy] = useState(false);
   const c = item.content ?? {};
 
   /** 当日日志（照片记录 + 时点状态兜底；本地/云端双路径已在 api 层适配） */
@@ -189,6 +193,24 @@ export function ReminderDetailModal({
     const imgs = (c.imageUrls ?? []).map((u) => u);
     return c.videoUrl ? [...imgs, c.videoUrl] : imgs;
   }, [c.imageUrls, c.videoUrl]);
+
+  /** 删除单张照片：photoUrl 清空（记录保留），刷新弹窗与看板 */
+  const deletePhoto = async () => {
+    if (!viewPhoto || delBusy) return;
+    if (!delConfirm) {
+      setDelConfirm(true);
+      return;
+    }
+    setDelBusy(true);
+    try {
+      await remindersApi.updateLogPhoto(viewPhoto.id, '');
+      setViewPhoto(null);
+      setDelConfirm(false);
+      onDataChanged?.();
+    } finally {
+      setDelBusy(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-5" onClick={onClose}>
@@ -330,16 +352,25 @@ export function ReminderDetailModal({
               观感为"先弹一个奇怪的弹窗再变正常"（内容跳动） */}
           {logs !== null && photoLogs.length > 0 && (
             <section>
-              <p className="text-xs font-medium text-ink-500">📷 当日拍照记录（{photoLogs.length}）</p>
+              <p className="text-xs font-medium text-ink-500">📷 当日拍照记录（{photoLogs.length}，点按放大）</p>
               <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
                 {photoLogs.map((l) => (
                   <figure key={l.id} className="w-24 shrink-0">
-                    <RImg
-                      src={l.photoUrl!}
-                      alt="拍照记录"
-                      loading="lazy"
-                      className="aspect-square w-full rounded-btn object-cover"
-                    />
+                    <button
+                      onClick={() => {
+                        setDelConfirm(false);
+                        setViewPhoto({ id: l.id, url: l.photoUrl!, at: l.scheduledTime });
+                      }}
+                      aria-label="放大查看照片"
+                      className="block w-full"
+                    >
+                      <RImg
+                        src={l.photoUrl!}
+                        alt="拍照记录"
+                        loading="lazy"
+                        className="aspect-square w-full rounded-btn object-cover"
+                      />
+                    </button>
                     <figcaption className="mt-1 text-center text-[10px] text-ink-400">
                       {new Date(l.scheduledTime).toTimeString().slice(0, 5)}
                     </figcaption>
@@ -427,6 +458,39 @@ export function ReminderDetailModal({
           </div>
         </div>
       </div>
+
+      {/* 照片放大查看 + 删除 */}
+      {viewPhoto && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-6"
+          onClick={(e) => {
+            e.stopPropagation();
+            setViewPhoto(null);
+          }}
+        >
+          <div className="w-full max-w-sm rounded-card bg-surface p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">拍照记录</p>
+              <button onClick={() => setViewPhoto(null)} aria-label="关闭" className="rounded-full bg-ink-100 p-1.5 text-ink-500">
+                <X size={16} />
+              </button>
+            </div>
+            <RImg src={viewPhoto.url} alt="拍照记录大图" className="mt-3 max-h-[55dvh] w-full rounded-btn object-contain" />
+            <p className="mt-2 text-center text-[11px] text-ink-500">
+              {new Date(viewPhoto.at).toLocaleString()}
+            </p>
+            <button
+              onClick={() => void deletePhoto()}
+              disabled={delBusy}
+              className={`mt-3 flex w-full items-center justify-center gap-1.5 rounded-btn py-2.5 text-sm font-medium disabled:opacity-50 ${
+                delConfirm ? 'bg-danger-500 text-white' : 'bg-danger-50 text-danger-700'
+              }`}
+            >
+              <Trash2 size={15} /> {delBusy ? '删除中…' : delConfirm ? '再点一次确认删除' : '删除这张照片'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL1N0YXRzUGFnZS50c3h8MjAyNi0wOXw0OWJiMjhhNDdm */
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { CalendarDays, Camera, ChevronLeft, Download, X } from 'lucide-react';
+import { CalendarDays, Camera, ChevronLeft, Download, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { statsApi, DashboardStats, DayStat } from '../services/api/api.stats';
@@ -86,6 +86,62 @@ export function StatsPage() {
     statsApi.waterInfo().then(setWater).catch(() => undefined);
     void loadPhotos();
   }, [loadPhotos]);
+
+  /** 2026-09-13：单张照片导出（APK 写公共目录；浏览器触发下载） */
+  const exportSinglePhoto = async (p: { url: string; at: string }, title: string) => {
+    const name = `${title.slice(0, 12).replace(/[\\/:*?"<>|]/g, '_')}-${new Date(p.at).toISOString().slice(0, 10)}-${shortHash(p.url)}.jpg`;
+    const native = Boolean((window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.());
+    if (native) {
+      try {
+        const { exportPhotoListToPhone } = await import('../services/photoExport');
+        const r = await exportPhotoListToPhone([{ name, url: p.url }]);
+        setPhotoMsg(r && r.saved ? `已导出到：${r.dir}` : r ? '照片已存在（此前导出过）' : '导出失败');
+      } catch (e) {
+        setPhotoMsg(`导出失败：${errorMessage(e)}`);
+      }
+    } else {
+      try {
+        const url = absoluteUrl(p.url);
+        const blob = await fetch(url).then((r) => r.blob());
+        const o = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = o;
+        a.download = name;
+        a.click();
+        URL.revokeObjectURL(o);
+        setPhotoMsg(`已开始下载：${name}`);
+      } catch (e) {
+        setPhotoMsg(`下载失败：${errorMessage(e)}`);
+      }
+    }
+    setTimeout(() => setPhotoMsg(null), 3200);
+  };
+
+  /** 2026-09-13：单张照片删除（photoUrl 清空，记录保留；二次确认） */
+  const [delSingle, setDelSingle] = useState(false);
+  const [delSingleBusy, setDelSingleBusy] = useState(false);
+  const deleteSinglePhoto = async () => {
+    const view = photoView;
+    if (!view || delSingleBusy) return;
+    if (!delSingle) {
+      setDelSingle(true);
+      return;
+    }
+    setDelSingleBusy(true);
+    try {
+      await remindersApi.updateLogPhoto(view.photo.logId, '');
+      setPhotoView(null);
+      setDelSingle(false);
+      await loadPhotos();
+      setPhotoMsg('🗑 照片已删除');
+      setTimeout(() => setPhotoMsg(null), 2600);
+    } catch (e) {
+      setPhotoMsg(`删除失败：${errorMessage(e)}`);
+      setTimeout(() => setPhotoMsg(null), 3200);
+    } finally {
+      setDelSingleBusy(false);
+    }
+  };
 
   /** #26：详情页「再次拍照替换」→ 压缩上传 → 原记录保留、更新照片 */
   const replacePhoto = async (file: File | undefined) => {
@@ -435,6 +491,23 @@ export function StatsPage() {
               >
                 <Camera size={15} /> {replaceBusy ? '替换中…' : '再次拍照替换'}
               </button>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => void exportSinglePhoto(photoView.photo, photoView.group.title)}
+                  className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-btn bg-ink-100 text-sm font-medium text-ink-700"
+                >
+                  <Download size={15} /> 导出这张
+                </button>
+                <button
+                  onClick={() => void deleteSinglePhoto()}
+                  disabled={delSingleBusy}
+                  className={`flex h-10 flex-1 items-center justify-center gap-1.5 rounded-btn text-sm font-medium disabled:opacity-50 ${
+                    delSingle ? 'bg-danger-500 text-white' : 'bg-danger-50 text-danger-700'
+                  }`}
+                >
+                  <Trash2 size={15} /> {delSingleBusy ? '删除中…' : delSingle ? '确认删除' : '删除'}
+                </button>
+              </div>
             </div>
           </div>
         )}

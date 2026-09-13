@@ -259,16 +259,23 @@ export async function startDictation(handlers: {
     if (live) handlers.onPartial(live);
   };
   rec.onerror = (e) => {
-    if (!stopped && !active) {
+    // 权限类错误无法自愈：onend 会重启识别造成错误循环 → 先标记 failed 阻断重启并上报
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
       failed = true;
-      handlers.onError?.(`识别错误：${e.error}`);
+      try {
+        rec.stop();
+      } catch {
+        /* 已结束 */
+      }
+      handlers.onError?.('麦克风权限被拒绝，请在浏览器地址栏允许麦克风后重试');
+      return;
     }
-    // 按住期间的单次错误（no-speech 等）交给 onend 自动重启，不终断
+    // 其余单次错误（no-speech 等）交给 onend 自动重启，不终断
   };
   rec.onend = () => {
     if (stopped) return;
-    if (active) {
-      // 仍在长按 → 浏览器自动断流，立即重启识别
+    if (active && !failed) {
+      // 仍在录音 → 浏览器静音自动断流，立即重启识别
       try {
         rec.start();
       } catch {
@@ -276,6 +283,7 @@ export async function startDictation(handlers: {
       }
       return;
     }
+    // failed 路径 emitFinal 被守卫拦截（错误已由 onError 上报，语音会话就此结束）
     emitFinal(finalText.trim());
   };
   try {

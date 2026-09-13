@@ -103,6 +103,8 @@ public class NativeVoskPlugin extends Plugin implements RecognitionListener {
         } catch (Exception ignored) {
         }
         ret.put("available", hasAsset);
+        // 诊断：模型 zip 损坏/解压失败时透出原因（available 仍为 true——start 会重试 ensureEngine）
+        if (prepareError != null) ret.put("prepareError", prepareError);
         call.resolve(ret);
     }
 

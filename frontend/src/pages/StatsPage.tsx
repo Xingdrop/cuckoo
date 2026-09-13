@@ -9,6 +9,7 @@ import { filesApi } from '../services/api/api.files';
 import { absoluteUrl, errorMessage } from '../services/http';
 import { RImg } from '../components/remoteMedia';
 import { compressMediaFile } from '../utils/media';
+import { shortHash } from '../services/photoExport';
 
 /** 热力图 4 档颜色映射（M5 完善：0 / 1-49 / 50-99 / 100%） */
 const HEAT_COLORS = ['bg-ink-100', 'bg-primary-200', 'bg-primary-400', 'bg-primary-600'];
@@ -128,7 +129,8 @@ export function StatsPage() {
       if (native) {
         const { exportPhotoListToPhone } = await import('../services/photoExport');
         const items = g.photos.map((p, i) => ({
-          name: `${g.title.slice(0, 12).replace(/[\\/:*?"<>|]/g, '_')}-${new Date(p.at).toISOString().slice(0, 10)}-${i + 1}.jpg`,
+          // 文件名带 URL 短哈希：补拍替换（新 URL）→ 新文件名，重导出不再被同名「已存在」跳过
+          name: `${g.title.slice(0, 12).replace(/[\\/:*?"<>|]/g, '_')}-${new Date(p.at).toISOString().slice(0, 10)}-${i + 1}-${shortHash(p.url)}.jpg`,
           url: p.url,
         }));
         const r = await exportPhotoListToPhone(items);
@@ -146,7 +148,7 @@ export function StatsPage() {
       let saved = 0;
       for (let i = 0; i < g.photos.length; i++) {
         const p = g.photos[i];
-        const name = `${g.title.slice(0, 12).replace(/[\\/:*?"<>|]/g, '_')}-${new Date(p.at).toISOString().slice(0, 10)}-${i + 1}.jpg`;
+        const name = `${g.title.slice(0, 12).replace(/[\\/:*?"<>|]/g, '_')}-${new Date(p.at).toISOString().slice(0, 10)}-${i + 1}-${shortHash(p.url)}.jpg`;
         const url = absoluteUrl(p.url);
         if (/^https?:\/\//i.test(url)) {
           const blob = await fetch(url).then((r) => r.blob());

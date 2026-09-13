@@ -37,6 +37,18 @@ function dedupe(urls: string[]): string[] {
   return [...new Set(urls)];
 }
 
+/** 稳定短哈希（双 32 位 djb2，64 位等效空间）：为无原名/可替换来源生成可去重的文件名 */
+export function shortHash(s: string): string {
+  let h1 = 5381;
+  let h2 = 52711;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    h1 = ((h1 << 5) + h1 + c) >>> 0;
+    h2 = ((h2 << 5) + h2 + c) >>> 0;
+  }
+  return (h1 % 1299709).toString(36) + (h2 % 1303457).toString(36);
+}
+
 /** 收集全部照片源 URL（登录=API 分页全量；游客=本地 bundle） */
 async function collectPhotoUrls(): Promise<string[]> {
   const urls: string[] = [];
@@ -98,12 +110,12 @@ async function toBase64(src: string): Promise<string | null> {
   }
 }
 
-/** 文件名：取上传原名（稳定 → 重复导出可去重）；非法字符兜底替换 */
-function fileNameFor(src: string, idx: number): string {
-  if (src.startsWith('data:')) return `photo-${Date.now()}-${idx}.jpg`;
+/** 文件名：取上传原名（稳定 → 重复导出可去重）；data: URI 按内容哈希（补拍替换后是新内容→新文件名，重导不产生副本）；非法字符兜底替换 */
+function fileNameFor(src: string): string {
+  if (src.startsWith('data:')) return `photo-${shortHash(src)}.jpg`;
   const base = src.split('?')[0].split('/').pop() ?? '';
   const safe = base.replace(/[^A-Za-z0-9._-]/g, '_');
-  return safe || `photo-${Date.now()}-${idx}.jpg`;
+  return safe || `photo-${shortHash(src)}.jpg`;
 }
 
 /** 导出指定照片列表到手机公共目录（统计页照片墙分组导出复用）；非 APK 返回 null */
@@ -137,5 +149,5 @@ export async function exportPhotoListToPhone(items: { name: string; url: string 
 export async function exportPhotosToPhone(): Promise<PhotoExportResult | null> {
   if (!Capacitor.isNativePlatform()) return null;
   const urls = await collectPhotoUrls();
-  return exportPhotoListToPhone(urls.map((u, i) => ({ name: fileNameFor(u, i), url: u })));
+  return exportPhotoListToPhone(urls.map((u) => ({ name: fileNameFor(u), url: u })));
 }

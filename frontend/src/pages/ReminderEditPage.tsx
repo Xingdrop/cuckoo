@@ -8,6 +8,7 @@ import { filesApi } from '../services/api/api.files';
 import { isVideoUrl } from '../components/MediaGrid';
 import { compressMediaFile } from '../utils/media';
 import type { ReminderPreset } from '../utils/reminderPreset';
+import { MAX_IMAGES, MAX_VIDEOS, mediaOverflow, mergeMedia } from '../utils/reminderMedia';
 import { remindersApi } from '../services/api/api.reminders';
 import { medicinesApi } from '../services/api/api.medicines';
 import type { IntervalUnit, Medicine, ReminderCategory, RepeatType } from '../types';
@@ -48,10 +49,6 @@ export function ReminderEditPage() {
   const planId = searchParams.get('planId');
   const preset = (location.state as { preset?: ReminderPreset } | null)?.preset;
 
-  /** 媒体上限（与后端 ReminderContentDto 对齐：imageUrls ≤ 9、videoUrl 单条） */
-  const MAX_IMAGES = 9;
-  const MAX_VIDEOS = 1;
-
   /** 选取媒体（支持一次多选）：图片最多 9 张、视频最多 1 个，超出部分丢弃并提示 */
   const pickMedia = async (files: File[]) => {
     if (!files.length) return;
@@ -61,20 +58,10 @@ export function ReminderEditPage() {
         const { url } = await filesApi.upload(await compressMediaFile(f));
         urls.push(url);
       }
-      const curImgs = reminderMedia.filter((u) => !isVideoUrl(u)).length;
-      const curVids = reminderMedia.filter(isVideoUrl).length;
-      if (curImgs + urls.filter((u) => !isVideoUrl(u)).length > MAX_IMAGES) {
-        setError(`图片最多 ${MAX_IMAGES} 张，超出的已忽略`);
-      } else if (curVids + urls.filter(isVideoUrl).length > MAX_VIDEOS) {
-        setError('视频最多 1 个，超出的已忽略');
-      }
-      setReminderMedia((prev) => {
-        const merged = [...prev, ...urls];
-        return [
-          ...merged.filter((u) => !isVideoUrl(u)).slice(0, MAX_IMAGES),
-          ...merged.filter(isVideoUrl).slice(0, MAX_VIDEOS),
-        ];
-      });
+      const over = mediaOverflow(reminderMedia, urls, isVideoUrl);
+      if (over.images) setError(`图片最多 ${MAX_IMAGES} 张，超出的已忽略`);
+      else if (over.videos) setError(`视频最多 ${MAX_VIDEOS} 个，超出的已忽略`);
+      setReminderMedia((prev) => mergeMedia(prev, urls, isVideoUrl));
     } catch (e) {
       setError(errorMessage(e));
     }

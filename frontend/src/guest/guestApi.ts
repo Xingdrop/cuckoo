@@ -453,9 +453,10 @@ export const guestApi = {
     }
     const water = this.waterInfo(date);
     // #26：喝水（当日达标）可选统计项（与云端口径一致）
-    if (useGuestStore.getState().settings.waterCountInRate === true && water.reached) {
-      done += 1;
-      if (planned === 0) planned = 1;
+    // 2026-09-13 修正：目标同时计入 planned（否则 done 可超 planned，完成率虚高）
+    if (useGuestStore.getState().settings.waterCountInRate === true) {
+      planned += 1;
+      if (water.reached) done += 1;
     }
     return {
       date,

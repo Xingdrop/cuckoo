@@ -82,6 +82,19 @@ describe('StatsService（UT-STAT）', () => {
     expect(d.date).toBe('2026-08-29');
   });
 
+  it('UT-STAT-01b 喝水达标计入（waterCountInRate）：目标计入 planned，达标计 done', async () => {
+    // 2 条提醒槽（1 完成）+ 喝水目标 1000 已达标 → planned=3 / done=2 / rate=67
+    planByDate['2026-08-29'] = [makeItem('completed'), makeItem(null)];
+    settingRepo.findOne = jest.fn().mockResolvedValue({ waterCountInRate: true, waterGoalMl: 1000 });
+    logRepo.find = jest.fn().mockResolvedValue([
+      { id: 'w1', category: 'water', amount: 1000, scheduledTime: new Date('2026-08-29T04:00:00.000Z') },
+    ]);
+    const d = await service.dashboard('u1');
+    expect(d.planned).toBe(3);
+    expect(d.done).toBe(2);
+    expect(d.rate).toBe(67);
+  });
+
   it('UT-STAT-02 漏服计入分母（3 完成/1 missed → 75%）', async () => {
     planByDate['2026-08-29'] = [
       makeItem('completed'),

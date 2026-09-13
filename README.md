@@ -3,7 +3,7 @@
 
 [![CI](https://github.com/Xingdrop/cuckoo/actions/workflows/ci.yml/badge.svg)](https://github.com/Xingdrop/cuckoo/actions/workflows/ci.yml)
 
-**Cuckoo — like the bird that never misses an hour, gently keeping your medicine, water and daily rhythm on time.**
+**Cuckoo — gentle, on-time reminders like the cuckoo's call.**
 
 准时提醒，温柔守护——布谷，你的健康生活管家。
 

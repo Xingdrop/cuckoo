@@ -46,9 +46,10 @@ export class StatsService {
       });
       const waterMl = waterLogs.reduce((sum, l) => sum + l.amount, 0);
       const goal = setting?.waterGoalMl ?? 2000;
+      // 2026-09-13 修正：目标同时计入 planned（否则 done 可超 planned，完成率虚高）
+      planned += 1;
       if (goal > 0 && waterMl >= goal) {
         done += 1;
-        if (planned === 0) planned = 1;
       }
     }
     return { planned, done, rate: planned > 0 ? Math.round((done / planned) * 100) : done > 0 ? 100 : 0 };

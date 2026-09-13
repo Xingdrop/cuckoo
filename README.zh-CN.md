@@ -6,9 +6,9 @@
 
 <!-- @Sdrop 布谷(Cuckoo) v1 © 2026 Xingdrop -->
 
-布谷——如布谷鸟般从不误时，温柔守护你的用药、喝水与每日作息。
+布谷——如布谷鸟般从不误时，温柔守护你的每日作息。
 
-**Cuckoo — like the bird that never misses an hour, gently keeping your medicine, water and daily rhythm on time.**
+**Cuckoo — gentle, on-time reminders like the cuckoo's call.**
 
 > 📄 许可：**商业用途须书面授权**（PolyForm 风格商业许可，详见 [LICENSE](./LICENSE)）；授权联系与申请模板见 [CONTACT.md](./CONTACT.md)。
 > 🛡 漏洞报告：见 [SECURITY.md](./SECURITY.md)（私密报告 + 响应时间承诺）。

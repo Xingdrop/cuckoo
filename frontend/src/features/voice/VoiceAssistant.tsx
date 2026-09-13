@@ -53,6 +53,12 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
 
   const recRef = useRef<DictationHandle | null>(null);
   const phaseRef = useRef<VoicePhase>('idle');
+  /** phase 镜像为 state：全屏动画层按阶段响应（starting/recording/stopping） */
+  const [phase, setPhase] = useState<VoicePhase>('idle');
+  const goPhase = (p: VoicePhase) => {
+    phaseRef.current = p;
+    setPhase(p);
+  };
   /** 识别文字可编辑（2026-09-13）：预案面板里改文字 → 重新解析 → 新预案 */
   const [editText, setEditText] = useState('');
 
@@ -67,7 +73,7 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
       .catch(() => setSupported(webOk));
     return () => {
       // 卸载兜底：停录音
-      phaseRef.current = 'idle';
+      goPhase('idle');
       const h = recRef.current;
       recRef.current = null;
       void h?.stop();
@@ -78,7 +84,7 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
   /** 识别结束（结果或错误）→ 回到 idle；幂等防 stop 重复回调 */
   const finish = (text: string | null, errMsg?: string) => {
     if (phaseRef.current === 'idle') return;
-    phaseRef.current = 'idle';
+    goPhase('idle');
     setRecording(false);
     // onError 路径句柄兜底：识别器可能仍在会话中（watchdog 会静默重开麦克风），
     // 必须显式 stop 释放监听器；正常结束路径 recRef 已被 toggleRecord 置空，此处为 no-op
@@ -112,7 +118,7 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
       }
       recRef.current = null;
       setLive('');
-      phaseRef.current = 'starting';
+      goPhase('starting');
       setRecording(true); // 乐观进入录音态：UI 即刻反馈
       void startDictation({
         onPartial: (t) => setLive(t),
@@ -123,7 +129,7 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
           // 快速点停（识别就绪前已点结束）→ 就绪后立即停
           void h.stop();
         } else if (phaseRef.current === 'starting') {
-          phaseRef.current = 'recording';
+          goPhase('recording');
           recRef.current = h;
         }
       });
@@ -131,7 +137,7 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
     }
     if (phase === 'stopping') return; // 结束中：忽略点击，防乱序
     // starting/recording → 请求结束（starting 场景由上方 .then 检测后立即 stop）
-    phaseRef.current = 'stopping';
+    goPhase('stopping');
     const h = recRef.current;
     recRef.current = null;
     if (h) void h.stop();
@@ -192,14 +198,66 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
         {recording ? '点击结束' : enabled ? '点按说话' : '语音助手（未开启）'}
       </button>
 
-      {/* 识别实时字幕 */}
-      {recording && (
-        <div className="fixed inset-x-0 top-0 z-[70] border-b border-primary-100 bg-surface/95 px-4 pb-3 pt-4 shadow-sm">
-          <p className="flex items-center gap-2 text-xs text-primary-600">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-danger-500" />
-            正在聆听…（点击结束）
-          </p>
-          <p className="mt-2 min-h-5 text-sm text-ink-800">{live || <span className="text-ink-300">|</span>}</p>
+      {/* 语音全流程全屏反馈：starting/recording/stopping/AI 解析 各阶段不同动画。
+          pointer-events-none 不拦截点按——底部按钮仍是唯一停止控件 */}
+      {(phase !== 'idle' || (busy && !plan && !outcome)) && (
+        <div
+          className="pointer-events-none fixed inset-0 z-[80] flex flex-col items-center justify-center gap-5"
+          style={{ background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.45) 100%)' }}
+          role="status"
+          aria-live="polite"
+        >
+          {phase === 'starting' && (
+            <>
+              <span className="relative flex h-24 w-24 items-center justify-center">
+                <span className="voice-breathe absolute inset-0 rounded-full border-2 border-white/70" />
+                <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-500 text-white shadow-xl">
+                  <Mic size={26} />
+                </span>
+              </span>
+              <p className="text-sm font-medium text-white drop-shadow">正在开启麦克风…</p>
+            </>
+          )}
+          {phase === 'recording' && (
+            <>
+              <span className="relative flex h-28 w-28 items-center justify-center">
+                <span className="voice-ring absolute inset-0 rounded-full border-2 border-danger-400/70" />
+                <span className="flex h-20 w-20 items-center justify-center rounded-full bg-danger-500 text-white shadow-2xl">
+                  <Mic size={30} />
+                </span>
+              </span>
+              <span className="flex h-8 items-end gap-1">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <span key={i} className="voice-bar w-1.5 rounded-full bg-danger-300/90" style={{ animationDelay: `${i * 0.12}s` }} />
+                ))}
+              </span>
+              <p className="max-w-[82vw] px-6 text-center text-lg font-medium leading-snug text-white drop-shadow-md">
+                {live || '请开始说话…'}
+              </p>
+              <p className="text-xs text-white/70">再次点按结束</p>
+            </>
+          )}
+          {phase === 'stopping' && (
+            <>
+              <span className="flex h-16 items-center justify-center gap-2">
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className="voice-dot h-2.5 w-2.5 rounded-full bg-white/90" style={{ animationDelay: `${i * 0.18}s` }} />
+                ))}
+              </span>
+              <p className="text-sm font-medium text-white drop-shadow">正在整理识别结果…</p>
+            </>
+          )}
+          {phase === 'idle' && busy && !plan && !outcome && (
+            <>
+              <span className="flex h-16 items-center justify-center gap-2">
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className="voice-dot h-2.5 w-2.5 rounded-full bg-white/90" style={{ animationDelay: `${i * 0.18}s` }} />
+                ))}
+              </span>
+              <p className="text-sm font-medium text-white drop-shadow">正在理解你的话…</p>
+              <p className="max-w-[80vw] px-6 text-center text-xs text-white/70">{live}</p>
+            </>
+          )}
         </div>
       )}
 

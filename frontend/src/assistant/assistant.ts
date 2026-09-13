@@ -61,8 +61,9 @@ export async function runAssistant(
       error: 'AI_API_NOT_CONFIGURED',
     };
   }
-  const { CATALOG, catalogText, assistantContext } = await import('./apiCatalog');
+  const { CATALOG, catalogText, assistantContext, assistantTodayReminders } = await import('./apiCatalog');
   const ctx = assistantContext();
+  const todayReminders = await assistantTodayReminders();
   const sys = `你是「布谷」健康提醒应用的语音助手。用户说一句话，你判断要执行的动作。
 可选动作目录（只能返回目录中的 id，params 取值参考目录）：
 ${catalogText()}
@@ -70,10 +71,15 @@ ${catalogText()}
 当前上下文（JSON）：
 ${JSON.stringify(ctx)}
 
+用户当前的提醒（title/time）：
+${todayReminders.length > 0 ? JSON.stringify(todayReminders) : '（暂无提醒）'}
+
 规则：
 - 只输出一个 JSON 对象，不要任何多余文字：{"reply":"对用户说的一句话","actions":[{"id":"动作id","params":{...}}]}
 - 无法匹配时 actions 为空数组，reply 说明原因
-- 数值类参数必须给具体数字（如喝水 250、目标 2500）
+- 数值类参数必须给具体数字（如喝水 250、目标 2500、延迟 15）
+- reminder.create：用户想新建/订/加提醒时使用；time 转成 24 小时制 HH:mm；「每天」→ repeat daily，「X 点」未说重复且属提醒场景默认 daily，明确「一次/明天/后天」→ once；周几 → weekly 并给 days（0=周日）
+- reminder.complete/delay/skip/delete/toggle：title 必须与「用户当前的提醒」里的标题完全一致；多时段提醒用户指明了时刻时给 time（HH:mm）
 - 涉及「社交/发布/点赞」等目录标记为不可执行的动作不要放到 actions`;
   let content = '';
   try {

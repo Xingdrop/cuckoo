@@ -10,6 +10,7 @@ import { authApi } from '../services/api/api.auth';
 import { statsApi, DashboardStats, WaterInfo } from '../services/api/api.stats';
 import { filesApi } from '../services/api/api.files';
 import { useGuestStore } from '../guest/guestStore';
+import { useLocal } from '../guest/localMode';
 import { compressMediaFile } from '../utils/media';
 import { captureNativePhoto } from '../utils/cameraCapture';
 import { dateHead, festivalIcon, lunarInfo, shiftKey, todayKey } from '../utils/calendar';
@@ -339,13 +340,11 @@ export function DashboardPage() {
     if (!file || !target) return;
     try {
       const compressed = await compressMediaFile(file);
-      /** 上传失败（离线/服务器未达）→ 压缩后以 base64 暂存本机（照片记录页可见） */
+      /** 上传失败（离线/服务器未达）→ 压缩后以 base64 暂存本机（照片记录页可见）。
+       *  2026-09-13：离线/镜像模式直接走本机暂存——此前仍会先试上传，网络不可达时
+       *  干等 15s 超时，用户以为「补拍后照片不显示」 */
       let url: string;
-      try {
-        const r = await filesApi.upload(compressed);
-        url = r.url;
-        showToast('📷 照片已提交');
-      } catch {
+      if (useLocal()) {
         url = await new Promise<string>((resolve) => {
           const fr = new FileReader();
           fr.onload = () => resolve(String(fr.result ?? ''));
@@ -353,7 +352,22 @@ export function DashboardPage() {
           fr.readAsDataURL(compressed);
         });
         if (!url) throw new Error('encode');
-        showToast('📷 照片已暂存本机（联网后上传）');
+        showToast('📷 照片已暂存本机（联网后同步）');
+      } else {
+        try {
+          const r = await filesApi.upload(compressed);
+          url = r.url;
+          showToast('📷 照片已提交');
+        } catch {
+          url = await new Promise<string>((resolve) => {
+            const fr = new FileReader();
+            fr.onload = () => resolve(String(fr.result ?? ''));
+            fr.onerror = () => resolve('');
+            fr.readAsDataURL(compressed);
+          });
+          if (!url) throw new Error('encode');
+          showToast('📷 照片已暂存本机（联网后上传）');
+        }
       }
       // 拍照即形成记录并提交（photo 状态——独立于完成标记，不计入完成率）
       await remindersApi.ack(target.reminderId, {

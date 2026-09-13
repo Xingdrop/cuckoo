@@ -3,7 +3,7 @@
 
 [![CI](https://github.com/Xingdrop/cuckoo/actions/workflows/ci.yml/badge.svg)](https://github.com/Xingdrop/cuckoo/actions/workflows/ci.yml)
 
-**Cuckoo, your faithful life companion — like the cheerful bird that never misses an hour, it wakes you gently, reminds you right on time (medicine, water, exercise, rest), and cares for your daily rhythm together with family.**
+**Cuckoo — like the bird that never misses an hour, gently keeping your medicine, water and daily rhythm on time.**
 
 准时提醒，温柔守护——布谷，你的健康生活管家。
 

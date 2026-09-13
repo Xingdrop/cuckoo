@@ -1,5 +1,5 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3BhZ2VzL0Rhc2hib2FyZFBhZ2UudHN4fDIwMjYtMDl8ZjA0NDEzOTI5ZA== */
-import { BarChart3, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Plus, Settings, SlidersHorizontal, X } from 'lucide-react';
+import { BarChart3, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Mic, Plus, Settings, SlidersHorizontal, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -477,6 +477,13 @@ export function DashboardPage() {
               aria-label="统计"
             >
               <BarChart3 size={17} />
+            </button>
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('cuckoo:voice-history'))}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface p-0 text-ink-700 shadow-sm"
+              aria-label="语音执行历史"
+            >
+              <Mic size={17} />
             </button>
             <button
               onClick={() => navigate('/settings')}

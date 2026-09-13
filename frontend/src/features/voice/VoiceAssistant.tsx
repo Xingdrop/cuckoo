@@ -3,6 +3,7 @@ import { Mic, MicOff, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { nativeSpeechAvailable, startDictation, type DictationHandle } from './speechAdapter';
 import { loadAiConfig, runAssistant, executePending, type HistoryTurn } from '../../assistant/assistant';
+import { loadVoiceHistory, pushVoiceRecord, recentVoiceTurns } from './voiceHistory';
 
 /**
  * 语音助手入口：底部悬浮「点按说话」按钮。
@@ -63,6 +64,12 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
   const [editText, setEditText] = useState('');
   /** 多轮对话历史（继续对话时随新语音一并发给 AI） */
   const historyRef = useRef<HistoryTurn[]>([]);
+  /** 语音执行历史面板（今日页头部 🎤按钮 触发） */
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyList, setHistoryList] = useState(loadVoiceHistory);
+  /** 预案面板「接着说」：追加识别模式（新语音拼接到当前识别文字后，带上下文重解析） */
+  const appendModeRef = useRef(false);
+  const appendBaseRef = useRef('');
 
   useEffect(() => {
     setEnabled(loadAiConfig().enabled);
@@ -73,7 +80,13 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
     void nativeSpeechAvailable()
       .then((n) => setSupported(n || webOk))
       .catch(() => setSupported(webOk));
+    const openHist = () => {
+      setHistoryList(loadVoiceHistory());
+      setHistoryOpen(true);
+    };
+    window.addEventListener('cuckoo:voice-history', openHist);
     return () => {
+      window.removeEventListener('cuckoo:voice-history', openHist);
       // 卸载兜底：停录音
       goPhase('idle');
       const h = recRef.current;
@@ -122,6 +135,7 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
       setLive('');
       // 关闭底层页面已打开的弹窗（确认框/详情浮窗）——录音期间点击会被动画层
       // 拦截（防穿透误触），若不先关掉会形成「录不了也停不了」的死锁
+      appendModeRef.current = false;
       window.dispatchEvent(new CustomEvent('cuckoo:close-modals'));
       goPhase('starting');
       setRecording(true); // 乐观进入录音态：UI 即刻反馈
@@ -145,6 +159,7 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
     goPhase('stopping');
     const h = recRef.current;
     recRef.current = null;
+    // append 会话的 stop 同样触发其 onFinal → finishAppend 收尾
     if (h) void h.stop();
   };
 
@@ -181,6 +196,45 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
     await makePlan(t);
   };
 
+  /** 预案面板「接着说」：新语音追加到识别文字后，带历史上下文重新解析 */
+  const finishAppend = (text: string | null, errMsg?: string) => {
+    goPhase('idle');
+    setRecording(false);
+    const liveHandle = recRef.current;
+    recRef.current = null;
+    void liveHandle?.stop();
+    if (errMsg) {
+      onToast(errMsg);
+      return;
+    }
+    const combined = `${appendBaseRef.current}${(text ?? '').trim()}`.trim();
+    setEditText(combined);
+    if (combined) void makePlan(combined);
+  };
+
+  const startAppend = () => {
+    if (busy) return;
+    const phase = phaseRef.current;
+    if (phase !== 'idle') return;
+    if (!supported) {
+      onToast('当前环境不支持语音识别');
+      return;
+    }
+    appendModeRef.current = true;
+    appendBaseRef.current = editText.trim() ? `${editText.trim()}，` : '';
+    recRef.current = null;
+    goPhase('recording');
+    setRecording(true);
+    void startDictation({
+      onPartial: (t) => setLive(t),
+      onFinal: (t) => finishAppend(t),
+      onError: (msg) => finishAppend(null, msg),
+    }).then((h) => {
+      if (phaseRef.current === 'stopping') void h.stop();
+      else if (phaseRef.current === 'recording') recRef.current = h;
+    });
+  };
+
   /** 确认执行预案 */
   const confirmPlan = async () => {
     if (!plan || busy) return;
@@ -197,6 +251,14 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
         .join('；')}`,
     });
     historyRef.current = historyRef.current.slice(-6);
+    // 只记录「已执行」的任务（取消的预案不入库）
+    if (plan.actions.length > 0) {
+      pushVoiceRecord({
+        text: plan.text,
+        understanding: plan.reply || '已按预案执行',
+        results: out.steps.filter((st) => st.result).map((st) => `${st.act}=${st.result}`),
+      });
+    }
     onToast(out.error ? 'AI 执行未完成' : 'AI 已完成调整');
   };
 
@@ -303,15 +365,24 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
             maxLength={200}
             className="mt-1 w-full resize-none rounded-btn border border-ink-100 bg-bg px-3 py-2 text-sm text-ink-700 outline-none focus:border-primary-300"
           />
-          {editText.trim() !== plan.text && (
+          <div className="mt-1 flex gap-1.5">
             <button
-              onClick={() => void reParse()}
-              disabled={busy || !editText.trim()}
-              className="mt-1 flex w-full items-center justify-center gap-1 rounded-btn bg-primary-50 py-1.5 text-xs font-medium text-primary-700 disabled:opacity-40"
+              onClick={startAppend}
+              disabled={busy || phase !== 'idle'}
+              className="flex h-7 flex-1 items-center justify-center gap-1 rounded-btn bg-bg py-1.5 text-xs font-medium text-primary-700 disabled:opacity-40"
             >
-              {busy ? '解析中…' : '↻ 按修改后的文字重新解析'}
+              <Mic size={12} /> {phase === 'recording' && appendModeRef.current ? '聆听中…' : '🎤 接着说'}
             </button>
-          )}
+            {editText.trim() !== plan.text && (
+              <button
+                onClick={() => void reParse()}
+                disabled={busy || !editText.trim()}
+                className="flex h-7 flex-1 items-center justify-center gap-1 rounded-btn bg-primary-50 py-1.5 text-xs font-medium text-primary-700 disabled:opacity-40"
+              >
+                {busy ? '解析中…' : '↻ 重新解析'}
+              </button>
+            )}
+          </div>
           <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
             {plan.steps
               .filter((s) => s.act)
@@ -400,6 +471,52 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
               className="flex h-11 flex-1 items-center justify-center rounded-btn bg-ink-100 text-sm font-medium text-ink-700"
             >
               新对话
+            </button>
+          </div>
+        </div>
+      )}
+      {/* 语音执行历史（只含已执行任务） */}
+      {historyOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45"
+          onClick={() => setHistoryOpen(false)}
+        >
+          <div
+            className="max-h-[80dvh] w-full max-w-md overflow-y-auto rounded-t-card bg-surface p-5 pb-8 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold">语音执行历史</h3>
+              <button onClick={() => setHistoryOpen(false)} aria-label="关闭" className="rounded-full bg-ink-100 p-1.5 text-ink-500">
+                <X size={16} />
+              </button>
+            </div>
+            {historyList.length === 0 ? (
+              <p className="py-10 text-center text-sm text-ink-400">还没有执行过语音任务</p>
+            ) : (
+              <ul className="mt-3 space-y-2.5">
+                {historyList.map((r, i) => (
+                  <li key={`${r.at}-${i}`} className="rounded-card bg-bg px-3.5 py-3">
+                    <p className="text-[10px] text-ink-400">{new Date(r.at).toLocaleString()}</p>
+                    <p className="mt-1 text-sm font-medium text-ink-800">🎤 {r.text}</p>
+                    <p className="mt-1 text-xs text-primary-700">理解：{r.understanding}</p>
+                    {r.results.map((res, j) => (
+                      <p key={j} className="mt-0.5 text-xs text-ink-500">✅ {res}</p>
+                    ))}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button
+              onClick={() => {
+                setHistoryOpen(false);
+                historyRef.current = recentVoiceTurns(3); // 最近 3 条作为上下文
+                toggleRecord();
+              }}
+              disabled={!enabled || !supported}
+              className="mt-4 flex h-11 w-full items-center justify-center gap-1.5 rounded-btn bg-primary-500 text-sm font-medium text-white disabled:opacity-40"
+            >
+              <Mic size={15} /> 接着说（带上历史内容）
             </button>
           </div>
         </div>

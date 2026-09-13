@@ -74,7 +74,7 @@ export class SeedService implements OnApplicationBootstrap {
     ];
 
     const officeConfig: TemplateReminderConfig[] = [
-      { category: 'exercise', title: '久坐起身活动', repeatRule: { type: 'interval', intervalValue: 45, intervalUnit: 'minute' }, content: { text: '每坐 45 分钟起身活动 2~3 分钟：接水/走动，看看远处放松眼睛。', imageUrls: seq('standup-1', 'standup-2', 'eye-far') } },
+      { category: 'exercise', title: '久坐起身活动', repeatRule: { type: 'interval', intervalValue: 45, intervalUnit: 'minute' }, content: { text: '每坐 45 分钟起身活动 2~3 分钟：接水/走动，看看远处放松眼睛。', imageUrls: seq('standup-1', 'standup-2', 'eye-care-1') } },
       { category: 'exercise', title: '颈部放松', repeatRule: { type: 'interval', intervalValue: 2, intervalUnit: 'hour' }, content: { text: '颈部后缩（纠正头前倾）：下巴水平后收成"双下巴"，保持 5 秒 × 10 次；再左右侧倾拉伸各 15 秒。', imageUrls: seq('neck-ret-1', 'neck-ret-2') } },
       { category: 'eye', title: '眼部放松 20-20-20', repeatRule: { type: 'interval', intervalValue: 1, intervalUnit: 'hour' }, content: { text: '每用眼 20 分钟，看 20 英尺（约 6 米）外 20 秒——至少每小时完整做一组。', imageUrls: seq('eye-far', 'eye-close') } },
     ];
@@ -90,7 +90,7 @@ export class SeedService implements OnApplicationBootstrap {
         title: '科学喝水时间表',
         description: '每日 3 个关键时点 × 200ml：晨起空腹、午后补水、晚饭后——少而关键的补水节奏。',
         status: PlanTemplateStatus.PUBLISHED,
-        version: 3,
+        version: 4,
         createdBy: 'system',
         mediaUrls: seq('water-1', 'water-5', 'water-8'),
         reminderConfig: waterConfig as never,
@@ -102,7 +102,7 @@ export class SeedService implements OnApplicationBootstrap {
         status: PlanTemplateStatus.PUBLISHED,
         version: 2,
         createdBy: 'system',
-        mediaUrls: seq('standup-1', 'neck-ret-1', 'eye-far'),
+        mediaUrls: seq('standup-1', 'neck-ret-1', 'eye-care-1'),
         reminderConfig: officeConfig as never,
       },
       {
@@ -151,9 +151,9 @@ export class SeedService implements OnApplicationBootstrap {
       { id: 'ex-kegel-basic', name: '提肛基础训练', category: ExerciseCategory.KEGEL, durationSeconds: 60, imageUrl: img('kegel-1'), imageUrls: seq2('kegel-1', 'kegel-2'), steps: '收缩盆底肌 3 秒放松 3 秒，重复 10 次。' },
       { id: 'ex-kegel-hold', name: '提肛保持训练', category: ExerciseCategory.KEGEL, durationSeconds: 90, imageUrl: img('kegel-1'), imageUrls: seq2('kegel-2', 'kegel-1'), steps: '收缩盆底肌保持 5 秒，放松 5 秒，重复 9 次。' },
       { id: 'ex-neck-retraction', name: '颈部后缩（头前倾纠正）', category: ExerciseCategory.NECK, durationSeconds: 60, imageUrl: img('neck-ret-1'), imageUrls: seq2('neck-ret-1', 'neck-ret-2'), steps: '下巴水平后收成双下巴状，保持 5 秒，重复 10 次。' },
-      { id: 'ex-eye-2020', name: '20-20-20 眼部放松', category: ExerciseCategory.EYE, durationSeconds: 20, imageUrl: img('eye-far'), imageUrls: seq2('eye-far', 'eye-close'), steps: '每 20 分钟看 20 英尺（约 6 米）外 20 秒。' },
-      { id: 'ex-eye-blink', name: '眨眼润眼', category: ExerciseCategory.EYE, durationSeconds: 20, imageUrl: img('eye-close'), imageUrls: seq2('eye-close', 'eye-far'), steps: '缓慢眨眼 10 次，闭眼转动眼球各方向。' },
-      { id: 'ex-eye-focus', name: '远近聚焦', category: ExerciseCategory.EYE, durationSeconds: 60, imageUrl: img('eye-far'), imageUrls: seq2('eye-far', 'eye-close'), steps: '指尖置于眼前 30cm 注视 5 秒，再看 6 米外 5 秒，交替 6 组。' },
+      { id: 'ex-eye-2020', name: '20-20-20 眼部放松', category: ExerciseCategory.EYE, durationSeconds: 20, imageUrl: img('eye-2020-1'), imageUrls: seq2('eye-2020-1', 'eye-2020-2'), steps: '每 20 分钟看 20 英尺（约 6 米）外 20 秒。' },
+      { id: 'ex-eye-blink', name: '眨眼润眼', category: ExerciseCategory.EYE, durationSeconds: 20, imageUrl: img('eye-blink-1'), imageUrls: seq2('eye-blink-1', 'eye-blink-2'), steps: '缓慢眨眼 10 次，闭眼转动眼球各方向。' },
+      { id: 'ex-eye-focus', name: '远近聚焦', category: ExerciseCategory.EYE, durationSeconds: 60, imageUrl: img('eye-focus-1'), imageUrls: seq2('eye-focus-1', 'eye-focus-2'), steps: '指尖置于眼前 30cm 注视 5 秒，再看 6 米外 5 秒，交替 6 组。' },
       { id: 'ex-stand-squat', name: '靠墙静蹲', category: ExerciseCategory.STAND, durationSeconds: 60, imageUrl: img('squat-1'), imageUrls: seq2('squat-1', 'squat-2'), steps: '背靠墙下蹲至大腿与地面平行，保持 30-60 秒。' },
       // 2026-09-07（用户决策）：删除「提踵站立」，恢复「起身走动」——站立类保留静蹲+走动
       { id: 'ex-stand-walk', name: '起身走动', category: ExerciseCategory.STAND, durationSeconds: 90, imageUrl: img('walk-1'), imageUrls: seq2('walk-1', 'walk-2'), steps: '起身绕行 1~2 分钟，配合远眺放松眼睛。' },

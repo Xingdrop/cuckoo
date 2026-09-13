@@ -6,7 +6,9 @@
 
 <!-- @Sdrop 布谷(Cuckoo) v1 © 2026 Xingdrop -->
 
-准时提醒，温柔守护——布谷，你的健康生活管家。
+布谷，您的忠实生活伴侣——如那只从不误时的欢快啼鸟，温柔唤醒、准点提醒（用药、喝水、锻炼、休息），并与家人一起悉心守护您的每日作息。
+
+**Cuckoo, your faithful life companion — like the cheerful bird that never misses an hour, it wakes you gently, reminds you right on time, and cares for your daily rhythm together with family.**
 
 > 📄 许可：**商业用途须书面授权**（PolyForm 风格商业许可，详见 [LICENSE](./LICENSE)）；授权联系与申请模板见 [CONTACT.md](./CONTACT.md)。
 > 🛡 漏洞报告：见 [SECURITY.md](./SECURITY.md)（私密报告 + 响应时间承诺）。

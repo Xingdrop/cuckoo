@@ -3,7 +3,9 @@
 
 [![CI](https://github.com/Xingdrop/cuckoo/actions/workflows/ci.yml/badge.svg)](https://github.com/Xingdrop/cuckoo/actions/workflows/ci.yml)
 
-**Gentle reminders, faithful care — Cuckoo, your health-life companion.**
+**Cuckoo, your faithful life companion — like the cheerful bird that never misses an hour, it wakes you gently, reminds you right on time (medicine, water, exercise, rest), and cares for your daily rhythm together with family.**
+
+准时提醒，温柔守护——布谷，你的健康生活管家。
 
 > 📄 License: **Commercial use requires written permission** (PolyForm-style commercial license, see [LICENSE](./LICENSE)); licensing contact: [CONTACT.md](./CONTACT.md).
 > 🛡 Security reports: [SECURITY.md](./SECURITY.md).

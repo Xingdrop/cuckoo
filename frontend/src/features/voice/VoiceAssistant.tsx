@@ -118,6 +118,9 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
       }
       recRef.current = null;
       setLive('');
+      // 关闭底层页面已打开的弹窗（确认框/详情浮窗）——录音期间点击会被动画层
+      // 拦截（防穿透误触），若不先关掉会形成「录不了也停不了」的死锁
+      window.dispatchEvent(new CustomEvent('cuckoo:close-modals'));
       goPhase('starting');
       setRecording(true); // 乐观进入录音态：UI 即刻反馈
       void startDictation({
@@ -202,10 +205,14 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
           pointer-events-none 不拦截点按——底部按钮仍是唯一停止控件 */}
       {(phase !== 'idle' || (busy && !plan && !outcome)) && (
         <div
-          className="pointer-events-none fixed inset-0 z-[80] flex flex-col items-center justify-center gap-5"
+          className="fixed inset-0 z-[80] flex flex-col items-center justify-center gap-5"
           style={{ background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.45) 100%)' }}
           role="status"
           aria-live="polite"
+          onClick={() => {
+            // 录音中点任意处=结束（绝不穿透到底层页面——否则误触下层按钮形成死锁）
+            if (phase === 'recording') toggleRecord();
+          }}
         >
           {phase === 'starting' && (
             <>

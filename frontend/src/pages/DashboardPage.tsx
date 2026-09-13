@@ -181,6 +181,17 @@ export function DashboardPage() {
     return () => window.removeEventListener('cuckoo:reminders-changed', onChanged);
   }, [load, selected]);
 
+  // 2026-09-13：语音助手开始录音时关闭本页所有弹层（确认框/详情浮窗），
+  // 避免录音动画层与弹窗互相拦截形成死锁
+  useEffect(() => {
+    const closeModals = () => {
+      setDetailItem(null);
+      setCompleteConfirm(null);
+    };
+    window.addEventListener('cuckoo:close-modals', closeModals);
+    return () => window.removeEventListener('cuckoo:close-modals', closeModals);
+  }, []);
+
   // #25：左右滑动切换日期——document 级捕获，任何区域（含已错过列表/空白处）均可横滑
   useEffect(() => {
     let sx: number | null = null;

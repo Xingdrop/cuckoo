@@ -2,7 +2,7 @@
 import { Mic, MicOff, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { nativeSpeechAvailable, startDictation, type DictationHandle } from './speechAdapter';
-import { loadAiConfig, runAssistant, executePending } from '../../assistant/assistant';
+import { loadAiConfig, runAssistant, executePending, type HistoryTurn } from '../../assistant/assistant';
 
 /**
  * 语音助手入口：底部悬浮「点按说话」按钮。
@@ -61,6 +61,8 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
   };
   /** 识别文字可编辑（2026-09-13）：预案面板里改文字 → 重新解析 → 新预案 */
   const [editText, setEditText] = useState('');
+  /** 多轮对话历史（继续对话时随新语音一并发给 AI） */
+  const historyRef = useRef<HistoryTurn[]>([]);
 
   useEffect(() => {
     setEnabled(loadAiConfig().enabled);
@@ -151,7 +153,15 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
     setBusy(true);
     setLive(text);
     setEditText(text);
-    const out = await runAssistant(text, { autoRun: false });
+    const out = await runAssistant(text, { autoRun: false, history: historyRef.current.slice(-6) });
+    historyRef.current.push(
+      { role: 'user', content: text },
+      {
+        role: 'assistant',
+        content: `${out.reply}（动作：${(out.pendingActions ?? []).map((a) => a.id).join('、') || '无'}）`,
+      },
+    );
+    historyRef.current = historyRef.current.slice(-6);
     setBusy(false);
     setPlan({
       text,
@@ -179,6 +189,14 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
     setBusy(false);
     setPlan(null);
     setOutcome(out);
+    historyRef.current.push({
+      role: 'assistant',
+      content: `已执行：${out.steps
+        .filter((st) => st.result)
+        .map((st) => `${st.act}=${st.result}`)
+        .join('；')}`,
+    });
+    historyRef.current = historyRef.current.slice(-6);
     onToast(out.error ? 'AI 执行未完成' : 'AI 已完成调整');
   };
 
@@ -364,12 +382,26 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
           </div>
           <p className="mt-3 text-sm font-medium text-ink-800">{outcome.reply}</p>
           {outcome.error && <p className="mt-1 text-[11px] text-danger-600">{outcome.error}</p>}
-          <button
-            onClick={() => setOutcome(null)}
-            className="mt-3 w-full rounded-btn bg-primary-500 py-2.5 text-sm font-medium text-white"
-          >
-            好的
-          </button>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={() => {
+                setOutcome(null);
+                toggleRecord(); // 带上下文继续对话
+              }}
+              className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-btn bg-ink-100 text-sm font-medium text-ink-700"
+            >
+              <Mic size={15} /> 继续对话
+            </button>
+            <button
+              onClick={() => {
+                setOutcome(null);
+                historyRef.current = []; // 清空上下文，开始全新对话
+              }}
+              className="flex h-11 flex-1 items-center justify-center rounded-btn bg-ink-100 text-sm font-medium text-ink-700"
+            >
+              新对话
+            </button>
+          </div>
         </div>
       )}
     </>

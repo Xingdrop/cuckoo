@@ -327,14 +327,7 @@ export function ReminderListPage() {
                           {formatRepeat(r.repeatRule)} · {formatReminderTime(r)}
                         </p>
                         {r.planName && (
-                          <p className="mt-0.5 flex items-center gap-1 text-[10px] text-primary-600">
-                            📋 来自计划：{r.planName}
-                            {r.modifiedFromPlan && (
-                              <span className="rounded-full bg-accent-100 px-1.5 py-0.5 text-[9px] text-accent-700">
-                                已修改
-                              </span>
-                            )}
-                          </p>
+                          <p className="mt-0.5 truncate text-[10px] text-primary-600">📋 来自计划：{r.planName}</p>
                         )}
                         {r.content.text && (
                           <p className="mt-0.5 truncate text-xs text-ink-500/70">{r.content.text}</p>
@@ -361,6 +354,11 @@ export function ReminderListPage() {
                         >
                           {formatReminderTime(r)}
                         </span>
+                        {r.modifiedFromPlan && (
+                          <span className="rounded-full border border-accent-300 px-2 py-px text-[9px] leading-tight text-accent-700">
+                            已修改
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="mt-3 grid grid-cols-3 gap-2 border-t border-ink-100 pt-3">

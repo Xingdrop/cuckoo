@@ -49,9 +49,15 @@ export interface AssistantOutcome {
  * 执行 AI 返回的 JSON 计划：{"reply":"...","actions":[{"id":"..","params":{..}}]}
  * 每个动作独立执行并返回「动作→结果」，供界面逐条提示。
  */
+/** 多轮对话历史（user/assistant 交替；由调用方维护与截断） */
+export interface HistoryTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export async function runAssistant(
   rawText: string,
-  opts: { autoRun?: boolean } = { autoRun: true },
+  opts: { autoRun?: boolean; history?: HistoryTurn[] } = { autoRun: true },
 ): Promise<AssistantOutcome> {
   const cfg = loadAiConfig();
   if (!cfg.apiKey || !cfg.baseUrl) {
@@ -61,20 +67,22 @@ export async function runAssistant(
       error: 'AI_API_NOT_CONFIGURED',
     };
   }
-  const { CATALOG, catalogText, assistantContext, assistantTodayReminders } = await import('./apiCatalog');
+  const { CATALOG, catalogText, assistantContext, assistantTodayReminders, assistantWaterProgress } = await import('./apiCatalog');
   const ctx = assistantContext();
-  const todayReminders = await assistantTodayReminders();
+  const [todayReminders, water] = await Promise.all([assistantTodayReminders(), assistantWaterProgress()]);
   const sys = `你是「布谷」健康提醒应用的语音助手。用户说一句话，你判断要执行的动作。
 可选动作目录（只能返回目录中的 id，params 取值参考目录）：
 ${catalogText()}
 
 当前上下文（JSON）：
-${JSON.stringify(ctx)}
+${JSON.stringify({ ...ctx, water })}
 
-用户当前的提醒（title/time）：
+用户当前的提醒（title/time/status）：
 ${todayReminders.length > 0 ? JSON.stringify(todayReminders) : '（暂无提醒）'}
 
 规则：
+- 用户输入来自**语音识别（ASR）**，可能存在同音字/错别字/断句错误（例如把提醒标题「吃早饭」识别成别的词）。匹配 title 时请在上下文清单中选择**发音或字面最接近**的一项，并在 params.title 里使用清单中的原标题；确实无法对应时不要执行，reply 礼貌询问
+- 回复时对明显的识别错别字做合理联想与纠正，不必逐字复述识别原文
 - 只输出一个 JSON 对象，不要任何多余文字：{"reply":"对用户说的一句话","actions":[{"id":"动作id","params":{...}}]}
 - **支持一次执行多项任务**：用户一句话里包含多件事时，按顺序拆解为多个动作（最多 5 项），如「订一个每天七点喝水的提醒，再记 200 毫升水」→ reminder.create + water.add；reply 概括全部将执行的内容
 - 无法匹配时 actions 为空数组，reply 说明原因
@@ -91,6 +99,7 @@ ${todayReminders.length > 0 ? JSON.stringify(todayReminders) : '（暂无提醒�
         model: cfg.model,
         messages: [
           { role: 'system', content: sys },
+          ...(Array.isArray(opts.history) ? opts.history.slice(-6) : []),
           { role: 'user', content: rawText },
         ],
         temperature: 0.2,

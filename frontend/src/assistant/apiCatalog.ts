@@ -32,19 +32,45 @@ export function assistantContext() {
   };
 }
 
-/** 今日提醒清单（注入提示词 + 供 AI 按 title 引用；在线/离线镜像通用） */
-export async function assistantTodayReminders(): Promise<{ title: string; time: string }[]> {
+/** 喝水进度（注入上下文；在线/离线通用） */
+export async function assistantWaterProgress(): Promise<string> {
   try {
-    const items = await remindersApi.list({ isActive: true });
-    return items.slice(0, 15).map((r) => ({
-      title: r.title,
-      time:
-        r.times && r.times.length > 0
-          ? r.times.join('、')
-          : r.nextTriggerAt
-            ? new Date(r.nextTriggerAt).toTimeString().slice(0, 5)
-            : '不定时',
-    }));
+    const w = await statsApi.waterInfo();
+    return `今日喝水 ${w.waterMl}/${w.waterGoalMl}ml`;
+  } catch {
+    return '未知';
+  }
+}
+
+/** 今日提醒清单（含槽位状态与完成情况，注入提示词；在线/离线镜像通用） */
+export async function assistantTodayReminders(): Promise<{ title: string; time: string; status: string }[]> {
+  const today = new Date().toLocaleDateString('sv-SE');
+  try {
+    const [items, plan] = await Promise.all([
+      remindersApi.list({ isActive: true }),
+      remindersApi.calendar(today).catch(() => [] as CalendarItem[]),
+    ]);
+    return items.slice(0, 15).map((r) => {
+      const item = plan.find((c) => c.reminderId === r.id);
+      const sts: string[] = item && !item.untimed ? item.times.map((t) => t.status ?? '') : [];
+      const done = sts.filter((x) => x === 'completed' || x === 'challenge_completed').length;
+      let status: string;
+      if (sts.length > 0 && done === sts.length) status = '已完成';
+      else if (sts.includes('missed')) status = done > 0 ? '部分完成(有已错过槽)' : '已错过(可改回完成)';
+      else if (done > 0) status = '部分完成';
+      else if (sts.length > 0) status = '待完成';
+      else status = '今日未排程';
+      return {
+        title: r.title,
+        time:
+          r.times && r.times.length > 0
+            ? r.times.join('、')
+            : r.nextTriggerAt
+              ? new Date(r.nextTriggerAt).toTimeString().slice(0, 5)
+              : '不定时',
+        status,
+      };
+    });
   } catch {
     return [];
   }
@@ -84,7 +110,8 @@ async function findTodaySlot(
     return null;
   }
   if (!item || item.untimed) return null;
-  const actionable = (s: string | null) => !s || s === 'delayed' || s === 'note' || s === 'photo' || s === 'skipped';
+  const actionable = (s: string | null) =>
+    !s || s === 'delayed' || s === 'note' || s === 'photo' || s === 'skipped' || s === 'missed';
   const slots = item.times.filter((s) => actionable(s.status));
   if (slots.length === 0) return null;
   const t = String(aiTime ?? '').trim();

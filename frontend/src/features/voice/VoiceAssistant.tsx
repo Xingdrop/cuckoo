@@ -59,7 +59,10 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
     // 支持检测：原生插件可用 **或** 浏览器有 Web Speech API 都算支持
     const w = window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown };
     const webOk = !!(w.SpeechRecognition ?? w.webkitSpeechRecognition);
-    void nativeSpeechAvailable().then((n) => setSupported(n || webOk));
+    // 探测失败（含插件代理异常）兜底回 Web 检测，避免 supported 卡在 false
+    void nativeSpeechAvailable()
+      .then((n) => setSupported(n || webOk))
+      .catch(() => setSupported(webOk));
     return () => {
       // 卸载兜底：停录音
       phaseRef.current = 'idle';

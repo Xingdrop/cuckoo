@@ -1,5 +1,5 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2ZlYXR1cmVzL3ZvaWNlL3NwZWVjaEFkYXB0ZXIudHN8MjAyNi0wOXw2ZWQzY2RjODBl */
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 
 /**
  * 语音听写适配器（跨 Web / APK）：
@@ -28,36 +28,43 @@ interface NativeSpeechProxy {
   addListener: (ev: string, cb: (d: never) => void) => Promise<{ remove: () => Promise<void> }>;
 }
 
-export async function nativeSpeechAvailable(): Promise<boolean> {
-  if (!Capacitor.isNativePlatform()) return false;
-  return (await resolveNativeEngine()) !== null;
-}
-
 /**
  * #37（2026-09-10）：引擎解析——系统识别器（NativeSpeech）依赖 ROM 提供的
  * RecognitionService；一加 Ace 3（ColorOS 无 Google 服务、小布不导出）上
  * SpeechRecognizer 整体不可用（永远空结果 →「未识别到语音」）。
  * 探测失败自动降级 NativeVosk（Vosk 中文小模型纯离线识别，事件协议一致）。
+ *
+ * ⚠️ 2026-09-13 真机实锤：绝不能把 Capacitor 插件代理对象放进 await 链——
+ * `await resolveNativeEngine()` 返回代理时，await 会读取代理的 .then 属性，
+ * 而 Capacitor 代理对任意属性都生成桥接调用 → "NativeVosk.then() is not
+ * implemented on android" → 未处理 rejection → supported 永远 false，
+ * Vosk 兜底自上线以来从未真正生效。因此探测函数只返回布尔值，
+ * 代理存模块变量 nativeEngine，使用时直接读取。
  */
 let nativeEngine: NativeSpeechProxy | null = null;
 let nativeEngineName = '';
 
-async function resolveNativeEngine(): Promise<NativeSpeechProxy | null> {
-  if (nativeEngine) return nativeEngine;
-  const { registerPlugin } = await import('@capacitor/core');
+async function resolveNativeEngine(): Promise<boolean> {
+  if (nativeEngine) return true;
   for (const name of ['NativeSpeech', 'NativeVosk']) {
     try {
       const p = registerPlugin(name) as unknown as NativeSpeechProxy;
       const { available } = await p.available();
       if (available) {
         nativeEngine = p;
-        return nativeEngine;
+        nativeEngineName = name;
+        return true;
       }
     } catch {
       /* 插件缺失 → 尝试下一个 */
     }
   }
-  return null;
+  return false;
+}
+
+export async function nativeSpeechAvailable(): Promise<boolean> {
+  if (!Capacitor.isNativePlatform()) return false;
+  return resolveNativeEngine();
 }
 
 /** #35：权限缓存——首次 granted 后跳过 checkPermissions（省桥调用，按下即录启动更快） */
@@ -69,7 +76,10 @@ export async function startDictation(handlers: {
   onFinal: (text: string) => void;
   onError?: (msg: string) => void;
 }): Promise<DictationHandle> {
-  const engine = Capacitor.isNativePlatform() ? await resolveNativeEngine() : null;
+  if (!Capacitor.isNativePlatform() || !(await resolveNativeEngine())) {
+    nativeEngine = null;
+  }
+  const engine = nativeEngine;
   if (engine) {
     // 权限（RECORD_AUDIO）就绪（已授权过则跳过检查，加快启动）
     if (!permissionGranted) {

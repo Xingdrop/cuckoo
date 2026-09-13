@@ -50,6 +50,9 @@ export async function assistantTodayReminders(): Promise<{ title: string; time: 
   }
 }
 
+/** 变更成功后广播（今日页/统计页监听此事件即时刷新，否则要等 10s 轮询） */
+const notifyDataChanged = () => window.dispatchEvent(new CustomEvent('cuckoo:reminders-changed'));
+
 const err = (e: unknown, fallback: string): string => {
   const msg = String((e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? '');
   return msg || fallback;
@@ -169,6 +172,7 @@ export const CATALOG: CatalogAction[] = [
           content: { text: '' },
         });
         const rep = repeat === 'once' ? '单次' : repeat === 'daily' ? '每天' : repeat === 'weekly' ? '每周' : '每月';
+        notifyDataChanged();
         return { ok: true, msg: `已创建${rep} ${hhmm} 的「${r.title}」提醒` };
       } catch (e) {
         return { ok: false, msg: err(e, '创建失败（检查网络或提醒数量上限）') };
@@ -201,6 +205,7 @@ export const CATALOG: CatalogAction[] = [
       }
       try {
         await remindersApi.ack(r.id, { status: 'completed', scheduledTime });
+        notifyDataChanged();
         return { ok: true, msg: `「${r.title}」${slot ? ` ${slot.time} ` : ''}已标记完成` };
       } catch (e) {
         return { ok: false, msg: err(e, '完成失败（可能库存不足或网络问题）') };
@@ -223,6 +228,7 @@ export const CATALOG: CatalogAction[] = [
         return { ok: false, msg: '延迟分钟数须为 1~1440 的整数' };
       try {
         await remindersApi.delay(r.id, minutes);
+        notifyDataChanged();
         return { ok: true, msg: `「${r.title}」已延迟 ${minutes} 分钟` };
       } catch (e) {
         return { ok: false, msg: err(e, '延迟失败（可能当前没有待触发槽）') };
@@ -246,6 +252,7 @@ export const CATALOG: CatalogAction[] = [
           status: 'skipped',
           scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, mm).toISOString(),
         });
+        notifyDataChanged();
         return { ok: true, msg: `「${r.title}」${slot.time} 已放弃（今日页可再改回）` };
       } catch (e) {
         return { ok: false, msg: err(e, '放弃失败') };
@@ -262,6 +269,7 @@ export const CATALOG: CatalogAction[] = [
       if (!r) return { ok: false, msg: `没找到「${String(params?.title ?? '')}」这条提醒` };
       try {
         await remindersApi.remove(r.id);
+        notifyDataChanged();
         return { ok: true, msg: `已删除「${r.title}」` };
       } catch (e) {
         return { ok: false, msg: err(e, '删除失败') };
@@ -282,6 +290,7 @@ export const CATALOG: CatalogAction[] = [
       const active = params?.value !== 'false' && params?.value !== false;
       try {
         await remindersApi.setActive(r.id, active);
+        notifyDataChanged();
         return { ok: true, msg: `「${r.title}」已${active ? '启用' : '停用'}` };
       } catch (e) {
         return { ok: false, msg: err(e, '操作失败') };
@@ -312,6 +321,7 @@ export const CATALOG: CatalogAction[] = [
       if (!Number.isFinite(ml) || ml <= 0 || ml > 10000) return { ok: false, msg: '水量值不合法' };
       try {
         await statsApi.water(ml);
+        notifyDataChanged();
         return { ok: true, msg: `已记录喝水 +${ml}ml` };
       } catch (e) {
         return { ok: false, msg: err(e, '记录失败（可能未联网）') };

@@ -125,9 +125,6 @@ export const useAuthStore = create<AuthState>()(
             const { syncMirrorToCloud } = await import('../guest/mirror');
             const synced = await syncMirrorToCloud().catch(() => false);
             if (!synced) void refreshLocalCache();
-            // 引导插画本地缓存（登录时校验缺失并补齐；离线/断网直读本机）
-            const { cacheGuideMedia } = await import('../utils/guideMedia');
-            void cacheGuideMedia();
           } catch (e) {
             // 服务器可达但密码错误等 → 原样抛给页面
             if (!isNetworkError(e)) throw e;
@@ -152,8 +149,6 @@ export const useAuthStore = create<AuthState>()(
             JSON.stringify({ user: res.user, at: Date.now() }),
           );
           void refreshLocalCache();
-          const { cacheGuideMedia } = await import('../utils/guideMedia');
-          void cacheGuideMedia();
         },
 
         logout: () => {

@@ -59,9 +59,12 @@ export class SeedService implements OnApplicationBootstrap {
     this.logger.log('种子数据写入完成');
   }
 
+  /** 插画媒体版本：重生成图片后 bump，URL 带参强制客户端绕过 WebView 图片缓存 */
+  private static readonly MEDIA_V = '20260914a';
+
   /** 官方计划（PlanTemplate，用户可一键加入）；已存在时按 version 递增更新配置 */
   private async seedPlanTemplates(media: Record<string, string>) {
-    const img = (name: string) => media[name] ?? '';
+    const img = (name: string) => (media[name] ? `${media[name]}?v=${SeedService.MEDIA_V}` : '');
     const seq = (...names: string[]) => names.map(img).filter(Boolean);
 
     /** 喝水计划：3 个关键时点 × 200ml（用户决策：最少打扰）。
@@ -90,7 +93,7 @@ export class SeedService implements OnApplicationBootstrap {
         title: '科学喝水时间表',
         description: '每日 3 个关键时点 × 200ml：晨起空腹、午后补水、晚饭后——少而关键的补水节奏。',
         status: PlanTemplateStatus.PUBLISHED,
-        version: 5,
+        version: 6,
         createdBy: 'system',
         mediaUrls: seq('water-1', 'water-5', 'water-8'),
         reminderConfig: waterConfig as never,
@@ -100,7 +103,7 @@ export class SeedService implements OnApplicationBootstrap {
         title: '办公室健康操',
         description: '久坐族必备：每 45 分钟起身活动 + 每小时护眼 + 每日颈部放松（配跟练图解）。',
         status: PlanTemplateStatus.PUBLISHED,
-        version: 2,
+        version: 3,
         createdBy: 'system',
         mediaUrls: seq('standup-1', 'neck-ret-1', 'eye-care-1'),
         reminderConfig: officeConfig as never,
@@ -110,7 +113,7 @@ export class SeedService implements OnApplicationBootstrap {
         title: '规律用药示范',
         description: '早晚两次用药提醒（配图解）：配合「药品管理」自动扣库存、漏服通知亲友。',
         status: PlanTemplateStatus.PUBLISHED,
-        version: 1,
+        version: 2,
         createdBy: 'system',
         mediaUrls: seq('medication-1'),
         reminderConfig: medicationConfig as never,
@@ -141,8 +144,10 @@ export class SeedService implements OnApplicationBootstrap {
 
   /** 微运动库：14 条（含配图；imageUrl 变更时同步更新既有行） */
   private async seedExercises(media: Record<string, string>) {
-    const img = (name: string) => media[name] ?? null;
-    const seq2 = (...names: string[]) => names.map(img).filter(Boolean);
+    const img = (name: string): string | null =>
+      media[name] ? `${media[name]}?v=${SeedService.MEDIA_V}` : null;
+    const seq2 = (...names: string[]): string[] =>
+      names.map(img).filter((x): x is string => Boolean(x));
     const exercises: (Partial<Exercise> & { id: string })[] = [
       { id: 'ex-stretch-neck', name: '颈部左右拉伸', category: ExerciseCategory.STRETCH, durationSeconds: 30, imageUrl: img('neck-1'), imageUrls: seq2('neck-1', 'neck-2'), steps: '坐直，头向左倾至拉伸感，保持 15 秒；换右侧。' },
       { id: 'ex-stretch-shoulder', name: '肩部环绕', category: ExerciseCategory.STRETCH, durationSeconds: 30, imageUrl: img('shoulder-1'), imageUrls: seq2('shoulder-1', 'shoulder-2'), steps: '双肩向后画圈 10 次，再向前 10 次。' },

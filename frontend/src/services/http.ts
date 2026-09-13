@@ -1,6 +1,6 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3NlcnZpY2VzL2h0dHAudHN8MjAyNi0wOXwwOGZmMDZhZjdj */
 import axios, { AxiosError } from 'axios';
-import { guideSrc } from '../utils/guideMedia';
+import { guideLocalUrl } from '../utils/guideMedia';
 import { Capacitor } from '@capacitor/core';
 import { DEFAULT_NATIVE_API_BASE } from '../config/defaultApiBase';
 
@@ -40,8 +40,9 @@ export function refreshApiBase() {
 export function absoluteUrl(u?: string | null): string {
   if (!u) return '';
   if (/^https?:\/\//i.test(u) || u.startsWith('data:') || u.startsWith('blob:')) return u;
-  // guide 插画：优先本地缓存（登录时校验缓存，离线/APK 直读本机）
-  if (u.includes('/uploads/guide/')) return guideSrc(u);
+  // guide 插画：一律转为同源随包路径（离线可读，且规避 WebView 对 http:// 图片的混合内容硬拦截）；
+  // 服务器新图由 RImg/useRemoteSrc 先 fetch 再回退随包资源，见 utils/guideMedia.ts
+  if (u.includes('/uploads/guide/')) return guideLocalUrl(u);
   const custom = localStorage.getItem('cuckoo_api_base');
   // 2026-09-06：APK 未手动配置时也用内置默认地址拼绝对路径（否则 /uploads/* 打到 WebView 本地源 → 图片全挂）
   const origin = custom

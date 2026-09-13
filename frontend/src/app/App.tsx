@@ -180,8 +180,6 @@ export function App() {
           void m.refreshLocalCache();
         }
       });
-      // 引导插画本地缓存校验（在线时补齐，离线直读本机）
-      void import('../utils/guideMedia').then((m) => m.cacheGuideMedia());
     }
   }, [online]);
 

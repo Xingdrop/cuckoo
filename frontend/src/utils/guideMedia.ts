@@ -1,85 +1,79 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL3V0aWxzL2d1aWRlTWVkaWEudHN8MjAyNi0wOXxjZjdhOTc1NzQ2 */
-/* @Sdrop PLACEHOLDER */
 import { Capacitor } from '@capacitor/core';
+import { DEFAULT_NATIVE_API_BASE } from '../config/defaultApiBase';
 
 /**
- * 引导插画本地缓存（2026-09-06）：
- * - 登录/启动（在线）时校验本地缓存是否齐全，缺失则拉取并以 dataURL 存 localStorage
- * - 渲染时 guideSrc()：/uploads/guide/** 一律优先读本地（离线/APK 直读本机，不再受服务器可达性影响）
+ * 引导插画（微运动库 / 官方计划跟练图）地址解析。
+ *
+ * 为什么插画必须走「随包本地资源」：ColorOS / Android 16 的 WebView 会把 https://localhost
+ * 页面里的 http:// <img> 请求按混合内容硬拦截（allowMixedContent 也无效，见 components/remoteMedia.tsx），
+ * 而服务器插画地址正是 http://<局域网IP>:3000/uploads/guide/**，直接塞进 <img src> 必挂。
+ *
+ * 两个地址的用途分工：
+ * - guideLocalUrl(u)：同源随包路径 /guide/<name>.webp —— 离线可读，且是唯一能安全放进 <img src> 的地址；
+ * - guideServerUrl(u)：服务器绝对地址（含 seed 注入的 ?v= 版本参数）—— 只能经 fetch() 读取，绝不可进 <img src>。
+ *
+ * 渲染统一走 RImg → useRemoteSrc：原生端「先 fetch 服务器图（拿重绘后的新图，不必等 APK 重建）
+ * → 失败再回退随包资源」，离线时直接读随包资源。
+ *
+ * 2026-09-14 修复「大量图片丢失」根因：本表原缺 eye-2020-* / eye-blink-* / eye-care-1 /
+ * eye-focus-* / water-8 共 8 个 AI 重绘插画名 → 这些名字被判为非随包资源 → 回退到服务器
+ * http 地址 → 被混合内容拦截而整片挂掉。新增插画必须同步本表，
+ * tests/unit/guideMedia.spec.ts 会对 public/guide 目录做强一致性校验（防止再次漏登记）。
  */
-
-const KEY = 'cuckoo_guide_media';
-const BASE = (() => {
-  const custom = localStorage.getItem('cuckoo_api_base') ?? '';
-  return custom ? custom.replace(/\/$/, '') : '';
-})();
-
-/** 与后端 seed-media guideIllustrations 的 key 对齐（新增插画后需同步此表） */
-const GUIDE_NAMES = [
-  'water-1', 'water-5', 'water-7', 'water-generic',
+export const GUIDE_NAMES = [
+  'water-1', 'water-5', 'water-7', 'water-8', 'water-generic',
   'medication-1', 'medication-2',
   'neck-1', 'neck-2', 'neck-ret-1', 'neck-ret-2',
   'shoulder-1', 'shoulder-2', 'wrist-1', 'wrist-2',
   'stretch-1', 'stretch-2',
   'kegel-1', 'kegel-2',
-  'eye-far', 'eye-close',
+  'eye-far', 'eye-close', 'eye-2020-1', 'eye-2020-2',
+  'eye-blink-1', 'eye-blink-2', 'eye-focus-1', 'eye-focus-2', 'eye-care-1',
   'squat-1', 'squat-2',
   'walk-1', 'walk-2', 'breathe-1', 'breathe-2', 'breathe-3',
   'standup-1', 'standup-2',
 ];
 
-type GuideCache = Record<string, string>;
+const GUIDE_SET = new Set(GUIDE_NAMES);
 
-function readCache(): GuideCache {
-  try {
-    return JSON.parse(localStorage.getItem(KEY) ?? '{}') as GuideCache;
-  } catch {
-    return {};
-  }
+/** localStorage 手填服务器地址优先，其次构建时注入的局域网默认地址 */
+function serverBase(): string {
+  const custom = localStorage.getItem('cuckoo_api_base') ?? '';
+  const base = custom || DEFAULT_NATIVE_API_BASE;
+  return base ? base.replace(/\/$/, '') : '';
 }
 
-function writeCache(c: GuideCache) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(c));
-  } catch {
-    /* 存储满：放弃缓存（回退服务器 URL） */
-  }
+/** 从 /uploads/guide/<name>.webp[?v=xxx] 取出插画名；非 guide 地址返回空串 */
+export function guideName(u?: string | null): string {
+  if (!u) return '';
+  const i = u.indexOf('/uploads/guide/');
+  if (i === -1) return '';
+  const rest = u.slice(i + '/uploads/guide/'.length);
+  const q = rest.indexOf('?');
+  const file = q === -1 ? rest : rest.slice(0, q);
+  return file.replace(/\.webp$/i, '');
 }
 
-/** 登录/启动校验：缺失或损坏的插画重新拉取；全部齐备则跳过（不重复下载） */
-export async function cacheGuideMedia(): Promise<void> {
-  if (!navigator.onLine) return;
-  try {
-    const cache = readCache();
-    const missing = GUIDE_NAMES.filter((n) => !(typeof cache[n] === 'string' && cache[n].startsWith('data:image')));
-    if (missing.length === 0) return;
-    for (const name of missing) {
-      const res = await fetch(`${BASE}/uploads/guide/${name}.webp`, { cache: 'force-cache' });
-      if (!res.ok) continue;
-      const blob = await res.blob();
-      const dataUrl = await new Promise<string>((resolve) => {
-        const fr = new FileReader();
-        fr.onload = () => resolve(String(fr.result ?? ''));
-        fr.onerror = () => resolve('');
-        fr.readAsDataURL(blob);
-      });
-      if (dataUrl) cache[name] = dataUrl;
-    }
-    writeCache(cache);
-  } catch {
-    /* 离线/失败：保留已有缓存 */
-  }
+/** 该插画是否随包（决定离线能否直读） */
+export function isBundledGuide(u?: string | null): boolean {
+  return GUIDE_SET.has(guideName(u));
 }
 
-/** 渲染地址解析：guide 插画 = 随 APP 打包的本地资源（/guide/*.webp，离线可用）；
- *  本地 dataURL 缓存其次；都没有才回退服务器地址 */
-export function guideSrc(u?: string | null): string {
+/** 同源随包路径；非 guide 地址原样返回 */
+export function guideLocalUrl(u?: string | null): string {
+  if (!u) return '';
+  const name = guideName(u);
+  return name ? `/guide/${name}.webp` : u;
+}
+
+/** 服务器绝对地址（仅供 fetch/axios 使用）；原生未配置服务器时退化为相对路径 */
+export function guideServerUrl(u?: string | null): string {
   if (!u) return '';
   const i = u.indexOf('/uploads/guide/');
   if (i === -1) return u;
-  const name = u.slice(i + '/uploads/guide/'.length).replace(/\.webp$/, '');
-  if (GUIDE_NAMES.includes(name)) return `/guide/${name}.webp`;
-  const cached = readCache()[name];
-  if (cached && cached.startsWith('data:image')) return cached;
-  return Capacitor.isNativePlatform() && BASE ? `${BASE}${u}` : u;
+  const path = u.slice(i);
+  if (!Capacitor.isNativePlatform()) return path;
+  const base = serverBase();
+  return base ? `${base}${path}` : path;
 }

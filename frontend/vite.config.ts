@@ -19,7 +19,8 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.ts',
       injectManifest: {
-        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,ico}'],
+        // webp：随包插画（public/guide/*.webp）必须预缓存，否则 PWA 离线时插画全部 404
+        globPatterns: ['**/*.{js,css,html,svg,png,webp,webmanifest,ico}'],
       },
       manifest: {
         name: '布谷 Cuckoo',

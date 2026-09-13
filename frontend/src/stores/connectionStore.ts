@@ -46,6 +46,8 @@ interface ConnectionState {
   lastCheck: number;
   init: () => Promise<void>;
   refresh: () => Promise<boolean>;
+  /** 等待进行中的健康探测完成并返回 online（登录/注册防冷启动竞态：online 初始为 false） */
+  ensureChecked: () => Promise<boolean>;
 }
 
 export const useConnectionStore = create<ConnectionState>((set, get) => ({
@@ -64,5 +66,18 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
     const ok = navigator.onLine && (await pingHealth());
     set({ online: ok, lastCheck: Date.now() });
     return ok;
+  },
+
+  ensureChecked: async () => {
+    if (!get().checking) return get().online;
+    await new Promise<void>((resolve) => {
+      const unsub = useConnectionStore.subscribe((st) => {
+        if (!st.checking) {
+          unsub();
+          resolve();
+        }
+      });
+    });
+    return get().online;
   },
 }));

@@ -49,7 +49,8 @@ export function LoginPage() {
       setError(parsed.error.issues[0]?.message ?? '输入有误');
       return;
     }
-    if (mode === 'register' && !online) {
+    // online 初始为 false、探测异步进行——先等探测出结果再拦（防冷启动注册被误判离线）
+    if (mode === 'register' && !(await useConnectionStore.getState().ensureChecked())) {
       setError('注册需要联网；当前可登录预置离线账户（本地校验）');
       return;
     }

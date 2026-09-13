@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { ErrorBanner, EmptyState, LoadingState } from '../components/ui/Feedback';
 import { errorMessage } from '../services/http';
 import { notificationsApi, NotificationItem } from '../services/api/api.social';
+import { useConnectionStore } from '../stores/connectionStore';
 
 const TYPE_ICON: Record<string, string> = {
   low_stock: '💊',
@@ -31,6 +32,7 @@ function fmt(iso: string): string {
  */
 export function NotificationsPage() {
   const navigate = useNavigate();
+  const online = useConnectionStore((s) => s.online);
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +51,9 @@ export function NotificationsPage() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, online]);
+  // online 由初始 false 异步探测翻真时重取：mount 时若探测未完成，list() 会走空镜像路径
+  // （E2E-07「暂无通知」flaky 根因），翻在线后必须重新走网络路径
 
   const markAll = async () => {
     await notificationsApi.markRead();

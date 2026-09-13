@@ -99,8 +99,9 @@ export const useAuthStore = create<AuthState>()(
         },
 
         login: async (username, password) => {
-          const conn = useConnectionStore.getState();
-          if (!conn.online) {
+          // online 初始为 false、由 init() 异步探测——先等探测出结果再决策，
+          // 否则冷启动快速点击会被误判离线走进种子兜底（对在线新用户报"用户名或密码错误"）
+          if (!(await useConnectionStore.getState().ensureChecked())) {
             await offlineLogin(username, password);
             return;
           }

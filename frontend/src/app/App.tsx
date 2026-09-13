@@ -169,15 +169,33 @@ export function App() {
   useEffect(() => {
     const s = useConnectionStore.getState();
     if (s.online && tokenStore.get() && useAuthStore.getState().user) {
-      // 离线数据保护：有本地镜像先回灌云端（合并），无镜像才直接刷新
+      // 离线数据保护：有本地镜像先回灌云端（合并）；回灌无事可做/失败时也要刷新镜像，
+      // 否则新登录设备 reload 后镜像恒为空、断网即无数据（2026-09-13 E2E-03 根因之一）
       const g = useGuestStore.getState();
-      void import('../guest/mirror').then((m) =>
-        g.mirrorOf !== null ? m.syncMirrorToCloud().catch(() => false) : m.refreshLocalCache(),
-      );
+      void import('../guest/mirror').then(async (m) => {
+        if (g.mirrorOf !== null) {
+          const synced = await m.syncMirrorToCloud().catch(() => false);
+          if (!synced) void m.refreshLocalCache();
+        } else {
+          void m.refreshLocalCache();
+        }
+      });
       // 引导插画本地缓存校验（在线时补齐，离线直读本机）
       void import('../utils/guideMedia').then((m) => m.cacheGuideMedia());
     }
   }, [online]);
+
+  // 健康探测落定（checking→false）时重挂载路由一次：探测窗口内的页面取数可能
+  // 误走未灌水镜像（冷启动 reload 后列表/通知页空白的共同根因），落定后重取即正确。
+  // 登录/隐私页不取数据且可能有未提交的表单输入，落定时若在其上则跳过重挂载
+  const [bootKey, setBootKey] = useState(0);
+  const connectionSettled = useConnectionStore((s) => !s.checking && s.lastCheck > 0);
+  useEffect(() => {
+    if (!connectionSettled) return;
+    const p = window.location.pathname;
+    if (p === '/login' || p === '/privacy') return;
+    setBootKey((k) => k + 1);
+  }, [connectionSettled]);
 
   return (
     <BrowserRouter>
@@ -185,7 +203,7 @@ export function App() {
       <SyncOnOnline />
       <NotifyPermHint />
       <ReminderScheduler />
-      <div>
+      <div key={bootKey}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />

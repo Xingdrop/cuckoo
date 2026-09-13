@@ -227,6 +227,7 @@ interface GuestState {
   /** #26：日志带照片（拍照/挑战打卡） */
   photoUrl?: string | null;
 
+  removeLog: (logId: string) => void;
   ack: (
     id: string,
     status: 'completed' | 'skipped' | 'photo' | 'note' | 'missed' | 'delayed' | 'challenge_completed' | 'manual',
@@ -515,6 +516,11 @@ export const useGuestStore = create<GuestState>()(
               },
             ],
           }));
+          persistNow();
+        },
+
+        removeLog: (logId) => {
+          set((s) => ({ logs: s.logs.filter((l) => l.id !== logId) }));
           persistNow();
         },
 

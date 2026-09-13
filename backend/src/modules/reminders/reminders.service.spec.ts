@@ -443,6 +443,23 @@ describe('RemindersService ack 状态机（UT-ACK）', () => {
     await expect(service.delay(USER, r2.id, 2.5)).rejects.toThrow(BadRequestException);
   });
 
+  it('UT-ACK-17 撤回执行记录：返还扣减库存并删除日志', async () => {
+    const med = await dataSource.getRepository(Medicine).save(
+      dataSource.getRepository(Medicine).create({
+        id: 'med-ack-17', userId: USER, name: '撤回药', stock: 5, threshold: 1, deductionPerUse: 1,
+      }),
+    );
+    const r = await mkReminder({ category: ReminderCategory.MEDICATION, medicineId: med.id });
+    await service.ack(USER, r.id, { status: ReminderLogStatus.COMPLETED, scheduledTime: SLOT.toISOString() });
+    expect((await dataSource.getRepository(Medicine).findOneByOrFail({ id: med.id })).stock).toBe(4);
+    const log = (await logsOf(r.id))[0];
+    const out = await service.deleteLog(USER, log.id);
+    expect(out.ok).toBe(true);
+    expect(out.restoredStock).toBe(1);
+    expect((await dataSource.getRepository(Medicine).findOneByOrFail({ id: med.id })).stock).toBe(5);
+    expect(await logsOf(r.id)).toHaveLength(0);
+  });
+
   it('UT-ACK-16 替换照片：空串 = 删除照片（photoUrl 清空，记录保留）', async () => {
     const r = await mkReminder();
     await seedLog(r.id, ReminderLogStatus.PHOTO, SLOT, { photoUrl: '/uploads/p.jpg' });

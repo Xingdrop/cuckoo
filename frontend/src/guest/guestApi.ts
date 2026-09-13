@@ -375,7 +375,16 @@ export const guestApi = {
 
   ack(id: string, status: 'completed' | 'skipped' | 'photo' | string, scheduledTime?: string, photoUrl?: string, note?: string) {
     useGuestStore.getState().ack(id, status === 'skipped' ? 'skipped' : (status as 'completed' | 'photo'), scheduledTime, photoUrl, note);
-    return { ok: true, log: { id: `l-${Date.now()}` } };
+    // 返回该槽真实日志 id（供语音撤回）；未匹配时省略（幂等语义）
+    const log = useGuestStore
+      .getState()
+      .logs.find((l) => l.reminderId === id && (!scheduledTime || l.scheduledTime === scheduledTime));
+    return { ok: true, log: log ? { id: log.id } : undefined };
+  },
+
+  removeLog(logId: string) {
+    useGuestStore.getState().removeLog(logId);
+    return { ok: true };
   },
 
   /** #26：替换照片（保留原记录） */

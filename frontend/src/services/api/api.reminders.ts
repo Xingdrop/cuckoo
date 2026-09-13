@@ -107,6 +107,12 @@ export const remindersApi = {
       ? Promise.resolve(guestApi.logs(id, page, pageSize))
       : http.get<Page<ReminderLog>>(`/reminders/${id}/logs`, { params: { page, pageSize } }).then((r) => r.data),
 
+  /** 撤回一条执行记录（Undo：返还扣减的库存并删除日志行） */
+  deleteLog: (logId: string) =>
+    useLocal()
+      ? Promise.resolve(guestApi.removeLog(logId))
+      : http.delete(`/reminders/logs/${logId}`).then((r) => r.data),
+
   /** #26：替换某条日志的照片（保留记录） */
   updateLogPhoto: (logId: string, photoUrl: string) =>
     useLocal()

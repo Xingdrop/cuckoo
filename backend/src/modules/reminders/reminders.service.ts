@@ -810,6 +810,27 @@ export class RemindersService {
     return { ok: true, log: { ...found, photoUrl } };
   }
 
+  /**
+   * 撤回一条执行记录（语音助手 Undo）：返还扣减的库存并删除日志行。
+   * 注：不回退调度推进（循环提醒按既有规则继续触发，撤回仅还原当日记录与库存）。
+   */
+  async deleteLog(userId: string, logId: string) {
+    return this.dataSource.transaction(async (manager) => {
+      const logRepo = manager.getRepository(ReminderLog);
+      const log = await logRepo.findOne({ where: { id: logId, userId } });
+      if (!log) throw new NotFoundException({ code: 'NOT_FOUND', message: '记录不存在' });
+      let restoredStock = 0;
+      if (log.medicineId && (log.stockDeducted ?? 0) > 0) {
+        restoredStock = log.stockDeducted;
+        await manager
+          .getRepository(Medicine)
+          .increment({ id: log.medicineId }, 'stock', restoredStock);
+      }
+      await logRepo.delete({ id: log.id, userId });
+      return { ok: true, restoredStock };
+    });
+  }
+
   /** 某提醒的执行记录（分页） */
   async logs(userId: string, reminderId: string, page = 1, pageSize = 20) {    const [items, total] = await this.logRepo.findAndCount({
       where: { reminderId, userId },

@@ -162,6 +162,12 @@ export class RemindersController {
     return this.remindersService.logs(userId, id, query.page ?? 1, query.pageSize ?? 20);
   }
 
+  @Delete('logs/:logId')
+  @ApiOperation({ summary: '撤回一条执行记录（Undo：返还扣减的库存并删除日志）' })
+  deleteLog(@CurrentUser('sub') userId: string, @Param('logId') logId: string) {
+    return this.remindersService.deleteLog(userId, logId);
+  }
+
   @Post('logs/:logId/photo')
   @ApiOperation({ summary: '#26：替换照片（拍照记录详情页再次拍照）；photoUrl 空串 = 删除照片' })
   replaceLogPhoto(

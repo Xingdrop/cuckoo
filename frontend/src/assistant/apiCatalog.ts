@@ -2,6 +2,7 @@
 import { authApi } from '../services/api/api.auth';
 import { statsApi } from '../services/api/api.stats';
 import { remindersApi, type CreateReminderInput } from '../services/api/api.reminders';
+import { loadVoiceHistory } from '../features/voice/voiceHistory';
 import type { CalendarItem, Reminder } from '../types';
 
 /**
@@ -12,6 +13,12 @@ import type { CalendarItem, Reminder } from '../types';
  * 此前目录只有设置开关与喝水记录，「帮我订一个每天六点的提醒」无法执行。
  */
 
+/** 撤回动作（执行成功后返回，供「撤回上次任务」逆序执行） */
+export interface UndoAction {
+  id: string;
+  params: Record<string, unknown>;
+}
+
 export interface CatalogAction {
   id: string;
   /** 中文能力描述（注入提示词） */
@@ -19,8 +26,10 @@ export interface CatalogAction {
   params?: { name: string; desc: string; values?: string[] }[];
   /** 是否允许 AI 直接执行（否则只说明） */
   exec: boolean;
-  /** 执行函数（接收 AI 给出的 params） */
-  run?: (params: Record<string, unknown>) => Promise<{ ok: boolean; msg: string }>;
+  /** 内部动作：可执行但不注入提示词（供撤回等机制使用） */
+  hidden?: boolean;
+  /** 执行函数（接收 AI 给出的 params）；返回 undo = 撤回本动作的逆操作 */
+  run?: (params: Record<string, unknown>) => Promise<{ ok: boolean; msg: string; undo?: UndoAction[] }>;
 }
 
 /** 当前上下文（注入提示词，让 AI 知道今天日期与当前时刻） */
@@ -200,7 +209,11 @@ export const CATALOG: CatalogAction[] = [
         });
         const rep = repeat === 'once' ? '单次' : repeat === 'daily' ? '每天' : repeat === 'weekly' ? '每周' : '每月';
         notifyDataChanged();
-        return { ok: true, msg: `已创建${rep} ${hhmm} 的「${r.title}」提醒` };
+        return {
+          ok: true,
+          msg: `已创建${rep} ${hhmm} 的「${r.title}」提醒`,
+          undo: [{ id: 'reminder.deleteById', params: { id: r.id } }],
+        };
       } catch (e) {
         return { ok: false, msg: err(e, '创建失败（检查网络或提醒数量上限）') };
       }
@@ -231,9 +244,15 @@ export const CATALOG: CatalogAction[] = [
         scheduledTime = slotIsoToday(r.times[0]);
       }
       try {
-        await remindersApi.ack(r.id, { status: 'completed', scheduledTime });
+        const res = (await remindersApi.ack(r.id, { status: 'completed', scheduledTime })) as {
+          log?: { id?: string };
+        };
         notifyDataChanged();
-        return { ok: true, msg: `「${r.title}」${slot ? ` ${slot.time} ` : ''}已标记完成` };
+        return {
+          ok: true,
+          msg: `「${r.title}」${slot ? ` ${slot.time} ` : ''}已标记完成`,
+          undo: res?.log?.id ? [{ id: 'reminder.log.delete', params: { logId: res.log.id } }] : undefined,
+        };
       } catch (e) {
         return { ok: false, msg: err(e, '完成失败（可能库存不足或网络问题）') };
       }
@@ -295,9 +314,21 @@ export const CATALOG: CatalogAction[] = [
       const r = await findReminder(params?.title);
       if (!r) return { ok: false, msg: `没找到「${String(params?.title ?? '')}」这条提醒` };
       try {
+        // 快照用于撤回（按原字段重建）
+        const snap = {
+          title: r.title,
+          time: r.times && r.times.length > 0 ? r.times[0] : '08:00',
+          repeat: r.repeatRule.type,
+          days: (r.repeatRule.daysOfWeek ?? []).join(','),
+          category: r.category,
+        };
         await remindersApi.remove(r.id);
         notifyDataChanged();
-        return { ok: true, msg: `已删除「${r.title}」` };
+        return {
+          ok: true,
+          msg: `已删除「${r.title}」`,
+          undo: [{ id: 'reminder.create', params: snap }],
+        };
       } catch (e) {
         return { ok: false, msg: err(e, '删除失败') };
       }
@@ -318,7 +349,11 @@ export const CATALOG: CatalogAction[] = [
       try {
         await remindersApi.setActive(r.id, active);
         notifyDataChanged();
-        return { ok: true, msg: `「${r.title}」已${active ? '启用' : '停用'}` };
+        return {
+          ok: true,
+          msg: `「${r.title}」已${active ? '启用' : '停用'}`,
+          undo: [{ id: 'reminder.toggle', params: { title: r.title, value: String(!active) } }],
+        };
       } catch (e) {
         return { ok: false, msg: err(e, '操作失败') };
       }
@@ -417,12 +452,76 @@ export const CATALOG: CatalogAction[] = [
     desc: '社交功能说明：浏览/点赞/收藏/评论/发布动态、加入计划（涉及网络，建议打开社交页操作）',
     exec: false,
   },
+  // ===== 撤回（内部动作 + 语音撤回） =====
+  {
+    id: 'reminder.deleteById',
+    desc: '（内部）按 id 删除提醒',
+    params: [{ name: 'id', desc: '提醒 id', values: [] }],
+    exec: true,
+    hidden: true,
+    run: async (params) => {
+      const id = String(params?.id ?? '');
+      if (!id) return { ok: false, msg: '缺少 id' };
+      try {
+        await remindersApi.remove(id);
+        return { ok: true, msg: '已删除' };
+      } catch (e) {
+        return { ok: false, msg: err(e, '删除失败') };
+      }
+    },
+  },
+  {
+    id: 'reminder.log.delete',
+    desc: '（内部）撤回一条执行记录并返还扣减的库存',
+    params: [{ name: 'logId', desc: '记录 id', values: [] }],
+    exec: true,
+    hidden: true,
+    run: async (params) => {
+      const logId = String(params?.logId ?? '');
+      if (!logId) return { ok: false, msg: '缺少 logId' };
+      try {
+        const r = (await remindersApi.deleteLog(logId)) as { restoredStock?: number };
+        return { ok: true, msg: r?.restoredStock ? `已撤回并返还库存 ${r.restoredStock}` : '已撤回' };
+      } catch (e) {
+        return { ok: false, msg: err(e, '撤回失败') };
+      }
+    },
+  },
+  {
+    id: 'assistant.undoLast',
+    desc: '撤回上一次语音执行的任务（用户说 撤销/撤回/取消刚才的操作 时使用）',
+    exec: true,
+    run: async () => {
+      const rec = loadVoiceHistory().find((r) => (r.undo?.length ?? 0) > 0 && !r.undoneAt);
+      if (!rec) return { ok: false, msg: '没有可撤回的语音任务' };
+      return { ok: true, msg: await undoVoiceRecord(rec.at) };
+    },
+  },
 ];
 
 /** 目录文本（注入提示词） */
+/** 撤回某条已执行的语音任务（逆序执行逆操作并标记） */
+export async function undoVoiceRecord(at: string): Promise<string> {
+  const { loadVoiceHistory, markUndone } = await import('../features/voice/voiceHistory');
+  const rec = loadVoiceHistory().find((r) => r.at === at);
+  if (!rec) return '记录不存在';
+  if (rec.undoneAt) return '该任务已撤回过';
+  const invs = [...(rec.undo ?? [])].reverse();
+  if (invs.length === 0) return '该任务不支持撤回';
+  const msgs: string[] = [];
+  for (const u of invs) {
+    const def = CATALOG.find((c) => c.id === u.id);
+    if (def?.run) {
+      const r = await def.run(u.params);
+      msgs.push(r.msg);
+    }
+  }
+  markUndone(at);
+  return `已撤回：${msgs.join('；')}`;
+}
+
 export function catalogText(): string {
-  return CATALOG.map(
-    (a) =>
-      `- ${a.id}：${a.desc}${a.exec ? '' : '（仅说明，不可执行）'}`,
-  ).join('\n');
+  return CATALOG.filter((a) => !a.hidden)
+    .map((a) => `- ${a.id}：${a.desc}${a.exec ? '' : '（仅说明，不可执行）'}`)
+    .join('\n');
 }

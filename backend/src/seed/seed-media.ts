@@ -124,10 +124,10 @@ function personFront(o: {
     cap(`M ${hx - 8} ${hy + 16} Q ${hx} ${hy + 23} ${hx + 8} ${hy + 16}`, LINE, 4);
 
   const upper =
-    `<rect x="${cx - 8}" y="150" width="16" height="20" rx="6" fill="${SKIN2}"/>` +
     `<path d="M ${cx - 40} 190 Q ${cx} 166 ${cx + 40} 190 L ${cx + 31} 264 Q ${cx} 280 ${cx - 31} 264 Z" fill="${p.shirt}" stroke="${LINE}" stroke-width="5.5" stroke-linejoin="round"/>` +
     arms +
-    `<g transform="rotate(${tilt} ${cx} 176)">${head}</g>`;
+    // 脖子与头部同组倾斜——否则侧倾时头颈分离（2026-09-13 修复）
+    `<g transform="rotate(${tilt} ${cx} 176)"><rect x="${cx - 9}" y="142" width="18" height="34" rx="7" fill="${SKIN2}"/>${head}</g>`;
 
   if (bend !== 0) {
     return `${legs}<g transform="rotate(${bend} ${cx} 292)">${upper}</g>`;
@@ -196,8 +196,8 @@ export function guideIllustrations(): Record<string, string> {
     return frame(
       `${step(n)}
        ${personFront({ cx: 300, pal: 'coral', arm: 'down', tilt, hair: 'short' })}
-       ${dash(`M ${300 + sgn * 104} 84 Q ${300 + sgn * 140} 114 ${300 + sgn * 126} 152`, '#F2825C')}
-       <path d="M ${300 + sgn * 122} 164 L ${300 + sgn * 116} 144 L ${300 + sgn * 134} 148 Z" fill="#F2825C"/>`,
+       ${dash(`M ${300 + sgn * 84} 96 Q ${300 + sgn * 116} 122 ${300 + sgn * 102} 154`, '#F2825C')}
+       <path d="M ${300 + sgn * 98} 166 L ${300 + sgn * 92} 146 L ${300 + sgn * 110} 150 Z" fill="#F2825C"/>`,
     );
   };
 
@@ -264,7 +264,7 @@ export function guideIllustrations(): Record<string, string> {
         const xi = 320 + Math.cos(a) * inner;
         const yi = 300 + Math.sin(a) * inner;
         const xo = 320 + Math.cos(a) * outer;
-        const yo = 300 + Math.sin(a) * outer;
+        const yo = Math.min(300 + Math.sin(a) * outer, 412); // 底部箭头不压文字（label y=452）
         // 收缩：箭头指向中心（头在内端）；放松：箭头指向外（头在外端）
         return contract ? arrowLine(xo, yo, xi, yi, '#C77E3C', 7) : arrowLine(xi, yi, xo, yo, '#C77E3C', 7);
       })
@@ -449,7 +449,7 @@ export function guideIllustrations(): Record<string, string> {
   const standup1 = frame(
     `${step(1)}
      ${personFront({ cx: 280, pal: 'coral', arm: 'clasp', hair: 'bob' })}
-     <path d="M 452 150 L 500 112 L 548 150" stroke="#F2825C" stroke-width="10" stroke-linecap="round" fill="none"/>`,
+     ${arrowLine(436, 330, 436, 200, '#F2825C', 10)}`,
   );
   const standup2 = frame(
     `${step(2)}

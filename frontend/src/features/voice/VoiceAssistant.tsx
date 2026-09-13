@@ -3,7 +3,8 @@ import { Mic, MicOff, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { nativeSpeechAvailable, startDictation, type DictationHandle } from './speechAdapter';
 import { loadAiConfig, runAssistant, executePending, type HistoryTurn } from '../../assistant/assistant';
-import { loadVoiceHistory, pushVoiceRecord, recentVoiceTurns } from './voiceHistory';
+import { loadVoiceHistory, pushVoiceRecordWithUndo, turnsFromRecords, clearVoiceHistory, type VoiceRecord } from './voiceHistory';
+import { undoVoiceRecord } from '../../assistant/apiCatalog';
 
 /**
  * 语音助手入口：底部悬浮「点按说话」按钮。
@@ -67,6 +68,11 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
   /** 语音执行历史面板（今日页头部 🎤按钮 触发） */
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyList, setHistoryList] = useState(loadVoiceHistory);
+  /** 勾选用于「接着说」上下文的记录（at 集合） */
+  const [selectedHist, setSelectedHist] = useState<Set<string>>(new Set());
+  /** 撤回中/清空确认 */
+  const [undoBusyAt, setUndoBusyAt] = useState<string | null>(null);
+  const [clearConfirm, setClearConfirm] = useState(false);
   /** 预案面板「接着说」：追加识别模式（新语音拼接到当前识别文字后，带上下文重解析） */
   const appendModeRef = useRef(false);
   const appendBaseRef = useRef('');
@@ -253,10 +259,11 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
     historyRef.current = historyRef.current.slice(-6);
     // 只记录「已执行」的任务（取消的预案不入库）
     if (plan.actions.length > 0) {
-      pushVoiceRecord({
+      pushVoiceRecordWithUndo({
         text: plan.text,
         understanding: plan.reply || '已按预案执行',
         results: out.steps.filter((st) => st.result).map((st) => `${st.act}=${st.result}`),
+        undo: out.undo ?? [],
       });
     }
     onToast(out.error ? 'AI 执行未完成' : 'AI 已完成调整');
@@ -494,30 +501,91 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
             {historyList.length === 0 ? (
               <p className="py-10 text-center text-sm text-ink-400">还没有执行过语音任务</p>
             ) : (
-              <ul className="mt-3 space-y-2.5">
-                {historyList.map((r, i) => (
-                  <li key={`${r.at}-${i}`} className="rounded-card bg-bg px-3.5 py-3">
-                    <p className="text-[10px] text-ink-400">{new Date(r.at).toLocaleString()}</p>
-                    <p className="mt-1 text-sm font-medium text-ink-800">🎤 {r.text}</p>
-                    <p className="mt-1 text-xs text-primary-700">理解：{r.understanding}</p>
-                    {r.results.map((res, j) => (
-                      <p key={j} className="mt-0.5 text-xs text-ink-500">✅ {res}</p>
-                    ))}
-                  </li>
-                ))}
-              </ul>
+              <>
+                <p className="mt-2 text-[11px] text-ink-400">勾选后「接着说」将只携带所选记录作为上下文</p>
+                <ul className="mt-2 space-y-2.5">
+                  {historyList.map((r: VoiceRecord, i: number) => (
+                    <li key={`${r.at}-${i}`} className={`rounded-card bg-bg px-3.5 py-3 ${r.undoneAt ? 'opacity-55' : ''}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-[10px] text-ink-400">
+                          {new Date(r.at).toLocaleString()}
+                          {r.undoneAt && <span className="ml-1 rounded-full bg-ink-100 px-1.5 py-px text-[9px]">已撤回</span>}
+                        </p>
+                        <label className="flex shrink-0 items-center gap-1 text-[10px] text-ink-500">
+                          <input
+                            type="checkbox"
+                            className="h-3.5 w-3.5 accent-primary-500"
+                            checked={selectedHist.has(r.at)}
+                            onChange={(e) =>
+                              setSelectedHist((prev) => {
+                                const next = new Set(prev);
+                                if (e.target.checked) next.add(r.at);
+                                else next.delete(r.at);
+                                return next;
+                              })
+                            }
+                          />
+                          作上下文
+                        </label>
+                      </div>
+                      <p className="mt-1 text-sm font-medium text-ink-800">🎤 {r.text}</p>
+                      <p className="mt-1 text-xs text-primary-700">理解：{r.understanding}</p>
+                      {r.results.map((res, j) => (
+                        <p key={j} className="mt-0.5 text-xs text-ink-500">✅ {res}</p>
+                      ))}
+                      {(r.undo?.length ?? 0) > 0 && !r.undoneAt && (
+                        <button
+                          onClick={() => {
+                            setUndoBusyAt(r.at);
+                            void undoVoiceRecord(r.at).then((msg) => {
+                              onToast(msg);
+                              setUndoBusyAt(null);
+                              setHistoryList(loadVoiceHistory());
+                            });
+                          }}
+                          disabled={undoBusyAt === r.at}
+                          className="mt-1.5 rounded-full border border-ink-200 px-2.5 py-0.5 text-[10px] text-ink-600 disabled:opacity-40"
+                        >
+                          {undoBusyAt === r.at ? '撤回中…' : '↩ 撤回此任务'}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
-            <button
-              onClick={() => {
-                setHistoryOpen(false);
-                historyRef.current = recentVoiceTurns(3); // 最近 3 条作为上下文
-                toggleRecord();
-              }}
-              disabled={!enabled || !supported}
-              className="mt-4 flex h-11 w-full items-center justify-center gap-1.5 rounded-btn bg-primary-500 text-sm font-medium text-white disabled:opacity-40"
-            >
-              <Mic size={15} /> 接着说（带上历史内容）
-            </button>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => {
+                  const picked = historyList.filter((r) => selectedHist.has(r.at));
+                  historyRef.current = turnsFromRecords(picked.length > 0 ? picked : historyList.slice(0, 3));
+                  setHistoryOpen(false);
+                  toggleRecord();
+                }}
+                disabled={!enabled || !supported}
+                className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-btn bg-primary-500 text-sm font-medium text-white disabled:opacity-40"
+              >
+                <Mic size={15} /> 接着说
+              </button>
+              <button
+                onClick={() => {
+                  if (!clearConfirm) {
+                    setClearConfirm(true);
+                    return;
+                  }
+                  clearVoiceHistory();
+                  setHistoryList([]);
+                  setSelectedHist(new Set());
+                  setClearConfirm(false);
+                  onToast('语音历史已清空');
+                }}
+                className={`flex h-11 shrink-0 items-center justify-center rounded-btn px-3 text-sm font-medium ${
+                  clearConfirm ? 'bg-danger-500 text-white' : 'bg-danger-50 text-danger-700'
+                }`}
+              >
+                {clearConfirm ? '确认清空' : '清空'}
+              </button>
+            </div>
           </div>
         </div>
       )}

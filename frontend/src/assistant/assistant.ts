@@ -43,6 +43,8 @@ export interface AssistantOutcome {
   error?: string;
   /** dryRun 模式：未执行的原始动作（确认后交 executePending） */
   pendingActions?: { id: string; params: Record<string, unknown> }[];
+  /** 已执行动作的撤回信息（逆序执行即撤回；executePending 返回） */
+  undo?: { id: string; params: Record<string, unknown> }[];
 }
 
 /**
@@ -166,6 +168,7 @@ export async function executePending(
   rawText: string,
 ): Promise<AssistantOutcome> {
   const steps: StepReport[] = [{ say: rawText, act: '语音识别', result: '已识别' }];
+  const undo: NonNullable<AssistantOutcome['undo']> = [];
   const { CATALOG } = await import('./apiCatalog');
   for (const a of actions.slice(0, 5)) {
     const def = CATALOG.find((c) => c.id === a.id);
@@ -175,13 +178,14 @@ export async function executePending(
     }
     try {
       const r = await def.run(a.params ?? {});
+      if (r.undo) undo.push(...r.undo);
       steps.push({ say: '', act: def.desc.split('（')[0], result: r.msg });
     } catch (e) {
       steps.push({ say: '', act: a.id, result: `执行失败：${String(e).slice(0, 60)}` });
     }
   }
   if (actions.length === 0) steps.push({ say: '', act: '未执行修改', result: '仅说明' });
-  return { reply: '已按确认完成调整。', steps };
+  return { reply: '已按确认完成调整。', steps, undo };
 }
 
 export function speechSupported(): boolean {

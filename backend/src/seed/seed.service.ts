@@ -60,7 +60,7 @@ export class SeedService implements OnApplicationBootstrap {
   }
 
   /** 插画媒体版本：重生成图片后 bump，URL 带参强制客户端绕过 WebView 图片缓存 */
-  private static readonly MEDIA_V = '20260914a';
+  private static readonly MEDIA_V = '20260914b';
 
   /** 官方计划（PlanTemplate，用户可一键加入）；已存在时按 version 递增更新配置 */
   private async seedPlanTemplates(media: Record<string, string>) {
@@ -79,7 +79,8 @@ export class SeedService implements OnApplicationBootstrap {
     const officeConfig: TemplateReminderConfig[] = [
       { category: 'exercise', title: '久坐起身活动', repeatRule: { type: 'interval', intervalValue: 45, intervalUnit: 'minute' }, content: { text: '每坐 45 分钟起身活动 2~3 分钟：接水/走动，看看远处放松眼睛。', imageUrls: seq('standup-1', 'standup-2', 'eye-care-1') } },
       { category: 'exercise', title: '颈部放松', repeatRule: { type: 'interval', intervalValue: 2, intervalUnit: 'hour' }, content: { text: '颈部后缩（纠正头前倾）：下巴水平后收成"双下巴"，保持 5 秒 × 10 次；再左右侧倾拉伸各 15 秒。', imageUrls: seq('neck-ret-1', 'neck-ret-2') } },
-      { category: 'eye', title: '眼部放松 20-20-20', repeatRule: { type: 'interval', intervalValue: 1, intervalUnit: 'hour' }, content: { text: '每用眼 20 分钟，看 20 英尺（约 6 米）外 20 秒——至少每小时完整做一组。', imageUrls: seq('eye-far', 'eye-close') } },
+      // 2026-09-14（用户）：官方计划的眼部放松改用微运动库同一套 20-20-20 图，避免两处插画说法不一致
+      { category: 'eye', title: '眼部放松 20-20-20', repeatRule: { type: 'interval', intervalValue: 1, intervalUnit: 'hour' }, content: { text: '每用眼 20 分钟，看 20 英尺（约 6 米）外 20 秒——至少每小时完整做一组。', imageUrls: seq('eye-2020-1', 'eye-2020-2') } },
     ];
 
     const medicationConfig: TemplateReminderConfig[] = [
@@ -103,7 +104,7 @@ export class SeedService implements OnApplicationBootstrap {
         title: '办公室健康操',
         description: '久坐族必备：每 45 分钟起身活动 + 每小时护眼 + 每日颈部放松（配跟练图解）。',
         status: PlanTemplateStatus.PUBLISHED,
-        version: 3,
+        version: 4,
         createdBy: 'system',
         mediaUrls: seq('standup-1', 'neck-ret-1', 'eye-care-1'),
         reminderConfig: officeConfig as never,

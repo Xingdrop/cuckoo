@@ -7,6 +7,7 @@ import { RImg, RVideo } from '../components/remoteMedia';
 import { filesApi } from '../services/api/api.files';
 import { isVideoUrl } from '../components/MediaGrid';
 import { compressMediaFile } from '../utils/media';
+import type { ReminderPreset } from '../utils/reminderPreset';
 import { remindersApi } from '../services/api/api.reminders';
 import { medicinesApi } from '../services/api/api.medicines';
 import type { IntervalUnit, Medicine, ReminderCategory, RepeatType } from '../types';
@@ -45,13 +46,35 @@ export function ReminderEditPage() {
   const [searchParams] = useSearchParams();
   /** 从"我的计划"进入时附带 planId（创建提醒归属计划） */
   const planId = searchParams.get('planId');
-  const preset = (location.state as { preset?: { category?: ReminderCategory; title?: string; contentText?: string; contentImage?: string } } | null)?.preset;
+  const preset = (location.state as { preset?: ReminderPreset } | null)?.preset;
 
-  const pickMedia = async (file: File | undefined) => {
-    if (!file) return;
+  /** 媒体上限（与后端 ReminderContentDto 对齐：imageUrls ≤ 9、videoUrl 单条） */
+  const MAX_IMAGES = 9;
+  const MAX_VIDEOS = 1;
+
+  /** 选取媒体（支持一次多选）：图片最多 9 张、视频最多 1 个，超出部分丢弃并提示 */
+  const pickMedia = async (files: File[]) => {
+    if (!files.length) return;
     try {
-      const { url } = await filesApi.upload(await compressMediaFile(file));
-      setReminderMedia((prev) => [...prev.slice(0, 3), url]);
+      const urls: string[] = [];
+      for (const f of files) {
+        const { url } = await filesApi.upload(await compressMediaFile(f));
+        urls.push(url);
+      }
+      const curImgs = reminderMedia.filter((u) => !isVideoUrl(u)).length;
+      const curVids = reminderMedia.filter(isVideoUrl).length;
+      if (curImgs + urls.filter((u) => !isVideoUrl(u)).length > MAX_IMAGES) {
+        setError(`图片最多 ${MAX_IMAGES} 张，超出的已忽略`);
+      } else if (curVids + urls.filter(isVideoUrl).length > MAX_VIDEOS) {
+        setError('视频最多 1 个，超出的已忽略');
+      }
+      setReminderMedia((prev) => {
+        const merged = [...prev, ...urls];
+        return [
+          ...merged.filter((u) => !isVideoUrl(u)).slice(0, MAX_IMAGES),
+          ...merged.filter(isVideoUrl).slice(0, MAX_VIDEOS),
+        ];
+      });
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -98,7 +121,10 @@ export function ReminderEditPage() {
     if (preset.category) setCategory(preset.category);
     if (preset.title) setTitle(preset.title);
     if (preset.contentText) setContentText(preset.contentText);
-    if (preset.contentImage) setReminderMedia([preset.contentImage]);
+    // 组图优先（微运动库动作是多帧跟练图，不能只带首帧）；无组图时退回单图
+    const presetImgs = preset.contentImages?.filter(Boolean) ?? [];
+    if (presetImgs.length) setReminderMedia(presetImgs);
+    else if (preset.contentImage) setReminderMedia([preset.contentImage]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -538,14 +564,25 @@ export function ReminderEditPage() {
               <input
                 type="file"
                 accept="image/*,video/*"
+                multiple
                 className="hidden"
-                onChange={(e) => void pickMedia(e.target.files?.[0])}
+                onChange={(e) => {
+                  // 先取快照再清空 input：否则同一张图重复选择不会再触发 change
+                  const picked = Array.from(e.target.files ?? []);
+                  e.target.value = '';
+                  void pickMedia(picked);
+                }}
               />
             </label>
             {reminderMedia.length > 0 && (
-              <button onClick={() => setReminderMedia([])} className="text-xs text-danger-500">
-                清空
-              </button>
+              <>
+                <span className="text-[11px] text-ink-300">
+                  可多选 · 图片最多 {MAX_IMAGES} 张 · 视频 1 个
+                </span>
+                <button onClick={() => setReminderMedia([])} className="text-xs text-danger-500">
+                  清空
+                </button>
+              </>
             )}
           </div>
           {reminderMedia.length > 0 && (
@@ -568,7 +605,7 @@ export function ReminderEditPage() {
                     <RImg src={u} alt={`媒体 ${i + 1}`} className="h-full w-full object-cover" />
                     <button
                       type="button"
-                      onClick={() => setReminderMedia((prev) => prev.filter((x) => x !== u))}
+                      onClick={() => setReminderMedia((prev) => prev.filter((_, j) => j !== i))}
                       aria-label="移除媒体"
                       className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white"
                     >

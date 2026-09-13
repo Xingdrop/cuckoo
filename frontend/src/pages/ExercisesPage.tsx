@@ -6,6 +6,7 @@ import { ErrorBanner, EmptyState, LoadingState } from '../components/ui/Feedback
 import { exercisesApi } from '../services/api/api.exercises';
 import type { Exercise } from '../services/api/api.exercises';
 import { errorMessage } from '../services/http';
+import { exerciseReminderPreset } from '../utils/reminderPreset';
 import { RImg } from '../components/remoteMedia';
 import { MediaCarousel } from '../components/MediaCarousel';
 
@@ -38,17 +39,8 @@ export function ExercisesPage() {
   }, []);
 
   const addToPlan = (ex: Exercise) => {
-    // 预填内容跳转新建提醒（配图一并带入，提醒触发时可看跟练图）
-    navigate('/reminders/new', {
-      state: {
-        preset: {
-          category: 'exercise',
-          title: ex.name,
-          contentText: `${ex.steps}\n（建议时长 ${ex.durationSeconds} 秒）`,
-          contentImage: ex.imageUrl ?? undefined,
-        },
-      },
-    });
+    // 预填内容跳转新建提醒（组图整组带入，提醒触发时可逐帧跟练）
+    navigate('/reminders/new', { state: { preset: exerciseReminderPreset(ex) } });
   };
 
   return (

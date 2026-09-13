@@ -511,5 +511,13 @@ export async function ensureGuideMedia(uploadDir: string): Promise<Record<string
     }
     urls[name] = `/uploads/guide/${name}.webp`;
   }
+  // AI 生成的额外插画（ARK 重绘）：目录内已有但不在上方 SVG 清单的 webp 一并注册，
+  // 否则 seed 的 img(name) 取不到 → 数据库被写成 null（2026-09-13 眼部图丢失根因）
+  for (const f of fs.readdirSync(outDir)) {
+    if (f.endsWith('.webp')) {
+      const name = f.replace(/\.webp$/, '');
+      if (!urls[name]) urls[name] = `/uploads/guide/${name}.webp`;
+    }
+  }
   return urls;
 }

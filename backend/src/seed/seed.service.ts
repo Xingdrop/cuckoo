@@ -90,7 +90,7 @@ export class SeedService implements OnApplicationBootstrap {
         title: '科学喝水时间表',
         description: '每日 3 个关键时点 × 200ml：晨起空腹、午后补水、晚饭后——少而关键的补水节奏。',
         status: PlanTemplateStatus.PUBLISHED,
-        version: 4,
+        version: 5,
         createdBy: 'system',
         mediaUrls: seq('water-1', 'water-5', 'water-8'),
         reminderConfig: waterConfig as never,

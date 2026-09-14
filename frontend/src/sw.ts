@@ -1,4 +1,4 @@
-/* /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3N3LnRzfDIwMjYtMDl8ZDQ5M2E1NTcxZg== */ */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3N3LnRzfDIwMjYtMDl8ZDQ5M2E1NTcxZg== */
 /// <reference lib="webworker" />
 /**
  * 布谷自定义 Service Worker（FR-204/FR-802 通道 B）。

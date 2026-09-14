@@ -1,4 +1,4 @@
-/* /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9yZW1pbmRlcnMvZHRvL2Fjay1yZW1pbmRlci5kdG8udHN8MjAyNi0wOXxhNDBiNTg2Mzk1 */ */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9yZW1pbmRlcnMvZHRvL2Fjay1yZW1pbmRlci5kdG8udHN8MjAyNi0wOXxhNDBiNTg2Mzk1 */
 import { IsEnum, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 import { ReminderLogStatus } from '../reminder-log.entity';
 

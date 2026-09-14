@@ -1,4 +1,4 @@
-/* /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvdml0ZS5jb25maWcudHN8MjAyNi0wOXxhZmZiNzE2NmU3 */ */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvdml0ZS5jb25maWcudHN8MjAyNi0wOXxhZmZiNzE2NmU3 */
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';

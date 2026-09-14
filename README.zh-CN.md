@@ -1,4 +1,4 @@
-<!-- <!-- @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8UkVBRE1FLnpoLUNOLm1kfDIwMjYtMDl8ZDE4NjU3N2E1MA== --> -->
+<!-- @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8UkVBRE1FLnpoLUNOLm1kfDIwMjYtMDl8ZDE4NjU3N2E1MA== -->
 
 > 🌏 English documentation: [README.md](./README.md) ｜ [![CI](https://github.com/Xingdrop/cuckoo/actions/workflows/ci.yml/badge.svg)](https://github.com/Xingdrop/cuckoo/actions/workflows/ci.yml)
 

@@ -1,4 +1,4 @@
-/* /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3NlcnZpY2VzL2FwaS9hcGkuZmlsZXMudHN8MjAyNi0wOXw2OWVkODQwNDNi */ */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3NlcnZpY2VzL2FwaS9hcGkuZmlsZXMudHN8MjAyNi0wOXw2OWVkODQwNDNi */
 import { http } from '../http';
 
 export interface UploadResult {

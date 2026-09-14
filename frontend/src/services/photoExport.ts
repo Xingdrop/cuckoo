@@ -1,4 +1,4 @@
-/* /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3NlcnZpY2VzL3Bob3RvRXhwb3J0LnRzfDIwMjYtMDl8MDQyZDk1ZDc1Yw== */ */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3NlcnZpY2VzL3Bob3RvRXhwb3J0LnRzfDIwMjYtMDl8MDQyZDk1ZDc1Yw== */
 /**
  * #36（2026-09-10 深夜）：照片导出到手机真实文件。
  * 用户痛点：报告内嵌 base64 照片「找不到文件」——本模块把用户数据里的全部照片

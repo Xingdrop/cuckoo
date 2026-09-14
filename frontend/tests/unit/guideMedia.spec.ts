@@ -1,4 +1,4 @@
-/* /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvdGVzdHMvdW5pdC9ndWlkZU1lZGlhLnNwZWMudHN8MjAyNi0wOXxmMTE1NzcyZmVh */ */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvdGVzdHMvdW5pdC9ndWlkZU1lZGlhLnNwZWMudHN8MjAyNi0wOXxmMTE1NzcyZmVh */
 import { describe, expect, it, vi } from 'vitest';
 
 /** Capacitor 原生判定可控：验证原生端两个地址的分工（服务器→fetch / 随包→<img>） */

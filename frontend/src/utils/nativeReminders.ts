@@ -1,4 +1,4 @@
-/* /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3V0aWxzL25hdGl2ZVJlbWluZGVycy50c3wyMDI2LTA5fDE1MWY2NTRlZjc= */ */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3V0aWxzL25hdGl2ZVJlbWluZGVycy50c3wyMDI2LTA5fDE1MWY2NTRlZjc= */
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import type { Reminder } from '../types';
 

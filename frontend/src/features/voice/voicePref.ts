@@ -1,4 +1,4 @@
-/* /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL2ZlYXR1cmVzL3ZvaWNlL3ZvaWNlUHJlZi50c3wyMDI2LTA5fDNlYWZhZDI3NDk= */ */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL2ZlYXR1cmVzL3ZvaWNlL3ZvaWNlUHJlZi50c3wyMDI2LTA5fDNlYWZhZDI3NDk= */
 /**
  * 语音助手输入方式（2026-09-14 用户）：底部悬浮按钮按「语音识别」还是「直接打字」工作。
  * 仅存本机；设置页与悬浮按钮双向同步（变更时广播 cuckoo:voice-mode）。

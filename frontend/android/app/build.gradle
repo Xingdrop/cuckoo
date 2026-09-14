@@ -1,4 +1,4 @@
-// // @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvYW5kcm9pZC9hcHAvYnVpbGQuZ3JhZGxlfDIwMjYtMDl8NWI0OTQ2MDNhZA==
+// @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvYW5kcm9pZC9hcHAvYnVpbGQuZ3JhZGxlfDIwMjYtMDl8NWI0OTQ2MDNhZA==
 apply plugin: 'com.android.application'
 
 // 发布签名：keystore 凭证放本机根目录 keystore.properties（不入库，见 frontend/.gitignore）。

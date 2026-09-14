@@ -1,4 +1,4 @@
-/* /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvc2VlZC9zZWVkLW1lZGlhLnRzfDIwMjYtMDl8Y2YyMzIxNjUyZg== */ */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvc2VlZC9zZWVkLW1lZGlhLnRzfDIwMjYtMDl8Y2YyMzIxNjUyZg== */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import sharp from 'sharp';

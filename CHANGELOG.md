@@ -3,6 +3,15 @@
 
 本项目遵循 Conventional Commits；本文件仅记录面向用户的重大变更。
 
+## 发布前收尾（2026-09-14，未发版 v0.2.4+）
+
+### 🛠 发布工程
+
+- **Android 发布签名**：新增 `cuckoo-release.jks` 正式签名密钥（凭证不入库，备份见本地安全档案）；`gradlew assembleRelease` 产出正式签名发行包，无凭证的 CI/社区构建自动回退 debug 签名
+- **关闭系统备份**：AndroidManifest `allowBackup=false`——提醒与健康数据不再随系统备份流转
+- **CI 增加 Android 编译门禁**：`assembleDebug` 纳入 GitHub Actions（防 AGP 8 默认不生成 BuildConfig 一类构建事故流到发布）
+- gradle 发行版改官方 URL（此前 wrapper 指向本机 `E:\` 路径，属本机路径泄露，公开仓库已清除）
+
 ## [0.2.4] - 2026-09-14
 
 ### 🔒 安全加固（公开前全面审查后的修复）

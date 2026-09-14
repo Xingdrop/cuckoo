@@ -1,5 +1,5 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2ZlYXR1cmVzL3ZvaWNlL1ZvaWNlQXNzaXN0YW50LnRzeHwyMDI2LTA5fDIwZWY2MmQxZTc= */
-import { Mic, MicOff, X } from 'lucide-react';
+import { Keyboard, Mic, MicOff, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { nativeSpeechAvailable, startDictation, type DictationHandle } from './speechAdapter';
 import { loadAiConfig, runAssistant, executePending, type HistoryTurn } from '../../assistant/assistant';
@@ -25,6 +25,8 @@ interface PlanStep {
   say?: string;
   act?: string;
   result?: string;
+  /** input=输入来源说明（不列为「将要」的动作）；缺省=实际动作 */
+  kind?: 'input' | 'action';
 }
 
 interface Plan {
@@ -76,6 +78,17 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
   /** 预案面板「接着说」：追加识别模式（新语音拼接到当前识别文字后，带上下文重解析） */
   const appendModeRef = useRef(false);
   const appendBaseRef = useRef('');
+  /** 打字模式（2026-09-14 用户）：跳过语音识别，直接打字走同一套「AI 预案 → 确认执行」流程 */
+  const [typeOpen, setTypeOpen] = useState(false);
+  const [typeText, setTypeText] = useState('');
+  /** 本次输入来自打字（预案面板文案随之变化，不再写「识别结果」） */
+  const [typed, setTyped] = useState(false);
+  /** 同上的同步镜像：makePlan/confirmPlan 在 setState 同轮读取，必须用 ref 才是新值 */
+  const typedRef = useRef(false);
+  const markTyped = (v: boolean) => {
+    typedRef.current = v;
+    setTyped(v);
+  };
 
   useEffect(() => {
     setEnabled(loadAiConfig().enabled);
@@ -107,6 +120,7 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
     if (phaseRef.current === 'idle') return;
     goPhase('idle');
     setRecording(false);
+    markTyped(false);
     // onError 路径句柄兜底：识别器可能仍在会话中（watchdog 会静默重开麦克风），
     // 必须显式 stop 释放监听器；正常结束路径 recRef 已被 toggleRecord 置空，此处为 no-op
     const liveHandle = recRef.current;
@@ -118,7 +132,7 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
     }
     const t = (text ?? '').trim();
     if (!t) {
-      onToast('未识别到语音，请再试一次');
+      onToast('未识别到语音，请再试一次，或改用「语音历史 → 打字输入」');
       return;
     }
     void makePlan(t);
@@ -134,7 +148,7 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
     if (phase === 'idle') {
       if (busy) return;
       if (!supported) {
-        onToast('当前环境不支持语音识别（浏览器需 HTTPS；APK 请更新到含语音插件的新版本）');
+        onToast('当前环境不支持语音识别（浏览器需 HTTPS；APK 请更新到含语音插件的新版本）——可在「语音历史 → 打字输入」直接用打字');
         return;
       }
       recRef.current = null;
@@ -174,7 +188,11 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
     setBusy(true);
     setLive(text);
     setEditText(text);
-    const out = await runAssistant(text, { autoRun: false, history: historyRef.current.slice(-6) });
+    const out = await runAssistant(text, {
+      autoRun: false,
+      history: historyRef.current.slice(-6),
+      inputSource: typedRef.current ? 'type' : 'voice',
+    });
     historyRef.current.push(
       { role: 'user', content: text },
       {
@@ -200,6 +218,34 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
     if (busy || !t || t === plan?.text) return;
     setPlan(null);
     await makePlan(t);
+  };
+
+  /**
+   * 打字输入（2026-09-14）：跳过语音识别环节，直接打字交给同一套 AI 预案流程。
+   * 好处：识别不准/环境不支持语音（无 RecognitionService 的 ROM、非 HTTPS 的浏览器）时仍可用助手。
+   * useContext：沿用历史面板里勾选的记录作为多轮上下文（与「接着说」一致，未勾选则取最近 3 条）。
+   */
+  const openTyping = (useContext: boolean) => {
+    if (!enabled) {
+      onToast('AI 助手未开启：设置 → 语音助手 可开启');
+      return;
+    }
+    if (useContext) {
+      const picked = historyList.filter((r) => selectedHist.has(r.at));
+      historyRef.current = turnsFromRecords(picked.length > 0 ? picked : historyList.slice(0, 3));
+    }
+    setHistoryOpen(false);
+    setTypeText('');
+    setTypeOpen(true);
+  };
+
+  const submitTyping = () => {
+    const t = typeText.trim();
+    if (!t || busy) return;
+    setTypeOpen(false);
+    markTyped(true);
+    setLive(t);
+    void makePlan(t);
   };
 
   /** 预案面板「接着说」：新语音追加到识别文字后，带历史上下文重新解析 */
@@ -245,7 +291,7 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
   const confirmPlan = async () => {
     if (!plan || busy) return;
     setBusy(true);
-    const out = await executePending(plan.actions, plan.text);
+    const out = await executePending(plan.actions, plan.text, typedRef.current ? 'type' : 'voice');
     setBusy(false);
     setPlan(null);
     setOutcome(out);
@@ -364,7 +410,9 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
               <X size={16} />
             </button>
           </div>
-          <p className="mt-2 text-[11px] text-ink-400">🎤 识别结果（识别有误可直接改文字后重新解析）</p>
+          <p className="mt-2 text-[11px] text-ink-400">
+            {typed ? '⌨️ 你输入的内容（可直接改文字后重新解析）' : '🎤 识别结果（识别有误可直接改文字后重新解析）'}
+          </p>
           <textarea
             value={editText}
             onChange={(e) => setEditText(e.target.value)}
@@ -392,7 +440,7 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
           </div>
           <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
             {plan.steps
-              .filter((s) => s.act)
+              .filter((s) => s.act && s.kind !== 'input')
               .map((s, i) => (
                 <div key={i} className="rounded-btn bg-bg px-3 py-2 text-xs">
                   <p className="text-ink-700">
@@ -404,7 +452,7 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
                   )}
                 </div>
               ))}
-            {plan.steps.filter((s) => s.act).length === 0 && (
+            {plan.steps.filter((s) => s.act && s.kind !== 'input').length === 0 && (
               <p className="rounded-btn bg-bg px-3 py-2 text-xs text-ink-400">没有匹配到可执行的调整（仅说明）</p>
             )}
           </div>
@@ -568,6 +616,13 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
                 <Mic size={15} /> 接着说
               </button>
               <button
+                onClick={() => openTyping(true)}
+                disabled={!enabled}
+                className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-btn bg-primary-50 text-sm font-medium text-primary-700 disabled:opacity-40"
+              >
+                <Keyboard size={15} /> 打字输入
+              </button>
+              <button
                 onClick={() => {
                   if (!clearConfirm) {
                     setClearConfirm(true);
@@ -584,6 +639,49 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
                 }`}
               >
                 {clearConfirm ? '确认清空' : '清空'}
+              </button>
+            </div>
+            <p className="mt-2 text-[11px] text-ink-400">
+              识别不准或环境不支持语音时，用「打字输入」直接打字，效果与说话一致
+            </p>
+          </div>
+        </div>
+      )}
+      {/* 打字输入面板：跳过语音识别，直走同一套 AI 预案流程 */}
+      {typeOpen && (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/45" onClick={() => setTypeOpen(false)}>
+          <div
+            className="w-full max-w-md rounded-t-card bg-surface p-5 pb-8 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="flex items-center gap-1.5 text-base font-semibold">
+                <Keyboard size={16} /> 打字输入
+              </h3>
+              <button onClick={() => setTypeOpen(false)} aria-label="关闭" className="rounded-full bg-ink-100 p-1.5 text-ink-500">
+                <X size={16} />
+              </button>
+            </div>
+            <p className="mt-1 text-[11px] text-ink-400">用打字代替说话：同样先生成预案，确认后才执行</p>
+            <textarea
+              value={typeText}
+              onChange={(e) => setTypeText(e.target.value)}
+              rows={3}
+              maxLength={200}
+              autoFocus
+              placeholder="例如：明天早上 7 点提醒我喝 200ml 温水"
+              className="mt-2 w-full resize-none rounded-btn border border-ink-100 bg-bg px-3 py-2.5 text-sm text-ink-700 outline-none focus:border-primary-300"
+            />
+            <div className="mt-2 flex gap-2">
+              <button onClick={() => setTypeOpen(false)} className="flex-1 rounded-btn bg-ink-100 py-2.5 text-sm font-medium text-ink-700">
+                取消
+              </button>
+              <button
+                onClick={submitTyping}
+                disabled={!typeText.trim() || busy}
+                className="flex-1 rounded-btn bg-primary-500 py-2.5 text-sm font-medium text-white disabled:opacity-40"
+              >
+                {busy ? '处理中…' : '发送'}
               </button>
             </div>
           </div>

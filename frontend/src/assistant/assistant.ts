@@ -28,13 +28,39 @@ export function saveAiConfig(cfg: AiConfig) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
 }
 
-export interface StepReport {
-  /** 识别/语音文本 */
+/** 参数中文名（预案面板「将要」列表用；未列出的键原样显示） */
+const PARAM_LABEL: Record<string, string> = {
+  title: '标题', time: '时间', times: '时间', repeat: '重复', repeatRule: '重复',
+  days: '星期', daysOfWeek: '星期', category: '分类', amountMl: '水量',
+  text: '内容', note: '备注', date: '日期', minutes: '分钟', duration: '时长',
+  medicineName: '药品', count: '数量', goalMl: '目标', enabled: '启用', planId: '计划',
+};
+
+/** 内部/撤回用参数不展示（对用户无意义） */
+const PARAM_SKIP = new Set(['at', 'id', 'logId', 'reminderId', 'slot', 'scheduledTime', 'undo', 'photoUrl']);
+
+/** 动作参数 → 一行可读预览（供确认面板展示「将要做什么」） */
+export function previewParams(params?: Record<string, unknown>): string {
+  if (!params) return '';
+  const parts: string[] = [];
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === null || v === '' || PARAM_SKIP.has(k)) continue;
+    const val = Array.isArray(v) ? v.join('/') : typeof v === 'object' ? '' : String(v);
+    if (!val) continue;
+    parts.push(`${PARAM_LABEL[k] ?? k}：${val}`);
+    if (parts.length >= 4) break;
+  }
+  return parts.join(' · ');
+}
+
+export interface StepReport {  /** 识别/语音文本 */
   say: string;
   /** 修改动作描述 */
   act: string;
   /** 修改结果 */
   result: string;
+  /** 步骤类型：input=输入来源说明（非待执行动作，确认面板不列为「将要」）；缺省=实际动作 */
+  kind?: 'input' | 'action';
 }
 
 export interface AssistantOutcome {
@@ -59,8 +85,10 @@ export interface HistoryTurn {
 
 export async function runAssistant(
   rawText: string,
-  opts: { autoRun?: boolean; history?: HistoryTurn[] } = { autoRun: true },
+  opts: { autoRun?: boolean; history?: HistoryTurn[]; inputSource?: 'voice' | 'type' } = { autoRun: true },
 ): Promise<AssistantOutcome> {
+  /** 输入来源文案（2026-09-14：新增打字输入，不再一律写「语音识别」） */
+  const inputLabel = opts.inputSource === 'type' ? '打字输入' : '语音识别';
   const cfg = loadAiConfig();
   if (!cfg.apiKey || !cfg.baseUrl) {
     return {
@@ -131,17 +159,28 @@ ${todayReminders.length > 0 ? JSON.stringify(todayReminders) : '（暂无提醒�
     };
   }
 
-  const steps: StepReport[] = [{ say: rawText, act: '语音识别', result: '已识别' }];
+  const steps: StepReport[] = [{ say: rawText, act: inputLabel, result: '已提交', kind: 'input' }];
   const actions = Array.isArray(plan.actions) ? plan.actions : [];
   // dryRun：只返回预案（供用户确认），不执行
   if (opts.autoRun === false) {
+    const pending = actions.slice(0, 5).filter((a): a is { id: string; params: Record<string, unknown> } => {
+      const def = CATALOG.find((c) => c.id === a.id);
+      return Boolean(def?.exec && def.run);
+    });
+    // 预案必须让用户看清"将要做什么"：把每个待执行动作连同参数预览一并列出
+    for (const a of pending) {
+      const def = CATALOG.find((c) => c.id === a.id);
+      steps.push({
+        say: '',
+        act: def ? def.desc.split('（')[0] : a.id,
+        result: previewParams(a.params),
+        kind: 'action',
+      });
+    }
     return {
       reply: plan.reply?.slice(0, 200) ?? '好的，已为你处理。',
       steps,
-      pendingActions: actions.slice(0, 5).filter((a): a is { id: string; params: Record<string, unknown> } => {
-        const def = CATALOG.find((c) => c.id === a.id);
-        return Boolean(def?.exec && def.run);
-      }),
+      pendingActions: pending,
     };
   }
   for (const a of actions.slice(0, 5)) {
@@ -166,8 +205,11 @@ ${todayReminders.length > 0 ? JSON.stringify(todayReminders) : '（暂无提醒�
 export async function executePending(
   actions: { id: string; params: Record<string, unknown> }[],
   rawText: string,
+  inputSource: 'voice' | 'type' = 'voice',
 ): Promise<AssistantOutcome> {
-  const steps: StepReport[] = [{ say: rawText, act: '语音识别', result: '已识别' }];
+  const steps: StepReport[] = [
+    { say: rawText, act: inputSource === 'type' ? '打字输入' : '语音识别', result: '已提交', kind: 'input' },
+  ];
   const undo: NonNullable<AssistantOutcome['undo']> = [];
   const { CATALOG } = await import('./apiCatalog');
   for (const a of actions.slice(0, 5)) {

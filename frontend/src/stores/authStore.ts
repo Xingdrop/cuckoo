@@ -153,6 +153,11 @@ export const useAuthStore = create<AuthState>()(
 
         logout: () => {
           tokenStore.clear();
+          // 安全（2026-09-14）：清掉 SW 缓存的带鉴权 /api 响应，避免共享设备上后一位用户
+          // 离线时命中前一位用户的缓存数据（本地镜像数据集按既有设计保留，供本人离线复用）
+          if (typeof caches !== 'undefined') {
+            void caches.delete('cuckoo-api').catch(() => undefined);
+          }
           set({ user: null });
           localStorage.removeItem('cuckoo_offline_session');
           // 保留本地数据集（下次离线登录可恢复）；退出游客态

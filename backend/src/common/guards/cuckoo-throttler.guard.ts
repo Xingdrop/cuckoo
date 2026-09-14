@@ -12,6 +12,8 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 @Injectable()
 export class CuckooThrottlerGuard extends ThrottlerGuard {
   protected async getTracker(req: Record<string, any>): Promise<string> {
-    return req?.user?.id ? `user:${req.user.id}` : `ip:${req?.ip ?? 'unknown'}`;
+    // JWT payload 字段是 sub（此前的 req.user.id 恒为 undefined，导致已登录请求全按 IP 限流）
+    const uid = req?.user?.sub ?? req?.user?.id;
+    return uid ? `user:${uid}` : `ip:${req?.ip ?? 'unknown'}`;
   }
 }

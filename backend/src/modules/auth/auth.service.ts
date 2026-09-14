@@ -70,28 +70,45 @@ export class AuthService {
   }
 
   /** 登录：校验密码 → 签发 JWT（失败 5 次锁定 15 分钟，UT-AUTH-04） */
-  async login(dto: LoginDto) {
-    this.assertNotLocked(dto.username);
+  async login(dto: LoginDto, ip = '') {
+    this.assertNotLocked(ip, dto.username);
 
     const user = await this.userRepo.findOne({ where: { username: dto.username } });
     if (!user) {
-      this.recordLoginFailure(dto.username);
+      this.recordLoginFailure(ip, dto.username);
       throw new UnauthorizedException({ code: 'UNAUTHORIZED', message: '用户名或密码错误' });
     }
-    const ok = await bcrypt.compare(dto.password, user.passwordHash);
+    // passwordHash 为 select:false（防关系展开外泄），登录时单独窄查取回
+    const cred = await this.userRepo.findOne({
+      where: { id: user.id },
+      select: { id: true, passwordHash: true },
+    });
+    const ok = cred?.passwordHash
+      ? await bcrypt.compare(dto.password, cred.passwordHash)
+      : false;
     if (!ok) {
-      this.recordLoginFailure(dto.username);
+      this.recordLoginFailure(ip, dto.username);
       throw new UnauthorizedException({ code: 'UNAUTHORIZED', message: '用户名或密码错误' });
     }
 
-    this.loginFailures.delete(dto.username);
+    this.loginFailures.delete(this.lockKey(ip, dto.username));
     void this.audit.record('user.login', user.id);
     return this.buildAuthResponse(user);
   }
 
-  /** 登录失败计数：达到上限进入锁定窗口（内存计数，单进程有效） */
-  private assertNotLocked(username: string) {
-    const entry = this.loginFailures.get(username);
+  /**
+   * 登录失败计数：达到上限进入锁定窗口（内存计数，单进程有效）。
+   * 2026-09-14 安全修复：键改为「IP + 账号」——此前只按 username 计数，
+   * 攻击者知道用户名即可用 5 次错密码把目标账号锁死 15 分钟（账号锁定 DoS）。
+   * 注意：ip 传入的是客户端 IP（不限来源时用空串，退化为仅按账号，与旧行为一致）。
+   */
+  private lockKey(ip: string, username: string) {
+    return `${ip}|${username.toLowerCase()}`;
+  }
+
+  private assertNotLocked(ip: string, username: string) {
+    const key = this.lockKey(ip, username);
+    const entry = this.loginFailures.get(key);
     if (!entry) return;
     // 已进入锁定窗口：未过期 → 拒绝登录；已过期 → 清除计数
     if (entry.lockedUntil > 0) {
@@ -101,18 +118,19 @@ export class AuthService {
           HttpStatus.TOO_MANY_REQUESTS,
         );
       }
-      this.loginFailures.delete(username);
+      this.loginFailures.delete(key);
     }
   }
 
-  private recordLoginFailure(username: string) {
-    const entry = this.loginFailures.get(username) ?? { count: 0, lockedUntil: 0 };
+  private recordLoginFailure(ip: string, username: string) {
+    const key = this.lockKey(ip, username);
+    const entry = this.loginFailures.get(key) ?? { count: 0, lockedUntil: 0 };
     entry.count += 1;
     if (entry.count >= LOGIN_MAX_ATTEMPTS) {
       entry.lockedUntil = Date.now() + LOGIN_LOCK_MS;
       entry.count = 0;
     }
-    this.loginFailures.set(username, entry);
+    this.loginFailures.set(key, entry);
   }
 
   private buildAuthResponse(user: User) {

@@ -71,7 +71,8 @@ import { SeedModule } from './seed/seed.module';
       global: true,
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('jwt.secret') ?? 'please-change-me-in-production',
+        // configuration.ts 已在生产环境校验密钥强度；此处不再兜底弱密钥（缺失即启动失败）
+        secret: config.getOrThrow<string>('jwt.secret'),
         signOptions: { expiresIn: (config.get<string>('jwt.expiresIn') ?? '7d') as never },
       }),
     }),

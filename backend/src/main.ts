@@ -28,6 +28,17 @@ async function bootstrap() {
   // 上传文件静态访问（/uploads/xxx.webp）
   app.useStaticAssets(join(process.cwd(), config.get<string>('upload.dir') ?? 'uploads'), {
     prefix: '/uploads/',
+    // 导出报告是服务端拼接的 HTML（含用户可写字段）→ 加 CSP 兜底：
+    // 即使将来某字段漏转义，脚本也被 default-src 'none' 挡住（2026-09-14 安全加固）
+    setHeaders: (res, filePath) => {
+      if (/[/\\]exports[/\\]/.test(filePath)) {
+        res.setHeader(
+          'Content-Security-Policy',
+          "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'",
+        );
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+      }
+    },
   });
 
   if (config.get('env') === 'production') {

@@ -15,6 +15,7 @@ import { Device } from '../notifications/device.entity';
 import { Notification } from '../notifications/notification.entity';
 import { Medicine } from '../medicines/medicine.entity';
 import { Post } from '../social/post.entity';
+import { SensitiveWord } from '../social/sensitive-word.entity';
 import { Interaction } from '../social/interaction.entity';
 import { PlanJoinRecord } from '../social/plan-join-record.entity';
 import { Plan } from '../plans/plan.entity';
@@ -99,7 +100,11 @@ export class UsersService {
       (Array.isArray(arr) ? (arr as Item[]) : []).slice(0, 2000);
     const counts: Record<string, { imported: number; skipped: number }> = {};
 
-    /** 按 id+更新时间合并的通用实现：云端较新跳过，本地较新 upsert（updatedAt 优先，回退 createdAt） */
+    /**
+     * 按 id+更新时间合并的通用实现：云端较新跳过，本地较新 upsert（updatedAt 优先，回退 createdAt）。
+     * 2026-09-14 安全修复：查询与更新**必须带 userId**——此前只按裸 id 查/改，任何人构造
+     * `{ id: <他人帖子id>, updatedAt: 9999 }` 即可改写他人数据（跨租户写入）。
+     */
     const mergeRows = async (
       repo: any,
       items: Item[],
@@ -110,7 +115,15 @@ export class UsersService {
       for (const raw of items) {
         const id = raw.id as string;
         if (!id || typeof id !== 'string') continue;
-        const cloud = await repo.findOne({ where: { id }, withDeleted: true });
+        const cloud = await repo.findOne({ where: { id, userId }, withDeleted: true });
+        if (!cloud) {
+          // 该 id 已属他人：跳过而非覆盖（save 会主键冲突报 500，且等于是存在性预言机）
+          const takenByOther = await repo.findOne({ where: { id }, withDeleted: true });
+          if (takenByOther) {
+            skipped += 1;
+            continue;
+          }
+        }
         const guestAt =
           typeof raw.updatedAt === 'string'
             ? new Date(raw.updatedAt as string).getTime()
@@ -127,7 +140,7 @@ export class UsersService {
           continue;
         }
         if (cloud) {
-          await repo.update({ id }, makeEntity(id, raw));
+          await repo.update({ id, userId }, makeEntity(id, raw));
         } else {
           await repo.save(repo.create(makeEntity(id, raw)));
         }
@@ -253,10 +266,20 @@ export class UsersService {
         plans: delPlans.length,
       } as never;
     }
-    // 帖子
+    // 帖子（导入同样过敏感词过滤，堵住"离线绕过内容审核"）
     if (bundle.posts?.length) {
       const repo = this.dataSource.getRepository(Post);
-      counts.posts = await mergeRows(repo as never, asItems(bundle.posts), (id, raw) => ({
+      const { filterSensitiveWords } = await import('../../common/sensitive-words');
+      const words = await this.dataSource.getRepository(SensitiveWord).find();
+      const wordList = words.map((w) => w.word);
+      const safePosts = asItems(bundle.posts).filter((raw) => {
+        const text = String(raw.content ?? '');
+        return filterSensitiveWords(text, wordList) === text;
+      });
+      if (safePosts.length !== asItems(bundle.posts).length) {
+        counts.postsBlocked = { imported: 0, skipped: asItems(bundle.posts).length - safePosts.length };
+      }
+      counts.posts = await mergeRows(repo as never, safePosts, (id, raw) => ({
         id,
         userId,
         type: String(raw.type ?? 'user_plan'),
@@ -344,7 +367,8 @@ export class UsersService {
         /* 清理失败忽略 */
       }
     }
-    const name = `cuckoo-report-${userId.slice(0, 8)}-${Date.now()}.html`;
+    // 文件名不可猜（原 userId 前 8 位 + 毫秒时间戳可被推导出直链）
+    const name = `cuckoo-report-${randomUUID()}.html`;
     fs.writeFileSync(join(dir, name), await buildHtmlReport(data), 'utf8');
     void this.audit.record('user.export-link', userId, { targetType: 'user', targetId: userId });
     return { url: `/uploads/exports/${name}`, expiresInHours: 24 };
@@ -498,7 +522,10 @@ async function buildHtmlReport(data: ExportBundle): Promise<string> {
           logs7.map(async (l) => {
             const st = LOG_STATUS[l.status] ?? { label: l.status, color: '#374151' };
             const photoHtml = await embedPhoto(l.photoUrl);
-            const extra = [l.note, photoHtml || (l.photoUrl ? '📷 有照片（文件已清理）' : '')].filter(Boolean).join('　');
+            // 安全修复（2026-09-14）：note 是用户可写字段，此前未转义 → 存储型 XSS
+            const extra = [esc(l.note), photoHtml || (l.photoUrl ? '📷 有照片（文件已清理）' : '')]
+              .filter(Boolean)
+              .join('　');
             return [
               esc(fmtLocal(String(l.scheduledTime))),
               esc(reminderTitle.get(String(l.reminderId)) ?? '—'),

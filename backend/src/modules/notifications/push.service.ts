@@ -1,5 +1,5 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8YmFja2VuZC9zcmMvbW9kdWxlcy9ub3RpZmljYXRpb25zL3B1c2guc2VydmljZS50c3wyMDI2LTA5fDRmYTQ0OWUxYjQ= */
-import { Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
@@ -48,6 +48,10 @@ export class PushService {
     dto: { endpoint: string; keysAuth: string; keysP256dh: string; userAgent?: string },
   ): Promise<Device> {
     const existing = await this.deviceRepo.findOne({ where: { endpoint: dto.endpoint } });
+    if (existing && existing.userId !== userId) {
+      // 安全修复（2026-09-14）：endpoint 已属他人时不得回读（否则会泄露其推送订阅密钥）
+      throw new ConflictException({ code: 'CONFLICT', message: '该推送订阅已被占用' });
+    }
     if (existing) {
       // 注意：不能用 save(entity)——TypeORM 1.x 对带 transformer 的列会写入数据库旧值
       await this.deviceRepo.update(

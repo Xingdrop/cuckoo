@@ -168,7 +168,7 @@ export class RemindersService {
     if (query.isActive !== undefined) qb.andWhere('r.isActive = :isActive', { isActive: query.isActive });
     const items = await qb.getMany();
     // 附上计划名（展示"来自 xx 计划"；停用计划仅标记，不影响列表）
-    const plans = await this.plans.nameMap(items.map((r) => r.planId ?? ''));
+    const plans = await this.plans.nameMap(userId, items.map((r) => r.planId ?? ''));
     return items.map((r) => ({
       ...r,
       planName: r.planId ? (plans.get(r.planId) ?? null) : null,

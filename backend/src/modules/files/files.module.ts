@@ -35,8 +35,11 @@ const ALLOWED_EXT = [...IMAGE_EXT, ...VIDEO_EXT];
             cb(null, `${randomUUID()}${extname(file.originalname).toLowerCase()}`);
           },
         }),
-        // 兜底上限 100MB（business 级限制在 controller 按类型收紧：图片 10MB / 视频 60MB）
-        limits: { fileSize: 100 * 1024 * 1024 },
+        // 全局兜底上限（配置项 MAX_FILE_SIZE，默认 10MB）；
+        // 业务级限制在 controller 按类型收紧：图片 10MB / 视频 60MB
+        limits: {
+          fileSize: Number(process.env.MAX_FILE_SIZE ?? '10485760') || 10 * 1024 * 1024,
+        },
         fileFilter: (_req, file, cb) => {
           const ext = extname(file.originalname).toLowerCase();
           const isImage = IMAGE_EXT.includes(ext) && file.mimetype.startsWith('image/');

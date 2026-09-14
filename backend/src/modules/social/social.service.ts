@@ -85,13 +85,17 @@ export class SocialService {
       ? await this.interactionRepo.find({ where: { userId, postId: In(postIds) } })
       : [];
     return {
-      items: items.map((p) => ({
-        ...p,
-        author: { id: p.user.id, username: p.user.username, avatarUrl: p.user.avatarUrl },
+      items: items.map((p) => {
+        // 剔除 user 关系实体：其中 phone/healthGoals/timezone 属他人隐私，仅保留 author 投影
+        const { user: _author, ...rest } = p;
+        return {
+        ...rest,
+        author: { id: _author.id, username: _author.username, avatarUrl: _author.avatarUrl },
         myLiked: myInteractions.some((i) => i.postId === p.id && i.type === InteractionType.LIKE),
         myFavorited: myInteractions.some((i) => i.postId === p.id && i.type === InteractionType.FAVORITE),
         myJoined: myInteractions.some((i) => i.postId === p.id && i.type === InteractionType.JOIN),
-      })),
+        };
+      }),
       total,
       page,
       pageSize,
@@ -115,13 +119,16 @@ export class SocialService {
     const order = new Map(favInteractions.map((i, idx) => [i.postId, idx]));
     const my = await this.interactionRepo.find({ where: { userId, postId: In(postIds) } });
     const items = posts
-      .map((p) => ({
-        ...p,
-        author: { id: p.user.id, username: p.user.username, avatarUrl: p.user.avatarUrl },
+      .map((p) => {
+        const { user: _author, ...rest } = p;
+        return {
+        ...rest,
+        author: { id: _author.id, username: _author.username, avatarUrl: _author.avatarUrl },
         myLiked: my.some((i) => i.postId === p.id && i.type === InteractionType.LIKE),
         myFavorited: true,
         myJoined: my.some((i) => i.postId === p.id && i.type === InteractionType.JOIN),
-      }))
+        };
+      })
       .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
     return { items, total: items.length };
   }
@@ -133,9 +140,10 @@ export class SocialService {
     });
     if (!post) throw new NotFoundException({ code: 'NOT_FOUND', message: '帖子不存在' });
     const my = await this.interactionRepo.find({ where: { userId, postId } });
+    const { user: author, ...rest } = post;
     return {
-      ...post,
-      author: { id: post.user.id, username: post.user.username, avatarUrl: post.user.avatarUrl },
+      ...rest,
+      author: { id: author.id, username: author.username, avatarUrl: author.avatarUrl },
       myLiked: my.some((i) => i.type === InteractionType.LIKE),
       myFavorited: my.some((i) => i.type === InteractionType.FAVORITE),
       myJoined: my.some((i) => i.type === InteractionType.JOIN),
@@ -569,7 +577,8 @@ export class SocialService {
         id: user.id,
         username: user.username,
         avatarUrl: user.avatarUrl,
-        healthGoals: user.healthGoals,
+        // 安全修复（2026-09-14）：健康目标属敏感健康信息，仅本人可见（前端无值即不渲染该区块）
+        healthGoals: viewerId === targetId ? user.healthGoals : null,
         createdAt: user.createdAt,
       },
       followersCount,

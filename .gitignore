@@ -1,24 +1,24 @@
 # @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8LmdpdGlnbm9yZXwyMDI2LTA5fDEzODQxNWY1YWU=
-﻿# ---- 渚濊禆 ----
+# ---- 依赖 ----
 node_modules/
 
-# ---- 鐜涓庡瘑閽ワ紙涓ョ鎻愪氦锛?---
+# ---- 环境与密钥（严禁提交）----
 .env
 *.local
 
-# ---- 鏋勫缓浜х墿 ----
+# ---- 构建产物 ----
 dist/
 build/
 *.tsbuildinfo
 frontend/dev-dist/
 
-# ---- 鏁版嵁涓庝笂浼狅紙杩愯鏃朵骇鐢燂級----
+# ---- 数据与上传（运行时产生）----
 backend/data/
 backend/uploads/
 tools/screenshots/*.png
 tools/screenshots/*-report.md
 
-# ---- 鏃ュ織涓庣郴缁?----
+# ---- 日志与系统 ----
 *.log
 .DS_Store
 Thumbs.db
@@ -30,15 +30,13 @@ Thumbs.db
 # 第三方 MCP 插件（本地工具，不入库）
 Plugin/
 
-# AI/开发辅助文件（不入公开仓库，本地保留）
+# AI/开发辅助文件与内部文档（不入公开仓库，本地保留）
 /.zcode/
 /docs/
 /开始.md
-
-
-/CHANGELOG.md
-
 /tools/
 
 # ---- 测试产物 ----
 test-results/
+coverage/
+playwright-report/

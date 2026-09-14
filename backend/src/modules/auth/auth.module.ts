@@ -19,7 +19,8 @@ import { JwtStrategy } from './jwt.strategy';
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('jwt.secret') ?? 'please-change-me-in-production',
+        // 生产环境密钥强度由 configuration.ts#resolveJwtSecret 保证；此处不兜底弱密钥
+        secret: config.getOrThrow<string>('jwt.secret'),
         signOptions: { expiresIn: (config.get<string>('jwt.expiresIn') ?? '7d') as never },
       }),
     }),

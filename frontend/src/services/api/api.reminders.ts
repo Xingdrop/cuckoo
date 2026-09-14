@@ -42,13 +42,13 @@ export const remindersApi = {
   list: (params?: { category?: string; isActive?: boolean }) =>
     useLocal() ? Promise.resolve(guestApi.list()) : http.get<Reminder[]>('/reminders', { params }).then((r) => r.data),
 
-  /** 浠婃棩姒傝锛氬皢瑙﹀彂 + 宸叉墽琛岋紙鍚鏁帮級 */
+  /** 今日概览：将触发 + 已执行（含次数） */
   today: () =>
     useLocal()
       ? Promise.resolve(guestApi.list() as unknown as TodayReminder[])
       : http.get<TodayReminder[]>('/reminders/today').then((r) => r.data),
 
-  /** 鎸囧畾鏃ユ湡瑙勫垝锛堟棩鏈熷垏鎹㈣鍥撅級 */
+  /** 指定日期规划（日期切换视图） */
   calendar: (date: string) =>
     useLocal()
       ? Promise.resolve(guestApi.calendar(date))

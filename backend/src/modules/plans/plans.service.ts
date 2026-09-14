@@ -255,10 +255,14 @@ export class PlansService {
   }
 
   /** planId → name 映射（提醒列表/看板展示"来自 xx 计划"） */
-  async nameMap(planIds: string[]): Promise<Map<string, string>> {
+  /** 计划名映射（2026-09-14 安全修复：必须按属主过滤，否则可用他人 planId 读出他人计划名） */
+  async nameMap(userId: string, planIds: string[]): Promise<Map<string, string>> {
     const ids = [...new Set(planIds.filter(Boolean))];
     if (!ids.length) return new Map();
-    const plans = await this.planRepo.find({ where: { id: In(ids) }, select: { id: true, name: true } });
+    const plans = await this.planRepo.find({
+      where: { id: In(ids), userId },
+      select: { id: true, name: true },
+    });
     return new Map(plans.map((p) => [p.id, p.name]));
   }
 

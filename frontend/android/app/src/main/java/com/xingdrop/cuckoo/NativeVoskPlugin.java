@@ -231,7 +231,7 @@ public class NativeVoskPlugin extends Plugin implements RecognitionListener {
     public void onPartialResult(String hypothesis) {
         String t = textOf(hypothesis);
         if (t.isEmpty()) return;
-        Log.d(TAG, "partial session=" + session + " text=" + t);
+        if (BuildConfig.DEBUG) Log.d(TAG, "partial session=" + session + " text=" + t);
         emitMatches("partial", t);
     }
 
@@ -239,7 +239,7 @@ public class NativeVoskPlugin extends Plugin implements RecognitionListener {
     public void onResult(String result) {
         // 端点检测出一句完整话：final（session 不变）→ session++，下一句从新会话开始
         String t = textOf(result);
-        Log.d(TAG, "result session=" + session + " text=" + t);
+        if (BuildConfig.DEBUG) Log.d(TAG, "result session=" + session + " text=" + t);
         emitMatches("final", t);
         consecutiveErrors = 0;
         session++;
@@ -249,7 +249,7 @@ public class NativeVoskPlugin extends Plugin implements RecognitionListener {
     public void onFinalResult(String hypothesis) {
         // stop() 后线程退出/超时：最后一段文本，随当前 session 送达
         String t = textOf(hypothesis);
-        Log.d(TAG, "final session=" + session + " text=" + t);
+        if (BuildConfig.DEBUG) Log.d(TAG, "final session=" + session + " text=" + t);
         emitMatches("final", t);
         listening = false;
     }

@@ -111,6 +111,40 @@ describe('SocialService（UT-JOIN）', () => {
     );
   });
 
+  /**
+   * UT-SEC-01（2026-09-14 安全修复）：帖子接口不得泄露作者隐私字段。
+   * 事故：listPosts/favorites/getPost 用 `...p` 展开，连带把 user 关系实体（passwordHash/phone/
+   * healthGoals/timezone）返回给任意登录用户。
+   */
+  it('UT-SEC-01 帖子接口不返回 passwordHash/phone/healthGoals/user 关系', async () => {
+    await userRepo.save(
+      userRepo.create({
+        id: 'user-pii',
+        username: 'pii_user',
+        passwordHash: '$2b$10$secrethash',
+        phone: '13800000000',
+        healthGoals: ['water', 'sleep'],
+      }),
+    );
+    await service.createPost('user-pii', { content: '带隐私字段的帖子' });
+
+    for (const r of [
+      await service.listPosts(USER_B),
+      await service.getPost(USER_B, (await postRepo.findOneOrFail({ where: { userId: 'user-pii' } })).id),
+    ]) {
+      const items = 'items' in r ? r.items : [r];
+      const body = JSON.stringify(items);
+      expect(body).not.toContain('passwordHash');
+      expect(body).not.toContain('secrethash');
+      expect(body).not.toContain('13800000000');
+      expect(body).not.toContain('healthGoals');
+      for (const it of items as Record<string, unknown>[]) {
+        expect(it).not.toHaveProperty('user');
+        expect(it.author).toEqual(expect.objectContaining({ id: 'user-pii', username: 'pii_user' }));
+      }
+    }
+  });
+
   afterAll(async () => {
     await dataSource.destroy();
   });

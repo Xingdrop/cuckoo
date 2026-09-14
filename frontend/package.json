@@ -1,7 +1,7 @@
 {
   "name": "cuckoo-frontend",
   "private": true,
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "布谷 Cuckoo - 智能提醒与健康管理 Web PWA 前端",
   "type": "module",
   "scripts": {
@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
     "@capacitor-community/speech-recognition": "^7.0.1",

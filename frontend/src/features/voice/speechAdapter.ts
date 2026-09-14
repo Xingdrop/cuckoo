@@ -98,7 +98,7 @@ export async function startDictation(handlers: {
     // committed=已完成会话全文累计；current=当前会话文本（事件为会话级全文，替换不追加）；
     // 会话边界（session 号变化）时 current 落账进 committed。
     // #37：引擎可为 NativeSpeech（系统识别）或 NativeVosk（离线模型），事件协议一致
-    console.log('[SR] dictation start, engine=', nativeEngineName);
+    if (import.meta.env.DEV) console.log('[SR] dictation start, engine=', nativeEngineName);
     let committed = '';
     let current = '';
     let currentSession = -1;
@@ -109,7 +109,7 @@ export async function startDictation(handlers: {
     let lastEventAt = Date.now();
     const emitFinal = (t: string) => {
       if (failed) return;
-      console.log('[SR] final:', JSON.stringify(t));
+      if (import.meta.env.DEV) console.log('[SR] final:', JSON.stringify(t));
       handlers.onFinal(t);
     };
     const show = () => handlers.onPartial(`${committed}${current}`);
@@ -145,7 +145,7 @@ export async function startDictation(handlers: {
     let netWarned = false;
     const errorHandle = await engine.addListener('srError', (data: { code: number; consecutive?: number }) => {
       lastEventAt = Date.now();
-      console.log('[SR] native srError code=', data.code, 'consecutive=', data.consecutive);
+      if (import.meta.env.DEV) console.log('[SR] native srError code=', data.code, 'consecutive=', data.consecutive);
       if (data.code === 9 && !failed) {
         failed = true;
         handlers.onError?.('麦克风/语音识别权限被拒绝，请在系统设置中开启');
@@ -164,7 +164,7 @@ export async function startDictation(handlers: {
     const watchdog = setInterval(() => {
       if (active && Date.now() - lastEventAt > 4000) {
         lastEventAt = Date.now();
-        console.log('[SR] watchdog restart');
+        if (import.meta.env.DEV) console.log('[SR] watchdog restart');
         void engine.start({ language: 'zh-CN' }).catch(() => undefined);
       }
     }, 1000);
@@ -174,7 +174,7 @@ export async function startDictation(handlers: {
         await engine.start({ language: 'zh-CN' });
       } catch (e) {
         if (!active || failed) return;
-        console.log('[SR] first start failed, retry:', String(e).slice(0, 80));
+        if (import.meta.env.DEV) console.log('[SR] first start failed, retry:', String(e).slice(0, 80));
         await new Promise((r) => setTimeout(r, 300));
         if (!active || failed) return;
         try {
@@ -192,7 +192,7 @@ export async function startDictation(handlers: {
         // #35：stop 严格一次（VoiceAssistant 竞态路径可能双调）——重复调用不再二次 emitFinal
         if (stopped) return;
         stopped = true;
-        console.log('[SR] dictation stop, committed=', JSON.stringify(committed), 'current=', JSON.stringify(current));
+        if (import.meta.env.DEV) console.log('[SR] dictation stop, committed=', JSON.stringify(committed), 'current=', JSON.stringify(current));
         active = false;
         clearInterval(watchdog);
         // 松手：stopListening 后本会话最终结果经 final 事件送达，留 1.2s 捕获窗

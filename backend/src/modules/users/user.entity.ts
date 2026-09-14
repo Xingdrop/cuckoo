@@ -23,7 +23,8 @@ export class User {
   @Column({ type: 'varchar',  unique: true, nullable: true })
   phone: string | null;
 
-  @Column({ type: 'varchar' })
+  /** select: false —— 默认查询不带出，避免随关系展开泄露（登录处显式 addSelect） */
+  @Column({ type: 'varchar', select: false })
   passwordHash: string;
 
   @Column({ type: 'varchar',  nullable: true })

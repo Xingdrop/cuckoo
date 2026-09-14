@@ -18,7 +18,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: config.get<string>('jwt.secret') ?? 'please-change-me-in-production',
+      // 生产环境密钥强度由 configuration.ts#resolveJwtSecret 保证；此处不兜底弱密钥
+      secretOrKey: config.getOrThrow<string>('jwt.secret'),
     });
   }
 

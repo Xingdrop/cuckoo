@@ -3,7 +3,7 @@ import { http } from '../http';
 import { useLocal } from '../../guest/localMode';
 import { guestApi } from '../../guest/guestApi';
 
-/** 缁熻 API锛團R-701~707锛夆€斺€旀父瀹㈡ā寮忚蛋鏈湴閫傞厤灞?*/
+/** 统计 API（FR-701~707）——游客模式走本地适配层 */
 export interface DashboardStats {
   date: string;
   planned: number;
@@ -15,7 +15,7 @@ export interface DashboardStats {
   water: WaterInfo;
 }
 
-/** #4锛氭煇鏃ュ枬姘寸粺璁★紙鎸夌敤鎴锋椂鍖烘棩鐣岀嫭绔嬶級 */
+/** #4：某日喝水统计（按用户时区日界独立） */
 export interface WaterInfo {
   date: string;
   waterMl: number;
@@ -47,13 +47,13 @@ export const statsApi = {
       ? Promise.resolve(guestApi.trend(days))
       : http.get<DayStat[]>('/stats/trend', { params: { days } }).then((r) => r.data),
 
-  /** 鏌愭棩鍠濇按缁熻锛堢己鐪佷粖澶╋級 */
+  /** 某日喝水统计（缺省今天） */
   waterInfo: (date?: string) =>
     useLocal()
       ? Promise.resolve(guestApi.waterInfo(date))
       : http.get<WaterInfo>('/stats/water', { params: { date } }).then((r) => r.data),
 
-  /** 鎵嬪姩璁板綍鍠濇按锛?4锛氬彲鎸囧畾鏃ユ湡锛岄粯璁や粖澶╋級 */
+  /** 手动记录喝水（#4：可指定日期，默认今天） */
   water: (amountMl: number, date?: string) =>
     useLocal()
       ? Promise.resolve(guestApi.water(amountMl))

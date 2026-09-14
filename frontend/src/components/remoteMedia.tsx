@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2NvbXBvbmVudHMvcmVtb3RlTWVkaWEudHN4fDIwMjYtMDl8YzIzNDQ1ZjcxNw== */
+/* /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL2NvbXBvbmVudHMvcmVtb3RlTWVkaWEudHN4fDIwMjYtMDl8YzIzNDQ1ZjcxNw== */ */
 /**
  * 2026-09-08 真机修复（图片全挂根因）：部分 Android WebView（ColorOS/Android 16 实测）
  * 对 https://localhost 页面里的 http:// 跨源 <img>/<video> 请求会按 mixed-content 硬拦截

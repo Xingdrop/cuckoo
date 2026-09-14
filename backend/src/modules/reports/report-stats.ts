@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8YmFja2VuZC9zcmMvbW9kdWxlcy9yZXBvcnRzL3JlcG9ydC1zdGF0cy50c3wyMDI2LTA5fDJhOWZkNTE5MDI= */
+/* /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9yZXBvcnRzL3JlcG9ydC1zdGF0cy50c3wyMDI2LTA5fDJhOWZkNTE5MDI= */ */
 /**
  * 周报/月报聚合纯函数（便于单测，UT-STAT-08 周报对比）。
  * 输入为 dayPlan 结构（reminders.service#dayPlan 的 items）。

@@ -1,4 +1,4 @@
-// @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvYW5kcm9pZC9zZXR0aW5ncy5ncmFkbGV8MjAyNi0wOXxlYjY0ZTQ4MzA4
+// // @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvYW5kcm9pZC9zZXR0aW5ncy5ncmFkbGV8MjAyNi0wOXxlYjY0ZTQ4MzA4
 include ':app'
 include ':capacitor-cordova-android-plugins'
 project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')

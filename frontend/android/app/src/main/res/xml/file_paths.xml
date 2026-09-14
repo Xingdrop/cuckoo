@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvYW5kcm9pZC9hcHAvc3JjL21haW4vcmVzL3htbC9maWxlX3BhdGhzLnhtbHwyMDI2LTA5fDQ1MTkyYTJkMmQ= -->
+<!-- <!-- @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvYW5kcm9pZC9hcHAvc3JjL21haW4vcmVzL3htbC9maWxlX3BhdGhzLnhtbHwyMDI2LTA5fDQ1MTkyYTJkMmQ= --> -->
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <external-path name="my_images" path="." />
     <cache-path name="my_cache_images" path="." />

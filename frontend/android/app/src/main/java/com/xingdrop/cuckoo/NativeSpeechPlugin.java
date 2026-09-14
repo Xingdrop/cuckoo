@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvYW5kcm9pZC9hcHAvc3JjL21haW4vamF2YS9jb20veGluZ2Ryb3AvY3Vja29vL05hdGl2ZVNwZWVjaFBsdWdpbi5qYXZhfDIwMjYtMDl8ZDEzMzQ5NjRlOQ== */
+/* /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvYW5kcm9pZC9hcHAvc3JjL21haW4vamF2YS9jb20veGluZ2Ryb3AvY3Vja29vL05hdGl2ZVNwZWVjaFBsdWdpbi5qYXZhfDIwMjYtMDl8ZDEzMzQ5NjRlOQ== */ */
 package com.xingdrop.cuckoo;
 
 import android.Manifest;

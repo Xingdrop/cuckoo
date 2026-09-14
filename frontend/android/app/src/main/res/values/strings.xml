@@ -1,10 +1,10 @@
 <?xml version='1.0' encoding='utf-8'?>
-<!-- @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvYW5kcm9pZC9hcHAvc3JjL21haW4vcmVzL3ZhbHVlcy9zdHJpbmdzLnhtbHwyMDI2LTA5fGUyOGViOGY0N2Q= -->
+<!-- <!-- @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvYW5kcm9pZC9hcHAvc3JjL21haW4vcmVzL3ZhbHVlcy9zdHJpbmdzLnhtbHwyMDI2LTA5fGUyOGViOGY0N2Q= --> -->
 <resources>
     <string name="app_name">布谷Cuckoo</string>
     <string name="title_activity_main">布谷Cuckoo</string>
     <string name="package_name">com.xingdrop.cuckoo</string>
     <string name="custom_url_scheme">com.xingdrop.cuckoo</string>
     <!-- 版权溯源签名（勿删）：token 可公开可见，伪造无意义（HMAC 校验由授权方持有） -->
-    <string name="sdrop_signature" translatable="false">SKEY_5biD6LC3KEN1Y2tvbyl8YXBrL3N0cmluZ3MueG1sfDIwMjYtMDl8OWEyMDQyOWVhNw==</string>
+    <string name="sdrop_signature" translatable="false">SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YXBrL3N0cmluZ3MueG1sfDIwMjYtMDl8OWEyMDQyOWVhNw==</string>
 </resources>

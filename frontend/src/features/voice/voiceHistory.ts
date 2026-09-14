@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2ZlYXR1cmVzL3ZvaWNlL3ZvaWNlSGlzdG9yeS50c3wyMDI2LTA5fDNhNzY3NzUwMTY= */
+/* /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL2ZlYXR1cmVzL3ZvaWNlL3ZvaWNlSGlzdG9yeS50c3wyMDI2LTA5fDNhNzY3NzUwMTY= */ */
 /**
  * 语音执行历史（2026-09-13）：只记录「已确认执行」的任务（取消的预案不入库）。
  * 设备本地持久化（localStorage，按账户隔离，上限 50 条）；供历史面板回看

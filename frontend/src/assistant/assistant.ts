@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvc3JjL2Fzc2lzdGFudC9hc3Npc3RhbnQudHN8MjAyNi0wOXw3NDM0N2Y1MjIw */
+/* /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL2Fzc2lzdGFudC9hc3Npc3RhbnQudHN8MjAyNi0wOXw3NDM0N2Y1MjIw */ */
 /**
  * #26：AI 助手——配置（本地保密存储，key 不上传服务器）与编排：
  * 语音文本 + API 目录 + 上下文 → 用户自配的 OpenAI 兼容接口 → JSON 动作 → 本地执行并逐条汇报。

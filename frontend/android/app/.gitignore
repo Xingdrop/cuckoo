@@ -1,4 +1,4 @@
-# @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8ZnJvbnRlbmQvYW5kcm9pZC9hcHAvLmdpdGlnbm9yZXwyMDI2LTA5fDMzNGZhNThhZGU=
+# # @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvYW5kcm9pZC9hcHAvLmdpdGlnbm9yZXwyMDI2LTA5fDMzNGZhNThhZGU=
 /build/*
 !/build/.npmkeep
 # #37：Vosk 离线语音模型（42MB 二进制，构建时下载；勿入公开仓库）

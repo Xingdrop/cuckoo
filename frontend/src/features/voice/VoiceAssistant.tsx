@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { nativeSpeechAvailable, startDictation, type DictationHandle } from './speechAdapter';
 import { loadAiConfig, runAssistant, executePending, type HistoryTurn } from '../../assistant/assistant';
 import { loadVoiceHistory, pushVoiceRecordWithUndo, turnsFromRecords, clearVoiceHistory, type VoiceRecord } from './voiceHistory';
+import { VOICE_MODE_EVENT, loadInputMode, saveInputMode, type VoiceInputMode } from './voicePref';
 import { undoVoiceRecord } from '../../assistant/apiCatalog';
 
 /**
@@ -89,6 +90,8 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
     typedRef.current = v;
     setTyped(v);
   };
+  /** 底部按钮的工作方式：语音识别 / 直接打字（设置页与按钮右侧小键盘双向切换，仅存本机） */
+  const [inputMode, setInputMode] = useState<VoiceInputMode>(loadInputMode);
 
   useEffect(() => {
     setEnabled(loadAiConfig().enabled);
@@ -103,9 +106,13 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
       setHistoryList(loadVoiceHistory());
       setHistoryOpen(true);
     };
+    // 设置页改了输入方式 → 悬浮按钮实时跟随（无需重载页面）
+    const onMode = (e: Event) => setInputMode((e as CustomEvent<VoiceInputMode>).detail ?? loadInputMode());
     window.addEventListener('cuckoo:voice-history', openHist);
+    window.addEventListener(VOICE_MODE_EVENT, onMode);
     return () => {
       window.removeEventListener('cuckoo:voice-history', openHist);
+      window.removeEventListener(VOICE_MODE_EVENT, onMode);
       // 卸载兜底：停录音
       goPhase('idle');
       const h = recRef.current;
@@ -317,22 +324,49 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
 
   return (
     <>
-      <button
-        aria-label="语音助手（点按说话）"
-        onClick={toggleRecord}
-        onContextMenu={(e) => e.preventDefault()}
-        style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
-        className={`fixed bottom-20 left-1/2 z-40 flex -translate-x-1/2 select-none items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-medium shadow-md ${
-          recording
-            ? 'animate-pulse border-danger-500 bg-danger-500 text-white'
-            : enabled
-              ? 'border-ink-100 bg-surface/95 text-primary-700'
-              : 'border-ink-100 bg-surface/70 text-ink-300'
-        }`}
-      >
-        {recording ? <MicOff size={13} /> : <Mic size={13} />}
-        {recording ? '点击结束' : enabled ? '点按说话' : '语音助手（未开启）'}
-      </button>
+      <div className="pointer-events-none fixed bottom-20 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5">
+        <button
+          aria-label={inputMode === 'type' ? '语音助手（点按打字）' : '语音助手（点按说话）'}
+          onClick={inputMode === 'type' ? () => openTyping(false) : toggleRecord}
+          onContextMenu={(e) => e.preventDefault()}
+          style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
+          className={`pointer-events-auto flex select-none items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-medium shadow-md ${
+            recording
+              ? 'animate-pulse border-danger-500 bg-danger-500 text-white'
+              : enabled
+                ? 'border-ink-100 bg-surface/95 text-primary-700'
+                : 'border-ink-100 bg-surface/70 text-ink-300'
+          }`}
+        >
+          {inputMode === 'type' ? <Keyboard size={13} /> : recording ? <MicOff size={13} /> : <Mic size={13} />}
+          {inputMode === 'type'
+            ? enabled
+              ? '点按打字'
+              : '语音助手（未开启）'
+            : recording
+              ? '点击结束'
+              : enabled
+                ? '点按说话'
+                : '语音助手（未开启）'}
+        </button>
+        {/* 输入方式切换：语音 ⇄ 打字（仅存本机；设置页同一开关） */}
+        <button
+          aria-label={inputMode === 'type' ? '改为语音输入' : '改为打字输入'}
+          onClick={() => {
+            if (phaseRef.current !== 'idle') {
+              onToast('录音中，请先点按结束');
+              return;
+            }
+            const next: VoiceInputMode = inputMode === 'type' ? 'voice' : 'type';
+            saveInputMode(next);
+            setInputMode(next);
+            onToast(next === 'type' ? '已改为「打字输入」：点按底部按钮直接打字' : '已改为「点按说话」');
+          }}
+          className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full border border-ink-100 bg-surface/95 text-ink-500 shadow-md"
+        >
+          {inputMode === 'type' ? <Mic size={13} /> : <Keyboard size={13} />}
+        </button>
+      </div>
 
       {/* 语音全流程全屏反馈：starting/recording/stopping/AI 解析 各阶段不同动画。
           pointer-events-none 不拦截点按——底部按钮仍是唯一停止控件 */}
@@ -684,6 +718,23 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
                 {busy ? '处理中…' : '发送'}
               </button>
             </div>
+            {inputMode === 'type' ? (
+              <button
+                onClick={() => {
+                  saveInputMode('voice');
+                  setInputMode('voice');
+                  setTypeOpen(false);
+                  onToast('已改回「点按说话」');
+                }}
+                className="mt-2 w-full text-center text-[11px] text-ink-400 underline"
+              >
+                改回点按说话（底部按钮恢复语音识别）
+              </button>
+            ) : (
+              <p className="mt-2 text-center text-[11px] text-ink-400">
+                想让底部按钮一直用打字？点它右侧的小键盘图标即可切换
+              </p>
+            )}
           </div>
         </div>
       )}

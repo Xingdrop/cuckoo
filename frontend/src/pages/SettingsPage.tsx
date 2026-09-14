@@ -11,6 +11,7 @@ import { appApi, type AppApkInfo } from '../services/api/api.app';
 import { loadAiConfig, saveAiConfig } from '../assistant/assistant';
 import { refreshApiBase, absoluteUrl } from '../services/http';
 import { errorMessage } from '../services/http';
+import { loadInputMode, saveInputMode, type VoiceInputMode } from '../features/voice/voicePref';
 import { exportPhotosToPhone } from '../services/photoExport';
 import { RImg } from '../components/remoteMedia';
 import { useAuthStore } from '../stores/authStore';
@@ -112,6 +113,8 @@ export function SettingsPage() {
   const [confirmClearGuest, setConfirmClearGuest] = useState(false);
   /** #26：AI 助手配置（本地保密存储） */
   const [ai, setAi] = useState(() => loadAiConfig());
+  /** 底部语音按钮方式：语音识别 / 直接打字（仅存本机，与悬浮按钮实时同步） */
+  const [inputMode, setInputMode] = useState<VoiceInputMode>(loadInputMode);
   /** AI 测试连接结果（居中弹窗展示，不用顶部提示） */
   const [aiTestResult, setAiTestResult] = useState<string | null>(null);
   /** #26：服务器地址输入 */
@@ -438,6 +441,37 @@ export function SettingsPage() {
               setNotice(v ? '语音助手已开启（可在今日页点按唤醒）' : '语音助手已关闭');
             }}
           />
+          <div className="px-4 py-3">
+            <p className="text-sm">底部按钮方式</p>
+            <p className="mt-0.5 text-xs text-ink-500">
+              「语音识别」=点按说话；「打字输入」=点按弹出键盘直接打字（识别不准或环境不支持语音时用这个）。
+              两种方式都会先生成预案、确认后才执行；底部按钮右侧小图标也能随时切换。
+            </p>
+            <div className="mt-2 flex gap-2">
+              {(
+                [
+                  { v: 'voice' as const, label: '🎤 点按说话' },
+                  { v: 'type' as const, label: '⌨️ 点按打字' },
+                ]
+              ).map((o) => (
+                <button
+                  key={o.v}
+                  type="button"
+                  aria-pressed={inputMode === o.v}
+                  onClick={() => {
+                    saveInputMode(o.v);
+                    setInputMode(o.v);
+                    setNotice(o.v === 'type' ? '已改为打字输入：底部按钮点按弹出键盘' : '已改为语音识别：底部按钮点按说话');
+                  }}
+                  className={`rounded-btn px-3 py-2 text-xs font-medium ${
+                    inputMode === o.v ? 'bg-primary-500 text-white' : 'bg-bg text-ink-600'
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="px-4 py-3">
             <label className="text-xs text-ink-500">AI API 地址（OpenAI 兼容，如 https://api.openai.com/v1 ）</label>
             <input

@@ -227,11 +227,23 @@ public class NativeVoskPlugin extends Plugin implements RecognitionListener {
         notifyListeners(event, ret);
     }
 
+
+    /** 仅调试包输出识别文本日志（release 包不落 logcat，语音内容属隐私）。
+     *  不用 BuildConfig：AGP 8 默认不生成该类。 */
+    private boolean debugLogs() {
+        try {
+            return (getContext().getApplicationInfo().flags
+                & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     @Override
     public void onPartialResult(String hypothesis) {
         String t = textOf(hypothesis);
         if (t.isEmpty()) return;
-        if (BuildConfig.DEBUG) Log.d(TAG, "partial session=" + session + " text=" + t);
+        if (debugLogs()) Log.d(TAG, "partial session=" + session + " text=" + t);
         emitMatches("partial", t);
     }
 
@@ -239,7 +251,7 @@ public class NativeVoskPlugin extends Plugin implements RecognitionListener {
     public void onResult(String result) {
         // 端点检测出一句完整话：final（session 不变）→ session++，下一句从新会话开始
         String t = textOf(result);
-        if (BuildConfig.DEBUG) Log.d(TAG, "result session=" + session + " text=" + t);
+        if (debugLogs()) Log.d(TAG, "result session=" + session + " text=" + t);
         emitMatches("final", t);
         consecutiveErrors = 0;
         session++;
@@ -249,7 +261,7 @@ public class NativeVoskPlugin extends Plugin implements RecognitionListener {
     public void onFinalResult(String hypothesis) {
         // stop() 后线程退出/超时：最后一段文本，随当前 session 送达
         String t = textOf(hypothesis);
-        if (BuildConfig.DEBUG) Log.d(TAG, "final session=" + session + " text=" + t);
+        if (debugLogs()) Log.d(TAG, "final session=" + session + " text=" + t);
         emitMatches("final", t);
         listening = false;
     }

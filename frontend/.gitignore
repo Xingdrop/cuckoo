@@ -10,7 +10,7 @@ android/app/build/
 android/app/src/main/assets/public/
 android/capacitor-cordova-android-plugins/build/
 android/.idea/
-# 发布签名密钥与凭证（严禁入库；本机 keystore.properties + app/cuckoo-release.jks，备份见 E:\ASEE\项目\开发\项目信息\Prg-2 布谷\）
+# 发布签名密钥与凭证（严禁入库）：cuckoo-release.jks 与 keystore.properties 仅存本机安全备份
 android/keystore.properties
 android/**/*.jks
 android/**/*.keystore

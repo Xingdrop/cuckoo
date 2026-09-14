@@ -14,7 +14,9 @@ frontend/dev-dist/
 
 # ---- 数据与上传（运行时产生）----
 backend/data/
-backend/uploads/
+backend/uploads/*
+# 官方计划插图随仓库分发（用户上传的照片仍忽略，不入库）
+!backend/uploads/guide/
 tools/screenshots/*.png
 tools/screenshots/*-report.md
 

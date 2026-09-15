@@ -12,7 +12,7 @@ import { loginSchema, registerSchema } from '../types/schemas';
 
 /**
  * P-02 登录/注册（FR-101/102）
- * 登录成功 → 跳转 /today；#17：未联网时支持「离线账户」本地密码校验（APK 预置）。
+ * 登录成功 → 跳转 /today。
  */
 export function LoginPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -32,7 +32,7 @@ export function LoginPage() {
   const [params] = useSearchParams();
   void params; // redirect 已废弃：登录后统一进入 /today（#2）
 
-  // 仅当会话有效（token 存在）时才跳过登录页；#17：种子账户不再自动登录
+  // 仅当会话有效（token 存在）时才跳过登录页
   if (user && tokenStore.get()) {
     return <Navigate to="/today" replace />;
   }
@@ -51,7 +51,7 @@ export function LoginPage() {
     }
     // online 初始为 false、探测异步进行——先等探测出结果再拦（防冷启动注册被误判离线）
     if (mode === 'register' && !(await useConnectionStore.getState().ensureChecked())) {
-      setError('注册需要联网；当前可登录预置离线账户（本地校验）');
+      setError('注册需要联网，请先连接服务器');
       return;
     }
     setSubmitting(true);
@@ -87,7 +87,7 @@ export function LoginPage() {
         <div className="mt-6 flex items-center gap-2 rounded-btn bg-warning-500/15 px-3.5 py-2.5 text-xs text-ink-700">
           <WifiOff size={14} className="shrink-0 text-warning-500" />
           <span>
-            当前未联网——可使用预置离线账户（本地密码校验）在完全离线下使用今日 / 提醒 / 统计 / 管理功能；联网后数据自动同步。
+            当前未联网——登录/注册需要连接服务器；可先以游客身份体验，数据仅存本机，联网登录后自动合并。
           </span>
         </div>
       )}
@@ -187,7 +187,7 @@ export function LoginPage() {
           <p className="mt-1.5 text-[11px] leading-relaxed text-ink-500">
             {hasDefault
               ? '已内置默认服务器地址（与开发者电脑同一 WiFi 时自动可用）；如有改动可在此覆盖'
-              : '与电脑同一 WiFi：填写电脑后端地址后即可登录/注册；游客模式与离线账户无需联网'}
+              : '与电脑同一 WiFi：填写电脑后端地址后即可登录/注册；游客模式无需联网'}
           </p>
         </div>
       )}
@@ -214,9 +214,8 @@ export function LoginPage() {
         </div>
         <button
           onClick={() => {
-            // #21：游客 = 本地账户——直接进入与离线账户一模一样的 /today 界面
+            // #21：游客 = 本地账户——数据仅存本机（官方模板/微运动来自内容包，启动时已预加载）
             useGuestStore.getState().activate();
-            void import('../guest/seed').then((m) => m.seedGuestSocialCache());
             navigate('/today', { replace: true });
           }}
           className="mt-4 flex w-full items-center gap-3 rounded-card border border-primary-100 bg-primary-50/50 px-4 py-3.5 text-left transition-colors hover:bg-primary-50"

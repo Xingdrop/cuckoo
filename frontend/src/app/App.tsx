@@ -144,8 +144,8 @@ export function App() {
 
   useEffect(() => {
     void init();
-    // #16/#17：APK 预置离线种子只加载+校验（不自动登录）；登录后本地校验密码进入离线模式
-    void import('../guest/seed').then((m) => m.bootstrapSeed());
+    // #17：游客内容包（官方模板/微运动，无用户数据）启动预加载；旧版预置种子缓存一并清除
+    void import('../guest/guestContent').then((m) => m.bootstrapGuestContent());
     // #10（2026-09-09）：APK 启动即初始化通知渠道/权限（拒绝时提示，避免后台通知静默失效）
     void import('../utils/nativeReminders').then((m) => m.initNativeNotifications());
     // 联网检测（服务器健康检查）

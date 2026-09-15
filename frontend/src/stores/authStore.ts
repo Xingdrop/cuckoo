@@ -25,55 +25,20 @@ const isNetworkError = (e: unknown): boolean =>
   axios.isAxiosError(e) && !e.response;
 
 /**
- * 认证状态（#17）：
+ * 认证状态：
  * - 在线：服务器校验（登录/注册），成功后镜像全量数据到本地（断网可用）
- * - 离线：本地密码校验（APK 预置种子账户）→ "已登录但未联网"状态（token 为空）
+ * - 未联网：拒绝登录/注册（可先以游客身份体验，数据仅存本机）
  */
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => {
-      /** 离线登录：种子账户本地校验（bcrypt），成功后导入本地数据集 */
-      const offlineLogin = async (username: string, password: string): Promise<void> => {
-        const { verifyOfflineLogin, seedIssue } = await import('../guest/seed');
-        const r = await verifyOfflineLogin(username, password);
-        if (!r) {
-          // #24：区分「密码错误」与「离线种子缺失/损坏」——手机无法登录时给出明确指引
-          const issue = await seedIssue();
-          throw new Error(issue ?? '用户名或密码错误');
-        }
-        tokenStore.clear();
-        set({ user: r.user });
-        const g = useGuestStore.getState();
-        g.deactivate();
-        g.seedDataset(r.dataset, r.user.id);
-        localStorage.setItem(
-          'cuckoo_offline_session',
-          JSON.stringify({ user: r.user, at: Date.now() }),
-        );
-      };
-
       return {
         user: null,
         initialized: false,
 
         init: async () => {
-          // 无 token：恢复「离线登录」会话（含种子账户）——以本地镜像存在 + 缓存资料为凭
+          // 无 token = 无会话：清掉 persist 残留的 user 避免死循环（旧版离线种子账户机制已移除）
           if (!tokenStore.get()) {
-            try {
-              const raw = localStorage.getItem('cuckoo_offline_session');
-              const current = get().user;
-              const g = useGuestStore.getState();
-              if (raw && current && g.mirrorOf !== null) {
-                const cached = JSON.parse(raw) as { user: User };
-                if (cached.user && cached.user.id === current.id) {
-                  set({ initialized: true });
-                  return;
-                }
-              }
-            } catch {
-              /* 缓存损坏忽略 */
-            }
-            // 会话失效（token 已清但 persist 仍残留 user）→ 同步清 user，避免死循环
             if (get().user) set({ user: null });
             set({ initialized: true });
             return;
@@ -100,10 +65,9 @@ export const useAuthStore = create<AuthState>()(
 
         login: async (username, password) => {
           // online 初始为 false、由 init() 异步探测——先等探测出结果再决策，
-          // 否则冷启动快速点击会被误判离线走进种子兜底（对在线新用户报"用户名或密码错误"）
+          // 否则冷启动快速点击会被误判离线（对在线用户误报"用户名或密码错误"）
           if (!(await useConnectionStore.getState().ensureChecked())) {
-            await offlineLogin(username, password);
-            return;
+            throw new Error('当前未连接服务器，无法登录；可先以游客身份体验');
           }
           try {
             const res = await authApi.login({ username, password });
@@ -128,8 +92,8 @@ export const useAuthStore = create<AuthState>()(
           } catch (e) {
             // 服务器可达但密码错误等 → 原样抛给页面
             if (!isNetworkError(e)) throw e;
-            // 网络中断 → 回退本地离线校验
-            await offlineLogin(username, password);
+            // 登录过程中网络中断 → 明确提示（不再有本地兜底校验）
+            throw new Error('网络连接中断，请检查网络后重试');
           }
         },
 
@@ -160,7 +124,7 @@ export const useAuthStore = create<AuthState>()(
           }
           set({ user: null });
           localStorage.removeItem('cuckoo_offline_session');
-          // 保留本地数据集（下次离线登录可恢复）；退出游客态
+          // 保留本地数据集（下次登录可恢复）；退出游客态
           useGuestStore.getState().deactivate();
         },
 

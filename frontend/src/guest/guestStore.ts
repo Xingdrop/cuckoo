@@ -143,7 +143,7 @@ export interface GuestExercise {
   isActive: boolean;
 }
 
-/** 种子（offline-seed.json）导入载荷 —— 与 seed.ts SeedFile 对齐 */
+/** 离线数据导入载荷（游客内容包/本地镜像共用结构） */
 export interface SeedDataset {
   user: {
     id: string;

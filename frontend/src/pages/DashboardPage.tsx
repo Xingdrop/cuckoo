@@ -570,7 +570,7 @@ export function DashboardPage() {
                       setAddedFlash(t);
                       setTimeout(() => setAddedFlash((v) => (v === t ? null : v)), 900);
                     }}
-                    className="rounded-full bg-primary-500 px-2 py-0.5 text-[11px] font-medium text-white"
+                    className="inline-flex h-6 items-center justify-center rounded-full bg-primary-500 px-2 text-[11px] font-medium text-white"
                   >
                     +200
                   </button>
@@ -1260,7 +1260,7 @@ function IntervalCard({
                       {(missedRow || skippedRow) && (
                         <button
                           onClick={() => onSlotAck(item, t.time, 'completed')}
-                          className="rounded-full bg-primary-500 px-2 py-0.5 text-[10px] font-medium text-white"
+                          className="inline-flex h-6 items-center justify-center rounded-full bg-primary-500 px-2 text-[10px] font-medium text-white"
                         >
                           补记完成
                         </button>
@@ -1269,13 +1269,13 @@ function IntervalCard({
                         <>
                           <button
                             onClick={() => onSlotAck(item, t.time, 'completed')}
-                            className="rounded-full bg-primary-500 px-2 py-0.5 text-[10px] font-medium text-white"
+                            className="inline-flex h-6 items-center justify-center rounded-full bg-primary-500 px-2 text-[10px] font-medium text-white"
                           >
                             完成
                           </button>
                           <button
                             onClick={() => onSlotAck(item, t.time, 'skipped')}
-                            className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-medium text-ink-600"
+                            className="inline-flex h-6 items-center justify-center rounded-full bg-ink-100 px-2 text-[10px] font-medium text-ink-600"
                           >
                             放弃
                           </button>

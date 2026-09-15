@@ -626,7 +626,7 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
                             });
                           }}
                           disabled={undoBusyAt === r.at}
-                          className="mt-1.5 rounded-full border border-ink-200 px-2.5 py-0.5 text-[10px] text-ink-600 disabled:opacity-40"
+                          className="mt-1.5 inline-flex h-6 items-center justify-center rounded-full border border-ink-200 px-2.5 text-[10px] text-ink-600 disabled:opacity-40"
                         >
                           {undoBusyAt === r.at ? '撤回中…' : '↩ 撤回此任务'}
                         </button>

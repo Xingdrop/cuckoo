@@ -513,7 +513,7 @@ export function DashboardPage() {
                   role="button"
                   tabIndex={0}
                   aria-label="完成率选择入口"
-                  className="flex items-center gap-0.5 rounded-full bg-ink-100/80 px-1.5 py-0.5 text-[10px] font-medium text-ink-600"
+                  className="tap-compact flex items-center gap-0.5 rounded-full bg-ink-100/80 px-1.5 py-0.5 text-[10px] font-medium text-ink-600"
                 >
                   <SlidersHorizontal size={9} strokeWidth={2.4} /> 选择
                 </span>
@@ -525,7 +525,7 @@ export function DashboardPage() {
                     e.stopPropagation();
                     navigate('/stats');
                   }}
-                  className="flex items-center gap-0.5 rounded-full bg-primary-500 px-1.5 py-0.5 text-[10px] font-semibold text-white"
+                  className="tap-compact flex items-center gap-0.5 rounded-full bg-primary-500 px-1.5 py-0.5 text-[10px] font-semibold text-white"
                 >
                   <BarChart3 size={10} strokeWidth={2.6} /> 统计
                 </span>

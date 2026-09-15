@@ -136,6 +136,12 @@ button:where([class^="h-"], [class~="h-2"], [class~="h-3"], [class~="h-4"], [cla
   min-height: 0;
 }
 
+/* 卡片内嵌套的操作小徽标（如看板「选择/统计」）：外层卡片本身已是触摸目标，
+   徽标本体不强制 44px——否则竖排 2×44px 会把看板卡撑到 ~178px 高 */
+[role="button"].tap-compact {
+  min-height: 0;
+}
+
 /* 键盘可达性：统一焦点环 */
 :focus-visible {
   outline: 2px solid var(--color-primary-500);

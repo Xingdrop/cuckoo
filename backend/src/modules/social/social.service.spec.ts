@@ -145,6 +145,61 @@ describe('SocialService（UT-JOIN）', () => {
     }
   });
 
+  /**
+   * UT-FEED-01（2026-09-17）：广场随机轮换——同一 seed 分页稳定、一轮内不重复，
+   * 取满 total 后返回空批（前端据此换新 seed 重洗）。
+   */
+  it('UT-FEED-01 广场 shuffle：同 seed 分页稳定、逐页不重复、取满后空批', async () => {
+    await userRepo.save(userRepo.create({ id: 'user-rot', username: 'rot_user', passwordHash: 'x' }));
+    for (let i = 0; i < 12; i++) await service.createPost('user-rot', { content: `轮换帖 ${i}` });
+
+    const opts = { scope: 'mine' as const, shuffleSeed: 'seed-x' };
+    const a1 = await service.listPosts('user-rot', 1, 10, opts);
+    const a1again = await service.listPosts('user-rot', 1, 10, opts);
+    const a2 = await service.listPosts('user-rot', 2, 10, opts);
+    const a3 = await service.listPosts('user-rot', 3, 10, opts);
+
+    expect(a1.total).toBe(12);
+    expect(a1again.items.map((p) => p.id)).toEqual(a1.items.map((p) => p.id)); // 同 seed 顺序稳定
+    expect(a1.items).toHaveLength(10);
+    expect(a2.items).toHaveLength(2);
+    expect(a3.items).toHaveLength(0); // 本轮已全部发放
+    const ids = [...a1.items, ...a2.items].map((p) => p.id);
+    expect(new Set(ids).size).toBe(12); // 一轮内不重复
+    expect(a1.items.some((p) => p.author.id !== 'user-rot')).toBe(false); // 不外泄他人帖子
+    // 换 seed → 顺序不同（洗牌确实生效）
+    const b1 = await service.listPosts('user-rot', 1, 10, { scope: 'mine', shuffleSeed: 'seed-y' });
+    expect(b1.items.map((p) => p.id)).not.toEqual(a1.items.map((p) => p.id));
+  });
+
+  /**
+   * UT-FEED-02：scope=following 只返回「我关注的人」的帖子，且按最新时间倒序（关注流不随机）。
+   */
+  it('UT-FEED-02 scope=following：只含关注作者 + 最新时间在最前；无关注返回空', async () => {
+    const followRepo = dataSource.getRepository(Follow);
+    for (const id of ['user-f1', 'user-f2', 'user-f3', 'user-watch']) {
+      await userRepo.save(userRepo.create({ id, username: id, passwordHash: 'x' }));
+    }
+    const older = await service.createPost('user-f1', { content: '较早的关注帖' });
+    const newer = await service.createPost('user-f2', { content: '较新的关注帖' });
+    await service.createPost('user-f3', { content: '未被关注的人发的帖子' });
+    // 固定时间，避免同毫秒创建导致排序不确定
+    await postRepo.update(older.id, { createdAt: new Date('2026-08-01T10:00:00Z') });
+    await postRepo.update(newer.id, { createdAt: new Date('2026-09-01T10:00:00Z') });
+    await followRepo.save([
+      followRepo.create({ followerId: 'user-watch', followingId: 'user-f1' }),
+      followRepo.create({ followerId: 'user-watch', followingId: 'user-f2' }),
+    ]);
+
+    const res = await service.listPosts('user-watch', 1, 10, { scope: 'following' });
+    const ids = res.items.map((p) => p.id);
+    expect(ids).toEqual([newer.id, older.id]); // 最新时间在最前
+    expect(res.items.some((p) => p.author.id === 'user-f3')).toBe(false); // 未关注作者不出现
+
+    const none = await service.listPosts('user-pii', 1, 10, { scope: 'following' });
+    expect(none).toEqual({ items: [], total: 0, page: 1, pageSize: 10 });
+  });
+
   afterAll(async () => {
     await dataSource.destroy();
   });

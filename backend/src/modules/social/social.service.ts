@@ -25,6 +25,33 @@ import { SensitiveWord } from './sensitive-word.entity';
 /** 帖子正文长度上限（与前端输入框一致） */
 const POST_CONTENT_MAX = 2000;
 
+/** 帖子流范围：all=广场 / following=关注 / mine=我的 */
+export type PostScope = 'all' | 'following' | 'mine';
+
+/**
+ * 确定性洗牌（同一 seed 必然得到同一顺序）——客户端按页取用即可"随机轮换且不重复"。
+ * mulberry32 伪随机 + Fisher-Yates：只需 seed 一致，分页取第 N 页结果稳定。
+ */
+function seededOrder(ids: string[], seed: string): string[] {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const rand = () => {
+    h = (h + 0x6d2b79f5) | 0;
+    let t = Math.imul(h ^ (h >>> 15), 1 | h);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const arr = [...ids];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 /**
  * 社交模块（FR-601~604/606~608；兴趣小组已于 2026-09-05 移除）
  * 帖子/点赞/评论/收藏 + 一键加入计划（事务+幂等）+ 官方计划
@@ -70,36 +97,77 @@ export class SocialService {
 
   // ============ 帖子 ============
 
-  /** 社区帖子流（公开+我的，分页） */
-  async listPosts(userId: string, page = 1, pageSize = 20) {
+  /**
+   * 社区帖子流（分页）
+   * - scope：all=广场 / following=关注的人 / mine=我发的；后两者按最新时间倒序
+   * - shuffleSeed：随机轮换流——全量 id 按 seed 确定性洗牌后分页，客户端逐页取用即"随机且不重复"，
+   *   取满 total 后换新 seed 重洗（见前端 SocialPage）
+   */
+  async listPosts(
+    userId: string,
+    page = 1,
+    pageSize = 20,
+    opts: { scope?: PostScope; shuffleSeed?: string } = {},
+  ) {
+    const take = Math.min(pageSize, 100);
+    const skip = (page - 1) * take;
+
+    // 关注流：先取「我关注的人」；一个都没关注直接返回空
+    let authorIds: string[] | null = null;
+    if (opts.scope === 'following') {
+      const rows = await this.followRepo.find({
+        where: { followerId: userId },
+        select: { id: true, followingId: true },
+      });
+      authorIds = rows.map((r) => r.followingId);
+      if (authorIds.length === 0) return { items: [], total: 0, page, pageSize };
+    } else if (opts.scope === 'mine') {
+      authorIds = [userId];
+    }
+    const where = authorIds
+      ? { userId: In(authorIds), status: PostStatus.PUBLISHED }
+      : { status: PostStatus.PUBLISHED };
+
+    if (opts.shuffleSeed) {
+      const all = await this.postRepo.find({ where, select: { id: true } });
+      const ordered = seededOrder(all.map((p) => p.id), opts.shuffleSeed);
+      const pageIds = ordered.slice(skip, skip + take);
+      if (pageIds.length === 0) return { items: [], total: ordered.length, page, pageSize };
+      const posts = await this.postRepo.find({ where: { id: In(pageIds) }, relations: { user: true } });
+      const byId = new Map(posts.map((p) => [p.id, p]));
+      const items = await this.decorate(
+        userId,
+        pageIds.map((id) => byId.get(id)).filter((p): p is Post => Boolean(p)),
+      );
+      return { items, total: ordered.length, page, pageSize };
+    }
+
     const [items, total] = await this.postRepo.findAndCount({
-      where: { status: PostStatus.PUBLISHED },
+      where,
       order: { createdAt: 'DESC' },
-      skip: (page - 1) * pageSize,
-      take: Math.min(pageSize, 100),
+      skip,
+      take,
       relations: { user: true },
     });
-    // 附加当前用户的互动状态
-    const postIds = items.map((p) => p.id);
+    return { items: await this.decorate(userId, items), total, page, pageSize };
+  }
+
+  /** 帖子附加「我」的互动状态 + author 投影（剔除 phone/healthGoals 等他人隐私字段） */
+  private async decorate(userId: string, posts: Post[]) {
+    const postIds = posts.map((p) => p.id);
     const myInteractions = postIds.length
       ? await this.interactionRepo.find({ where: { userId, postId: In(postIds) } })
       : [];
-    return {
-      items: items.map((p) => {
-        // 剔除 user 关系实体：其中 phone/healthGoals/timezone 属他人隐私，仅保留 author 投影
-        const { user: _author, ...rest } = p;
-        return {
+    return posts.map((p) => {
+      const { user: _author, ...rest } = p;
+      return {
         ...rest,
         author: { id: _author.id, username: _author.username, avatarUrl: _author.avatarUrl },
         myLiked: myInteractions.some((i) => i.postId === p.id && i.type === InteractionType.LIKE),
         myFavorited: myInteractions.some((i) => i.postId === p.id && i.type === InteractionType.FAVORITE),
         myJoined: myInteractions.some((i) => i.postId === p.id && i.type === InteractionType.JOIN),
-        };
-      }),
-      total,
-      page,
-      pageSize,
-    };
+      };
+    });
   }
 
   /** #6：收藏列表（个人主页"我的收藏"，帖子可点进详情） */

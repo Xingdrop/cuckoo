@@ -10,7 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { IsArray, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsArray, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { PostType } from './post.entity';
 import { SocialService } from './social.service';
@@ -50,6 +50,17 @@ class PageQueryDto {
   @Min(1)
   @Max(100)
   pageSize?: number;
+
+  /** 随机轮换流的种子：同一 seed 分页结果稳定且互不重复（见 SocialService.listPosts） */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  shuffle?: string;
+
+  /** 帖子流范围：all=广场 / following=关注 / mine=我的 */
+  @IsOptional()
+  @IsIn(['all', 'following', 'mine'])
+  scope?: 'all' | 'following' | 'mine';
 }
 
 @ApiTags('社交')
@@ -59,9 +70,12 @@ export class SocialController {
 
   // ---- 帖子 ----
   @Get('posts')
-  @ApiOperation({ summary: '社区帖子流（FR-601）' })
+  @ApiOperation({ summary: '社区帖子流（FR-601；支持 scope 关注/我的 + shuffle 随机轮换分页）' })
   listPosts(@CurrentUser('sub') userId: string, @Query() q: PageQueryDto) {
-    return this.socialService.listPosts(userId, q.page ?? 1, q.pageSize ?? 20);
+    return this.socialService.listPosts(userId, q.page ?? 1, q.pageSize ?? 20, {
+      scope: q.scope,
+      shuffleSeed: q.shuffle,
+    });
   }
 
   @Post('posts')

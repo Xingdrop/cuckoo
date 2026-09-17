@@ -23,14 +23,24 @@ function fmtDuration(sec: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-/** 视频卡：封面（首帧）+ 时长角标 + 播放/暂停浮层 */
+/**
+ * 视频卡：封面（首帧）+ 时长角标 + 播放/暂停浮层
+ * 2026-09-17 修复「视频不显示封面」：
+ *  ① 容器原固定 aspect-video(16:9) + object-cover，竖屏视频只剩中间一条（被放大成抽象色块）
+ *     → 改为读取视频真实宽高比撑开容器（极高视频限高 460px 并轻微裁切）；
+ *  ② 部分 WebView 在 preload=metadata 下不绘制首帧（黑块）→ 元数据就绪后轻推时间轴触发解码。
+ */
 function VideoTile({ url }: { url: string }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [duration, setDuration] = useState<string>('');
+  const [ratio, setRatio] = useState<number | null>(null);
 
   return (
-    <div className="relative aspect-video w-full overflow-hidden bg-black">
+    <div
+      className="relative w-full overflow-hidden bg-black"
+      style={{ aspectRatio: ratio ? String(ratio) : '16 / 9', maxHeight: 460 }}
+    >
       <RVideo
         ref={ref}
         src={url}
@@ -39,8 +49,17 @@ function VideoTile({ url }: { url: string }) {
         preload="metadata"
         className="h-full w-full object-cover"
         onLoadedMetadata={(e) => {
-          const d = e.currentTarget.duration;
-          if (Number.isFinite(d)) setDuration(fmtDuration(d));
+          const v = e.currentTarget;
+          if (Number.isFinite(v.duration)) setDuration(fmtDuration(v.duration));
+          if (v.videoWidth > 0 && v.videoHeight > 0) setRatio(v.videoWidth / v.videoHeight);
+          // 首帧兜底：短暂 seek 触发解码绘制
+          if (v.currentTime === 0) {
+            try {
+              v.currentTime = 0.1;
+            } catch {
+              /* 个别 WebView 不允许 seek：忽略，等用户点播放 */
+            }
+          }
         }}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}

@@ -1,11 +1,11 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zY3JpcHRzL3NlZWQtZGVtby5janN8MjAyNi0wOXw3MDNmY2FiNmM3 */
-#!/usr/bin/env node
 /**
  * 演示数据播种脚本（开发 / 自测专用，不随 APK 分发、不入公开产物）
  *
  * 作用：批量创建 12 个仿真账户（用户名统一 `demo_` 前缀，便于识别与批量清理），
  *      为它们生成头像与帖子配图（公开图库真实照片）、合成短视频（ffmpeg），
  *      发布图文帖 / 计划分享帖 / 视频帖，并交叉点赞、收藏、评论、关注、加入官方计划。
+ *      注意：配图取自公开图库真实照片，人设里的 imgs 文案仅作「拍摄意图备注」，图库不解析语义。
  *
  * 全部操作走**真实 HTTP 接口**（注册/登录/上传/发帖/互动），因此同时起到接口联调验证作用。
  *
@@ -15,6 +15,12 @@
  *   node scripts/seed-demo.cjs --accounts=3           # 只造前 3 个（快速验证）
  *   node scripts/seed-demo.cjs --no-video             # 跳过视频合成
  *   node scripts/seed-demo.cjs --password=xxx         # 自定义口令
+ *   node scripts/seed-demo.cjs --clean                # 反向操作：清掉这批演示数据
+ *
+ * --clean：按用户名前缀 `demo_` 批量清理——物理删除账户及其帖子/互动/关注/计划/设置等
+ *          关联数据，并删除本机 uploads 下对应的配图与头像文件（含 _thumb 派生文件）。
+ *          官方内容（计划模板 / 微运动库 / 敏感词）不受影响。
+ *          直接读写本机 SQLite，需在服务器所在机器上执行；不支持 --accounts 局部清理。
  *
  * 幂等性：可重复执行——已注册账户改为登录；**按帖子内容逐条判断**，已发过的帖子跳过；
  *        点赞/收藏/关注先查当前状态再切换；评论仅在帖子评论数为 0 时补。
@@ -26,6 +32,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 
 // ---------- 参数 ----------
@@ -38,6 +45,7 @@ const BASE = arg('base', 'http://localhost:3000').replace(/\/$/, '') + '/api/v1'
 const PASSWORD = arg('password', 'Demo@Cuckoo2026');
 const LIMIT = Number(arg('accounts', '12'));
 const SKIP_VIDEO = argv.includes('--no-video');
+const CLEAN = argv.includes('--clean');
 const FFMPEG = arg('ffmpeg', '');
 const TMP = path.join(os.tmpdir(), 'cuckoo-demo-seed');
 fs.mkdirSync(TMP, { recursive: true });
@@ -315,25 +323,65 @@ async function register(username) {
 // 说明：原打算用 IDE 的文生图接口（text_to_image），但该接口当前对任何提示词都只返回同一张
 // 「The image is generating…」占位图（实测 48 张图 MD5 完全一致），故改用公开图库真实照片：
 //   头像 = xsgames.co 随机真人肖像（256×256，按人设描述里的性别选目录）
-//   配图 = picsum.photos 真实摄影图（提示词做 seed，同 seed 稳定返回同一张，无需本地存图）
+//   配图 = picsum.photos 真实摄影图
+// 配图**按图库 id 取**而不是按 seed 取：实测 seed 方式会对不同 seed 返回同一张照片（约 5% 撞图），
+// id 则天然互不相同；再叠加内容指纹校验兜底。人设里的 imgs 文案仅作「拍摄意图备注」，图库不解析语义。
 const AVATAR_SRC = (persona, idx) => {
   const dir = /woman|girl|female/i.test(persona.avatar) ? 'female' : 'male';
   const n = ((idx * 7 + 3) % 78) + 1;
   return `https://xsgames.co/randomusers/assets/avatars/${dir}/${n}.jpg`;
 };
-const PHOTO_SRC = (prompt, portrait = false) =>
-  // seed 用完整提示词（不可截断：截断会让不同提示词撞成同一张图，且切碎 %XX 转义会 400）
-  `https://picsum.photos/seed/${encodeURIComponent(prompt)}/${portrait ? '720/1280' : '1200/900'}`;
+
+/** 图库可用图片 id（启动时拉一次，排序后按序取用，保证本轮每张都不同） */
+const photoIds = [];
+let photoCursor = 0;
+async function loadPhotoIds() {
+  for (let page = 1; page <= 2 && photoIds.length < 100; page++) {
+    const res = await fetch(`https://picsum.photos/v2/list?page=${page}&limit=100`);
+    if (!res.ok) throw new Error(`图片库列表获取失败 ${res.status}`);
+    for (const item of await res.json()) photoIds.push(String(item.id));
+  }
+  photoIds.sort((a, b) => Number(a) - Number(b));
+}
+const PHOTO_SRC = (id, portrait) =>
+  `https://picsum.photos/id/${id}/${portrait ? '720/1280' : '1200/900'}`;
 
 async function fetchImage(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`配图下载失败 ${res.status} ${url}`);
-  const type = res.headers.get('content-type') ?? '';
-  if (!type.startsWith('image/')) throw new Error(`配图返回非图片内容: ${type}`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  // 占位图/失败页往往极小，做个下限兜底（正常照片都在数十 KB 以上）
-  if (buf.length < 3000) throw new Error(`配图内容过小（${buf.length}B），疑似占位图`);
-  return buf;
+  // 公开图库偶发超时/限流，重试几次再放弃（失败只影响当前这张，重跑脚本可续上）
+  let lastErr;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`配图下载失败 ${res.status} ${url}`);
+      const type = res.headers.get('content-type') ?? '';
+      if (!type.startsWith('image/')) throw new Error(`配图返回非图片内容: ${type}`);
+      const buf = Buffer.from(await res.arrayBuffer());
+      // 占位图/失败页往往极小，做个下限兜底（正常照片都在数十 KB 以上）
+      if (buf.length < 3000) throw new Error(`配图内容过小（${buf.length}B），疑似占位图`);
+      return buf;
+    } catch (e) {
+      lastErr = e;
+      if (attempt < 2) await sleep(1500 * (attempt + 1));
+    }
+  }
+  throw lastErr;
+}
+
+/** 本轮已用配图的内容指纹——图库偶发对不同 id 返回同一张照片，撞了就顺延取下一张 */
+const usedPhotoHashes = new Set();
+async function fetchUniquePhoto(portrait = false) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (photoCursor >= photoIds.length) throw new Error('图库 id 已用尽，请重跑或扩大图片库列表');
+    const id = photoIds[photoCursor++];
+    const buf = await fetchImage(PHOTO_SRC(id, portrait));
+    const h = crypto.createHash('md5').update(buf).digest('hex');
+    if (!usedPhotoHashes.has(h)) {
+      usedPhotoHashes.add(h);
+      return buf;
+    }
+    console.log(`    图片 ${id} 与已有配图重复，顺延取下一张…`);
+  }
+  throw new Error('连续取到重复配图');
 }
 
 async function upload(buf, filename, mime, token) {
@@ -406,10 +454,115 @@ function buildSnapshot(plan) {
   };
 }
 
+/** 指向用户的列名白名单（各业务表命名不一，逐一列出；演示数据全部是「用户自有的行」） */
+const USER_REF_COLUMNS = [
+  'userId',
+  'followerId',
+  'followingId',
+  'senderId',
+  'userAId',
+  'userBId',
+  'appUserId',
+  'targetId',
+  'ownerId',
+  'actorId',
+];
+
+/**
+ * --clean：反向清理（演示数据彻底移除，官方种子内容保留）
+ *
+ * 这里走本机 SQLite 直连而不是 HTTP 注销接口：注销只做软删除，会长期占用 username
+ * （唯一索引），清理后就无法再用同名账户播种。因此改做物理删除。
+ * 官方内容（plan_templates / exercises / sensitive_words）没有任何用户外键，天然不受影响。
+ */
+async function cleanDemo() {
+  const dbFile = path.resolve(__dirname, '..', 'data', 'cuckoo.sqlite');
+  console.log(`\n=== 布谷演示数据清理 ===\n数据库: ${dbFile}\n`);
+  if (!fs.existsSync(dbFile)) {
+    console.log('未找到本机数据库。--clean 需在服务器所在机器上执行（远端服务器请到该机器上跑）。\n');
+    process.exitCode = 1;
+    return;
+  }
+  const Database = require('better-sqlite3');
+  const db = new Database(dbFile);
+  db.pragma('foreign_keys = OFF');
+
+  const users = db.prepare("select id, username, avatarUrl from users where username glob 'demo_*'").all();
+  if (!users.length) {
+    console.log('没有 demo_ 前缀的演示账户，无需清理。\n');
+    db.close();
+    return;
+  }
+  const ids = users.map((u) => u.id);
+  const ph = ids.map(() => '?').join(',');
+  console.log(`  待清理账户 ${users.length} 个: ${users.map((u) => u.username).join(', ')}`);
+
+  // 收集待删媒体（头像 + 这些账户帖子里的配图/视频）
+  const media = new Set(users.map((u) => u.avatarUrl).filter(Boolean));
+  const posts = db.prepare(`select id, mediaUrls from posts where userId in (${ph})`).all(...ids);
+  const postIds = posts.map((p) => p.id);
+  for (const p of posts) {
+    try {
+      for (const u of JSON.parse(p.mediaUrls ?? '[]')) media.add(u);
+    } catch {
+      /* 媒体字段异常时跳过 */
+    }
+  }
+
+  const tables = db
+    .prepare("select name from sqlite_master where type='table' and name not like 'sqlite_%'")
+    .all()
+    .map((r) => r.name);
+
+  const tx = db.transaction(() => {
+    // 1) 逐表清理所有指向这些账户的行（含双向表 follows 的 followerId / followingId）
+    for (const t of tables) {
+      if (t === 'users') continue;
+      const cols = db.prepare(`pragma table_info("${t}")`).all().map((c) => c.name);
+      const refs = USER_REF_COLUMNS.filter((c) => cols.includes(c));
+      for (const c of refs) {
+        const n = db.prepare(`delete from "${t}" where "${c}" in (${ph})`).run(...ids).changes;
+        if (n > 0) console.log(`  清空 ${t}.${c}: ${n} 行`);
+      }
+      // 2) 指向这些账户帖子的行（interactions 等）
+      if (cols.includes('postId') && postIds.length) {
+        const ph2 = postIds.map(() => '?').join(',');
+        const n = db.prepare(`delete from "${t}" where postId in (${ph2})`).run(...postIds).changes;
+        if (n > 0) console.log(`  清空 ${t}.postId: ${n} 行`);
+      }
+    }
+    // 3) 最后删账户本体（物理删除，释放 username）
+    const n = db.prepare(`delete from users where id in (${ph})`).run(...ids).changes;
+    console.log(`  删除账户行: ${n}`);
+  });
+  tx();
+  db.exec('VACUUM');
+  db.close();
+
+  // 4) 删除本机 uploads 下的对应媒体文件（图片另带 _thumb 派生文件）
+  const uploadsRoot = path.resolve(__dirname, '..', 'uploads');
+  let removedFiles = 0;
+  for (const u of media) {
+    const file = path.resolve(__dirname, '..', String(u).replace(/^\/+/, ''));
+    if (!file.startsWith(uploadsRoot)) continue;
+    const thumb = file.replace(/(\.[a-z0-9]+)$/i, '_thumb$1');
+    for (const f of [file, thumb]) {
+      if (fs.existsSync(f)) {
+        fs.rmSync(f);
+        removedFiles++;
+      }
+    }
+  }
+  console.log(`  删除媒体文件 ${removedFiles} 个（保留 uploads/guide 官方插画）`);
+  console.log('\n清理完成。官方内容（计划模板 / 微运动库 / 敏感词）未受影响。\n');
+}
+
 async function main() {
   console.log(`\n=== 布谷演示数据播种 ===\n目标: ${BASE}\n账户: ${Math.min(LIMIT, PERSONAS.length)} 个（用户名 demo_ 前缀）\n口令: ${PASSWORD}\n`);
   const ffmpeg = SKIP_VIDEO ? null : findFfmpeg();
   console.log(ffmpeg ? `ffmpeg: ${ffmpeg}` : SKIP_VIDEO ? 'ffmpeg: 已按参数跳过视频' : 'ffmpeg: 未找到（将跳过视频帖）');
+  await loadPhotoIds();
+  console.log(`图片库: picsum 可用 id ${photoIds.length} 个（按 id 顺序取用，天然互异 + 内容指纹兜底）`);
 
   // --- 阶段 1：账户就绪（先登录，不存在再注册）---
   console.log('\n[1/6] 账户就绪');
@@ -471,8 +624,8 @@ async function main() {
         continue;
       }
       const media = [];
-      for (const prompt of post.imgs) {
-        const buf = await fetchImage(PHOTO_SRC(prompt));
+      for (let k = 0; k < post.imgs.length; k++) {
+        const buf = await fetchUniquePhoto();
         const up = await upload(buf, `${a.user}-p${idx}-${imgSeq++}.jpg`, 'image/jpeg', a.token);
         media.push(up.url);
       }
@@ -496,8 +649,8 @@ async function main() {
     if (a.video && ffmpeg && !alreadyPosted(a.user, VIDEO_TEXT)) {
       try {
         const frames = [];
-        for (const prompt of a.posts[0].imgs) {
-          frames.push(await fetchImage(PHOTO_SRC(prompt, true)));
+        for (let k = 0; k < a.posts[0].imgs.length; k++) {
+          frames.push(await fetchUniquePhoto(true));
         }
         while (frames.length < 3) frames.push(frames[0]);
         const files = frames.slice(0, 3).map((b, i) => {
@@ -524,9 +677,6 @@ async function main() {
 
   // --- 阶段 5：互动（点赞 / 收藏 / 评论 / 关注）---
   console.log('\n[5/6] 交叉互动');
-  const feed = (await call('GET', '/posts?page=1&pageSize=100', { token: accounts[0].token })).data;
-  const posts = feed?.items ?? [];
-  console.log(`  当前动态流 ${posts.length} 条`);
   let likes = 0;
   let favs = 0;
   let cmts = 0;
@@ -540,18 +690,25 @@ async function main() {
       const target = accounts[(i + k) % accounts.length];
       if (target.id === me.id || followingIds.has(target.id)) continue;
       const r = await call('POST', `/users/${target.id}/follow`, { token: me.token });
-      if (r.data?.following) follows++;
+      if (r.data?.following) {
+        follows++;
+        // 记入已关注集合，避免同一轮里被后一个 k 再次 toggle 掉（账户数少时会发生）
+        followingIds.add(target.id);
+      }
     }
     // 给别人的帖子点赞/收藏/评论
-    const others = posts.filter((p) => p.author.id !== me.id);
+    // 注意：点赞/收藏/关注都是 toggle 接口，必须用「我自己视角」的动态流先看已点赞/已收藏状态，
+    //       否则重跑会把上一轮点过的赞取消掉（故 feed 按账户逐个取，不能用 accounts[0] 的那份）
+    const myFeed = (await call('GET', '/posts?page=1&pageSize=100', { token: me.token })).data;
+    const others = (myFeed?.items ?? []).filter((p) => p.author.id !== me.id);
     for (let k = 0; k < others.length; k++) {
       const p = others[k];
       const pick = (i * 7 + k * 3) % 4;
-      if (pick === 0 || pick === 1) {
+      if ((pick === 0 || pick === 1) && !p.myLiked) {
         const r = await call('POST', `/posts/${p.id}/like`, { token: me.token });
         if (r.data?.liked) likes++;
       }
-      if (pick === 2) {
+      if (pick === 2 && !p.myFavorited) {
         const r = await call('POST', `/posts/${p.id}/favorite`, { token: me.token });
         if (r.data?.favorited) favs++;
       }
@@ -585,7 +742,7 @@ async function main() {
   console.log(`本次注册/登录接口调用 ${authCalls} 次（限流 5 次/分钟/IP，故较慢时属正常）\n`);
 }
 
-main().catch((e) => {
-  console.error('\n播种失败:', e.message);
+(CLEAN ? cleanDemo() : main()).catch((e) => {
+  console.error(`\n${CLEAN ? '清理' : '播种'}失败:`, e.message);
   process.exitCode = 1;
 });

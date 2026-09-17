@@ -2,7 +2,7 @@
 import axios, { AxiosError } from 'axios';
 import { guideLocalUrl } from '../utils/guideMedia';
 import { Capacitor } from '@capacitor/core';
-import { DEFAULT_NATIVE_API_BASE } from '../config/defaultApiBase';
+import { DEFAULT_CLOUD_API_BASE, DEFAULT_NATIVE_API_BASE } from '../config/defaultApiBase';
 
 /** 统一 API 错误体（与后端 AllExceptionsFilter 对齐，见 docs/技术方案设计.md §6.2） */
 export interface ApiErrorBody {
@@ -11,19 +11,66 @@ export interface ApiErrorBody {
   details?: unknown;
 }
 
+/** 服务器模式：局域网（与开发机同一 WiFi）/ 云端（公网正式服务器） */
+export type ServerMode = 'lan' | 'cloud';
+
+const MODE_KEY = 'cuckoo_server_mode';
+/** 各模式各自保存地址，切换互不覆盖 */
+const ADDR_KEY: Record<ServerMode, string> = { lan: 'cuckoo_api_lan', cloud: 'cuckoo_api_cloud' };
+/** 生效地址（旧版单值键，保留供内部与工具读取） */
+const EFFECTIVE_KEY = 'cuckoo_api_base';
+
+/** 该模式的兜底地址：局域网=构建注入（仅原生）；云端=构建注入（留空则同源） */
+export function defaultAddress(mode: ServerMode): string {
+  if (mode === 'cloud') return DEFAULT_CLOUD_API_BASE;
+  return Capacitor.isNativePlatform() && DEFAULT_NATIVE_API_BASE ? DEFAULT_NATIVE_API_BASE : '';
+}
+
+export function getServerMode(): ServerMode {
+  return localStorage.getItem(MODE_KEY) === 'cloud' ? 'cloud' : 'lan';
+}
+
+/** 该模式已保存的地址（未保存过 → 旧版单值键迁移 / 空串） */
+export function getServerAddress(mode: ServerMode): string {
+  const v = localStorage.getItem(ADDR_KEY[mode]);
+  if (v !== null) return v;
+  // 旧版只有单值键（语义=局域网地址）：首次升级迁移为局域网配置
+  return mode === 'lan' ? (localStorage.getItem(EFFECTIVE_KEY) ?? '') : '';
+}
+
+/** 该模式实际生效的 origin（无末尾斜杠） */
+export function serverOrigin(mode: ServerMode = getServerMode()): string {
+  return (getServerAddress(mode) || defaultAddress(mode)).replace(/\/$/, '');
+}
+
+/** 保存某模式地址（若为当前模式则立即生效） */
+export function saveServerAddress(mode: ServerMode, addr: string): void {
+  localStorage.setItem(ADDR_KEY[mode], addr.trim());
+  if (mode === getServerMode()) applyServerMode();
+}
+
+/** 切换服务器模式并立即生效 */
+export function switchServerMode(mode: ServerMode): void {
+  localStorage.setItem(MODE_KEY, mode);
+  applyServerMode();
+}
+
+/** 把当前模式地址同步到生效键并重建 baseURL（启动/切换后调用） */
+export function applyServerMode(): void {
+  const origin = serverOrigin();
+  if (origin) localStorage.setItem(EFFECTIVE_KEY, origin);
+  else localStorage.removeItem(EFFECTIVE_KEY);
+  http.defaults.baseURL = apiBase();
+}
+
 /** 全局 axios 实例：唯一 HTTP 出口（页面/组件禁止直接 import axios）。
  * - 自动注入 JWT token
  * - 401 时清理凭证并跳转登录页（保留回跳路径）
  * - 错误归一化为 ApiErrorBody
- * - #26：APK 可配置局域网服务器地址（设置 → 高级 → 服务器地址，仅存本机） */
+ * - 服务器模式（设置 → 服务器）：局域网 / 云端 两套地址，仅存本机 */
 export function apiBase(): string {
-  const custom = localStorage.getItem('cuckoo_api_base') ?? '';
-  if (custom) return `${custom.replace(/\/$/, '')}/api/v1`;
-  // APK 兜底：构建时注入的局域网后端地址（用户未手动配置时开箱即用）
-  if (Capacitor.isNativePlatform() && DEFAULT_NATIVE_API_BASE) {
-    return `${DEFAULT_NATIVE_API_BASE.replace(/\/$/, '')}/api/v1`;
-  }
-  return '/api/v1';
+  const origin = serverOrigin();
+  return origin ? `${origin}/api/v1` : '/api/v1';
 }
 
 export const http = axios.create({
@@ -31,25 +78,33 @@ export const http = axios.create({
   timeout: 15000,
 });
 
+/**
+ * 启动初始化：无模式记录时按构建配置推断——已烘焙云端地址 → 云端模式，否则局域网。
+ * （模块加载即执行：保证首个请求前 baseURL 已定为最终值）
+ */
+export function initServerMode(): void {
+  if (!localStorage.getItem(MODE_KEY)) {
+    localStorage.setItem(MODE_KEY, defaultAddress('cloud') ? 'cloud' : 'lan');
+  }
+  applyServerMode();
+}
+
+initServerMode();
+
 /** 切换服务器地址后重建 baseURL（保持拦截器） */
 export function refreshApiBase() {
   http.defaults.baseURL = apiBase();
 }
 
-/** #26：把服务端相对路径（/uploads/…）转为当前服务器绝对地址（APK 连局域网服务器时图片/视频可显示） */
+/** #26：把服务端相对路径（/uploads/…）转为当前服务器绝对地址（APK 连局域网/云端服务器时图片可显示） */
 export function absoluteUrl(u?: string | null): string {
   if (!u) return '';
   if (/^https?:\/\//i.test(u) || u.startsWith('data:') || u.startsWith('blob:')) return u;
   // guide 插画：一律转为同源随包路径（离线可读，且规避 WebView 对 http:// 图片的混合内容硬拦截）；
   // 服务器新图由 RImg/useRemoteSrc 先 fetch 再回退随包资源，见 utils/guideMedia.ts
   if (u.includes('/uploads/guide/')) return guideLocalUrl(u);
-  const custom = localStorage.getItem('cuckoo_api_base');
   // 2026-09-06：APK 未手动配置时也用内置默认地址拼绝对路径（否则 /uploads/* 打到 WebView 本地源 → 图片全挂）
-  const origin = custom
-    ? custom.replace(/\/$/, '')
-    : Capacitor.isNativePlatform() && DEFAULT_NATIVE_API_BASE
-      ? DEFAULT_NATIVE_API_BASE.replace(/\/$/, '')
-      : '';
+  const origin = serverOrigin();
   return origin ? `${origin}${u}` : u;
 }
 
@@ -73,7 +128,7 @@ http.interceptors.response.use(
     // 防御（APK 注册/登录崩溃根因）：请求打到 WebView 本地源（服务器地址未配置/不可达）时，
     // SPA 兜底会返回 200 的 index.html——识别并给出可操作提示，避免上层读 undefined 崩溃
     if (typeof res.data === 'string' && /<!doctype html|<html[\s>]/i.test(res.data)) {
-      return Promise.reject(new Error('服务器地址不可用（返回了网页而非接口数据）：请在「设置 → 高级 → 服务器地址」填写后端地址，例如 http://电脑IP:3000'));
+      return Promise.reject(new Error('服务器地址不可用（返回了网页而非接口数据）：请在「设置 → 服务器」填写后端地址，例如 http://电脑IP:3000'));
     }
     // 2026-09-07 全局自愈：任何 API 请求成功但联网标志仍为离线（健康探测误报/瞬时失败）→
     // 立即重探测恢复 online，避免「未联网」横幅在全应用残留（动态 import 避免与 connectionStore 循环依赖）

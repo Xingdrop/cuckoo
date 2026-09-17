@@ -9,7 +9,14 @@ import { authApi } from '../services/api/api.auth';
 import { usersApi } from '../services/api/api.users';
 import { appApi, type AppApkInfo } from '../services/api/api.app';
 import { loadAiConfig, saveAiConfig } from '../assistant/assistant';
-import { refreshApiBase, absoluteUrl } from '../services/http';
+import {
+  absoluteUrl,
+  getServerAddress,
+  getServerMode,
+  saveServerAddress,
+  switchServerMode,
+  type ServerMode,
+} from '../services/http';
 import { errorMessage } from '../services/http';
 import { loadInputMode, saveInputMode, type VoiceInputMode } from '../features/voice/voicePref';
 import { exportPhotosToPhone } from '../services/photoExport';
@@ -117,8 +124,9 @@ export function SettingsPage() {
   const [inputMode, setInputMode] = useState<VoiceInputMode>(loadInputMode);
   /** AI 测试连接结果（居中弹窗展示，不用顶部提示） */
   const [aiTestResult, setAiTestResult] = useState<string | null>(null);
-  /** #26：服务器地址输入 */
-  const [apiBaseInput, setApiBaseInput] = useState(() => localStorage.getItem('cuckoo_api_base') ?? '');
+  /** 服务器模式（局域网 / 云端）与当前模式地址输入 */
+  const [serverMode, setServerMode] = useState<ServerMode>(getServerMode);
+  const [apiBaseInput, setApiBaseInput] = useState(() => getServerAddress(getServerMode()));
   /** APK 下载入口信息（APK 内已安装 → 隐藏） */
   const [apk, setApk] = useState<AppApkInfo | null>(null);
   const isNative = Boolean((window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.());
@@ -620,29 +628,78 @@ export function SettingsPage() {
         </section>
 
         {/* 亲友已迁移至：个人主页「亲友与家人」与社交页「亲友」tab */}
-        {/* #26：高级——局域网服务器地址（APK 连接 PC 开发服务器调试用，仅存本机） */}
+        {/* 服务器：局域网 / 云端两套地址（各自保存，切换互不覆盖；仅存本机） */}
         <section className="divide-y divide-ink-100 rounded-card bg-surface shadow-sm">
-          <h2 className="px-4 py-3 text-sm font-medium">高级</h2>
+          <h2 className="px-4 py-3 text-sm font-medium">服务器</h2>
           <div className="px-4 py-3">
-            <p className="text-xs text-ink-500">服务器地址（留空=默认；APK 连接电脑局域网：http://电脑IP:3000）</p>
-            <div className="mt-1 flex gap-2">
+            <div className="flex rounded-btn bg-bg p-1">
+              {([
+                { m: 'lan' as ServerMode, label: '连接本地局域网', icon: '🏠' },
+                { m: 'cloud' as ServerMode, label: '连接实际服务器', icon: '☁️' },
+              ]).map(({ m, label, icon }) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    switchServerMode(m);
+                    setServerMode(m);
+                    setApiBaseInput(getServerAddress(m));
+                    setNotice(
+                      m === 'cloud'
+                        ? '已切换到实际服务器（公网）'
+                        : '已切换到本地局域网服务器',
+                    );
+                  }}
+                  className={`flex flex-1 items-center justify-center gap-1 rounded-md py-2 text-xs font-medium transition-colors ${
+                    serverMode === m ? 'bg-primary-500 text-white' : 'text-ink-500'
+                  }`}
+                >
+                  <span>{icon}</span>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <p className="mt-2 text-[11px] leading-relaxed text-ink-500">
+              {serverMode === 'lan'
+                ? '与你的电脑（后端）连在同一个 WiFi 时使用；地址形如 http://电脑IP:3000。仅局域网内可访问，外人连不上。'
+                : '正式对外提供服务时使用：填写公网服务器地址，形如 https://api.example.com（必须是 https，否则网页版 PWA/推送不可用）。'}
+            </p>
+
+            <div className="mt-2 flex gap-2">
               <input
                 value={apiBaseInput}
                 onChange={(e) => setApiBaseInput(e.target.value)}
-                placeholder="http://192.168.1.5:3000"
+                placeholder={
+                  serverMode === 'lan' ? 'http://192.168.1.5:3000' : 'https://api.example.com'
+                }
+                inputMode="url"
+                autoCapitalize="off"
+                autoCorrect="off"
                 className="min-w-0 flex-1 rounded-btn border border-ink-100 bg-bg px-3 py-2 text-sm outline-none focus:border-primary-400"
               />
               <button
                 onClick={() => {
-                  localStorage.setItem('cuckoo_api_base', apiBaseInput.trim());
-                  refreshApiBase();
-                  setNotice(apiBaseInput.trim() ? `已切换服务器：${apiBaseInput.trim()}` : '已恢复默认服务器地址');
+                  saveServerAddress(serverMode, apiBaseInput);
+                  setNotice(
+                    apiBaseInput.trim()
+                      ? `已切换到服务器：${apiBaseInput.trim()}`
+                      : serverMode === 'cloud'
+                        ? '已清空云端地址（网页版走当前域名同源）'
+                        : '已恢复默认服务器地址',
+                  );
                 }}
                 className="shrink-0 rounded-btn bg-primary-500 px-4 py-2 text-xs font-medium text-white"
               >
                 保存
               </button>
             </div>
+
+            <p className="mt-1.5 text-[11px] leading-relaxed text-ink-500">
+              {serverMode === 'cloud' && !apiBaseInput.trim()
+                ? '留空 = 使用当前网页域名同源访问（网页版适用）；APK 需填写公网地址才能连上实际服务器。'
+                : '两套地址分别保存，切换模式不会互相覆盖。'}
+            </p>
           </div>
         </section>
 

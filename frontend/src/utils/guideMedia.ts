@@ -1,6 +1,5 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3V0aWxzL2d1aWRlTWVkaWEudHN8MjAyNi0wOXxjZjdhOTc1NzQ2 */
 import { Capacitor } from '@capacitor/core';
-import { DEFAULT_NATIVE_API_BASE } from '../config/defaultApiBase';
 
 /**
  * 引导插画（微运动库 / 官方计划跟练图）地址解析。
@@ -37,11 +36,12 @@ export const GUIDE_NAMES = [
 
 const GUIDE_SET = new Set(GUIDE_NAMES);
 
-/** localStorage 手填服务器地址优先，其次构建时注入的局域网默认地址 */
+/**
+ * 当前生效的服务器地址（cuckoo_api_base 由 services/http.ts 的 applyServerMode() 维护，
+ * 已按「局域网 / 云端」模式解析完毕；空 = 同源）。此处不重复解析，避免与 http 循环依赖。
+ */
 function serverBase(): string {
-  const custom = localStorage.getItem('cuckoo_api_base') ?? '';
-  const base = custom || DEFAULT_NATIVE_API_BASE;
-  return base ? base.replace(/\/$/, '') : '';
+  return (localStorage.getItem('cuckoo_api_base') ?? '').replace(/\/$/, '');
 }
 
 /** 从 /uploads/guide/<name>.webp[?v=xxx] 取出插画名；非 guide 地址返回空串 */

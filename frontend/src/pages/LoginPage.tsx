@@ -2,7 +2,14 @@
 import { FormEvent, useState } from 'react';
 import { ChevronRight, WifiOff } from 'lucide-react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { errorMessage, refreshApiBase, tokenStore } from '../services/http';
+import {
+  defaultAddress,
+  errorMessage,
+  getServerAddress,
+  getServerMode,
+  saveServerAddress,
+  tokenStore,
+} from '../services/http';
 import { Capacitor } from '@capacitor/core';
 import { DEFAULT_NATIVE_API_BASE } from '../config/defaultApiBase';
 import { useAuthStore } from '../stores/authStore';
@@ -23,8 +30,10 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   /** APK 首次使用：服务器地址未配置时在登录页直接填写（否则所有请求打到 WebView 本地源） */
   const isNative = Capacitor.isNativePlatform();
-  const [apiBaseInput, setApiBaseInput] = useState(() => localStorage.getItem('cuckoo_api_base') ?? '');
-  const hasDefault = Boolean(DEFAULT_NATIVE_API_BASE);
+  /** 当前服务器模式（设置 → 服务器：本地局域网 / 实际服务器） */
+  const serverMode = getServerMode();
+  const [apiBaseInput, setApiBaseInput] = useState(() => getServerAddress(serverMode));
+  const hasDefault = Boolean(defaultAddress(serverMode));
   const needServerSetup = isNative && !apiBaseInput.trim() && !hasDefault;
   const { user, login, register } = useAuthStore();
   const online = useConnectionStore((s) => s.online);
@@ -161,12 +170,19 @@ export function LoginPage() {
 
           {isNative && (
         <div className={`mb-4 rounded-card border p-3.5 ${needServerSetup ? 'border-warning-500/60 bg-warning-500/10' : 'border-ink-100 bg-bg'}`}>
-          <p className="text-xs font-medium text-ink-700">服务器地址 {needServerSetup ? '（首次使用必填）' : ''}</p>
+          <p className="text-xs font-medium text-ink-700">
+            {serverMode === 'cloud' ? '实际服务器地址' : '局域网服务器地址'}{' '}
+            {needServerSetup ? '（首次使用必填）' : ''}
+          </p>
           <div className="mt-2 flex gap-2">
             <input
               value={apiBaseInput}
               onChange={(e) => setApiBaseInput(e.target.value)}
-              placeholder={DEFAULT_NATIVE_API_BASE || "http://电脑IP:3000"}
+              placeholder={
+                serverMode === 'cloud'
+                  ? 'https://api.example.com'
+                  : DEFAULT_NATIVE_API_BASE || 'http://电脑IP:3000'
+              }
               inputMode="url"
               autoCapitalize="off"
               autoCorrect="off"
@@ -175,8 +191,7 @@ export function LoginPage() {
             <button
               type="button"
               onClick={() => {
-                localStorage.setItem('cuckoo_api_base', apiBaseInput.trim());
-                refreshApiBase();
+                saveServerAddress(serverMode, apiBaseInput);
                 setError(null);
               }}
               className="shrink-0 rounded-btn bg-primary-500 px-4 py-2 text-xs font-medium text-white"
@@ -186,8 +201,10 @@ export function LoginPage() {
           </div>
           <p className="mt-1.5 text-[11px] leading-relaxed text-ink-500">
             {hasDefault
-              ? '已内置默认服务器地址（与开发者电脑同一 WiFi 时自动可用）；如有改动可在此覆盖'
-              : '与电脑同一 WiFi：填写电脑后端地址后即可登录/注册；游客模式无需联网'}
+              ? '已内置默认服务器地址，开箱即用；如有改动可在此覆盖'
+              : serverMode === 'cloud'
+                ? '填写公网服务器地址（https://…）后即可登录/注册；也可到「设置 → 服务器」切换回本地局域网'
+                : '与电脑同一 WiFi：填写电脑后端地址（http://电脑IP:3000）后即可登录/注册；游客模式无需联网'}
           </p>
         </div>
       )}

@@ -5,3 +5,11 @@
  */
 export const DEFAULT_NATIVE_API_BASE: string =
   (import.meta.env.VITE_DEFAULT_API_BASE as string | undefined) ?? '';
+
+/**
+ * 云端（公网）服务器地址（构建时注入 VITE_CLOUD_API_BASE，不入库）。
+ * 用于「连接实际服务器」模式：正式对外提供服务时，把公网域名烘焙进 APK，用户免填。
+ * 留空则该模式回退同源（网页版由同一域名提供前端与 /api，天然可用）。
+ */
+export const DEFAULT_CLOUD_API_BASE: string =
+  (import.meta.env.VITE_CLOUD_API_BASE as string | undefined) ?? '';

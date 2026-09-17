@@ -4,7 +4,9 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import type { NextFunction, Request, Response } from 'express';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -53,6 +55,23 @@ async function bootstrap() {
       }
     },
   });
+
+  // 前端 SPA 托管（可选）：frontend/dist 存在时，同一端口同时提供网页版与 API。
+  // 对外服务时只需一条隧道 URL（同源，无 CORS 问题）；dist 不存在则跳过，仅提供 API。
+  // 顺序要求：必须在 /api（控制器）与 /uploads 静态之后——先静态命中，未命中才回退 index.html。
+  const spaDir = join(process.cwd(), config.get<string>('spa.dir') ?? '');
+  if (existsSync(join(spaDir, 'index.html'))) {
+    app.useStaticAssets(spaDir, { index: false });
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+      const url = req.originalUrl || req.url;
+      if (url.startsWith('/api') || url.startsWith('/uploads')) return next();
+      res.sendFile(join(spaDir, 'index.html'));
+    });
+  } else {
+    // eslint-disable-next-line no-console
+    console.warn(`[Cuckoo] 未发现前端构建产物（${spaDir}），本次仅提供 API`);
+  }
 
   // 全局校验管道：DTO class-validator 校验失败 → 400 VALIDATION_FAILED
   app.useGlobalPipes(

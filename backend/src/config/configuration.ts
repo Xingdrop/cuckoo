@@ -49,6 +49,11 @@ export default () => ({
   port: parseInt(process.env.PORT ?? '3000', 10),
   corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:5173').split(','),
   serveMode: resolveServeMode(),
+  // 前端构建产物目录（可选）：配置且存在时由后端一并托管 SPA，
+  // 一条对外 URL 即可同时提供网页版与 API（同源，无 CORS 问题）。留空则只提供 API。
+  spa: {
+    dir: process.env.FRONTEND_DIST ?? '../frontend/dist',
+  },
 
   db: {
     path: process.env.DB_PATH ?? 'data/cuckoo.sqlite',

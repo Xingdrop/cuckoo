@@ -10,6 +10,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { isTrustedProxy } from './common/trusted-proxy';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -24,10 +25,17 @@ async function bootstrap() {
   // 局域网设备直连与隧道·反代对外可并存，见 docs/部署手册.md §4）
   const serveMode = config.get<'lan' | 'public'>('serveMode');
 
-  // 对外服务：信任一层反向代理（Cloudflare Tunnel / Nginx）写入的 X-Forwarded-For。
+  // 对外服务：采信反向代理（Cloudflare Tunnel / Nginx）写入的 X-Forwarded-For，
   // 否则限流按 TCP 对端取 IP——隧道下所有访客都是 127.0.0.1，一人触发即全员被限。
+  // 2026-09-17 加固：不再用无条件的 `trust proxy = 1`——本服务监听全部网卡，
+  // 端口可直连时客户端自带 XFF 即可伪造 req.ip 绕过限流与登录防爆破。
+  // 改为「只信任受信对端」：仅当 TCP 对端是回环（同机隧道/反代）或 TRUSTED_PROXIES 中的地址时才采信 XFF。
   if (serveMode === 'public') {
-    app.getHttpAdapter().getInstance().set('trust proxy', 1);
+    const trustedProxies = config.get<string[]>('trustedProxies') ?? [];
+    app
+      .getHttpAdapter()
+      .getInstance()
+      .set('trust proxy', (ip: string) => isTrustedProxy(ip, trustedProxies));
   }
 
   // CORS 必须先于静态资源注册：/uploads 响应需带 Access-Control-Allow-Origin，

@@ -49,6 +49,13 @@ export default () => ({
   port: parseInt(process.env.PORT ?? '3000', 10),
   corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:5173').split(','),
   serveMode: resolveServeMode(),
+  // 额外受信的反向代理地址（仅 public 模式的 trust proxy 判定用）。留空表示
+  // 只信任回环地址——同机 cloudflared/nginx 已足够；反代在另一台机器时把它填进来，
+  // 否则其写入的 X-Forwarded-For 不被采信，限流会按反代自身 IP 计数（全员共用一个配额）。
+  trustedProxies: (process.env.TRUSTED_PROXIES ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
   // 前端构建产物目录（可选）：配置且存在时由后端一并托管 SPA，
   // 一条对外 URL 即可同时提供网页版与 API（同源，无 CORS 问题）。留空则只提供 API。
   spa: {

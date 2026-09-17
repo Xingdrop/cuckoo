@@ -55,9 +55,25 @@ const cacheWrite = (patch: Record<string, unknown>) => {
 
 export const socialApi = {
   // 帖子
-  listPosts: (page = 1, pageSize = 20) => {
+  /**
+   * 帖子流。
+   * - scope：all=广场 / following=关注的人 / mine=我发的（后两者按最新时间倒序）
+   * - shuffle：随机轮换种子（同一 seed 逐页取用 = 随机且不重复，取满 total 后换新 seed）
+   */
+  listPosts: (
+    page = 1,
+    pageSize = 20,
+    opts: { shuffle?: string; scope?: 'all' | 'following' | 'mine' } = {},
+  ) => {
     if (useLocal()) {
-      const all = guestApi.feedPosts();
+      let all = guestApi.feedPosts();
+      if (opts.scope === 'following') {
+        const ids = new Set(guestApi.followingUsers().map((u) => u.id));
+        all = all.filter((p) => ids.has(p.author.id));
+      } else if (opts.scope === 'mine') {
+        const me = useGuestStore.getState().mirrorOf;
+        all = all.filter((p) => p.author.id === me);
+      }
       const start = (page - 1) * pageSize;
       return Promise.resolve<Page<Post>>({
         items: all.slice(start, start + pageSize),
@@ -66,10 +82,17 @@ export const socialApi = {
         pageSize,
       });
     }
-    return http.get<Page<Post>>('/posts', { params: { page, pageSize } }).then((r) => {
-      cacheWrite({ feed: r.data.items });
-      return r.data;
-    });
+    return http
+      .get<Page<Post>>('/posts', { params: { page, pageSize, ...opts } })
+      .then((r) => {
+        // 分页/随机轮换下只把新到手的帖子并进缓存——整表覆盖会让离线缓存只剩当前一页
+        const prev = useGuestStore.getState().feed;
+        const seen = new Set(prev.map((p) => p.id));
+        cacheWrite({
+          feed: [...r.data.items.filter((p) => !seen.has(p.id)), ...prev].slice(0, 200),
+        });
+        return r.data;
+      });
   },
   getPost: (id: string) => {
     if (useLocal()) {

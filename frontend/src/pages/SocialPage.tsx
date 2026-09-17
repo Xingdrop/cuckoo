@@ -1,5 +1,5 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3BhZ2VzL1NvY2lhbFBhZ2UudHN4fDIwMjYtMDl8ODQ5OTBjN2IzNg== */
-import { ArrowUp, Bell, Heart, ImagePlus, MessageCircle, PenSquare, Play, Star, Users, X } from 'lucide-react';
+import { ArrowUp, Bell, ImagePlus, PenSquare, Play, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -14,22 +14,39 @@ import { familyApi, type FamilyBindingItem } from '../services/api/api.family';
 import { FamilyTab } from './social/FamilyTab';
 import { filesApi } from '../services/api/api.files';
 import { compressMediaFile } from '../utils/media';
-import { MediaGrid } from '../components/MediaGrid';
-import { LinkedText } from '../components/LinkedText';
+import { PostCard } from '../components/PostCard';
 import { plansApi, profileApi } from '../services/api/api.plans';
 import type { Plan } from '../services/api/api.plans';
 import { notificationsApi } from '../services/api/api.social';
 
-function fmtTime(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  // 未来时间/跨年 → 显示完整日期（#5：修复"分钟前"错显示）
-  if (diff < 0) return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
-  if (diff < 3_600_000) return `${Math.max(1, Math.floor(diff / 60_000))} 分钟前`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`;
-  return `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+/** 每次加载的帖子条数（广场随机轮换 / 关注 / 我的 共用） */
+const PAGE_SIZE = 10;
+
+/** 广场随机轮换游标：seed 固定则分页结果稳定，shown=本轮到目前已发放的条数 */
+interface Rotation {
+  seed: string;
+  shown: number;
 }
+
+const newSeed = () => Math.random().toString(36).slice(2, 10);
+const ROT_KEY = (uid: string) => `cuckoo.social.rotation.${uid}`;
+/** 轮换进度按账户持久化：返回列表页/跨页面回来不会重复发放同一批帖子 */
+const loadRotation = (uid: string): Rotation => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(ROT_KEY(uid)) ?? 'null') as Rotation | null;
+    if (raw?.seed && Number.isFinite(raw.shown)) return raw;
+  } catch {
+    /* 缓存损坏则重新开始一轮 */
+  }
+  return { seed: newSeed(), shown: 0 };
+};
+const saveRotation = (uid: string, r: Rotation) => {
+  try {
+    localStorage.setItem(ROT_KEY(uid), JSON.stringify(r));
+  } catch {
+    /* 存储不可用时忽略 */
+  }
+};
 
 /** #14：社交页 tab 定义（长按可拖动排序，顺序按账户记忆） */
 const TABS = [
@@ -67,6 +84,28 @@ export function SocialPage() {
   const pressTimer = useRef<number | null>(null);
   const suppressClick = useRef(false);
   const [posts, setPosts] = useState<Post[]>([]);
+  /** 关注 / 我的：最新时间倒序分页（各自记录页码与是否取完） */
+  const [lists, setLists] = useState<{
+    following: { items: Post[]; page: number; done: boolean };
+    mine: { items: Post[]; page: number; done: boolean };
+  }>({
+    following: { items: [], page: 0, done: false },
+    mine: { items: [], page: 0, done: false },
+  });
+  /** 广场随机轮换游标（跨页面持久化，保证"刷新不重复、全部轮换后才重洗"） */
+  const rotRef = useRef<Rotation>(loadRotation(useAuthStore.getState().user?.id ?? 'guest'));
+  const [feedState, setFeedState] = useState<{ loading: boolean; done: boolean }>({
+    loading: false,
+    done: false,
+  });
+  const [listLoading, setListLoading] = useState(false);
+  const feedLoadingRef = useRef(false);
+  /** 在飞的列表请求（按 scope 分别记：关注与我的 允许各自加载，互不打断） */
+  const listLoadingRef = useRef<Set<'following' | 'mine'>>(new Set());
+  const listsRef = useRef(lists);
+  useEffect(() => {
+    listsRef.current = lists;
+  }, [lists]);
   const [templates, setTemplates] = useState<PlanTemplate[]>([]);
   const [family, setFamily] = useState<FamilyBindingItem[] | null>(null);
   const [unread, setUnread] = useState(0);
@@ -300,24 +339,25 @@ export function SocialPage() {
     try {
       await profileApi.follow(authorId);
       refreshFollowing();
+      // 关注关系变了 → 已加载过的关注流重取第 1 页（否则新关注的人的帖子要等下拉刷新才出现）
+      if (listsRef.current.following.page > 0) void loadList('following', 'reload');
     } catch (e) {
       setError(errorMessage(e));
     }
   };
 
-  const load = useCallback(async (): Promise<boolean> => {
+  /** 页面附属数据（官方计划 / 通知 / 亲友）——帖子流单独按 tab 加载 */
+  const loadMeta = useCallback(async (): Promise<boolean> => {
     if (!useConnectionStore.getState().online) {
       // #19：离线刷新 → 提示网络已断开（显示缓存）
       setNetToast(Date.now());
     }
     try {
-      const [p, t, n, fam] = await Promise.all([
-        socialApi.listPosts(),
+      const [t, n, fam] = await Promise.all([
         socialApi.templates(),
         notificationsApi.list(),
         user ? familyApi.listBindings().catch(() => [] as FamilyBindingItem[]) : Promise.resolve([] as FamilyBindingItem[]),
       ]);
-      setPosts(p.items);
       setTemplates(t);
       setFamily(fam);
       // #26：铃铛角标不计入「每日提醒」类通知（missed）
@@ -330,21 +370,102 @@ export function SocialPage() {
     }
   }, [user]);
 
+  /**
+   * 广场：随机轮换加载（每批 10 条）
+   * - restore：回到列表页时按当前游标恢复"已展示的那一批"（不推进，避免一进页面就换一批）
+   * - advance：下拉刷新 → 取下一批替换视图
+   * - append：触底 → 取下一批追加
+   * 本批与前面的批次不重复；整轮发放完毕（取到空批）后换新 seed 重洗，从头再来。
+   */
+  const loadFeed = useCallback(async (mode: 'restore' | 'advance' | 'append'): Promise<boolean> => {
+    if (feedLoadingRef.current) return true;
+    feedLoadingRef.current = true;
+    setFeedState((s) => ({ ...s, loading: true }));
+    try {
+      const uid = useAuthStore.getState().user?.id ?? 'guest';
+      let rot = rotRef.current;
+      // restore：重取包含 shown 的那一页（首次进入即第 1 页 → 游标推进到 10，否则下次触底会重发第 1 页）
+      let page =
+        mode === 'restore' ? Math.max(1, Math.ceil(rot.shown / PAGE_SIZE)) : Math.floor(rot.shown / PAGE_SIZE) + 1;
+      let res = await socialApi.listPosts(page, PAGE_SIZE, { shuffle: rot.seed });
+      let cycled = false;
+      if (mode !== 'restore' && res.items.length === 0) {
+        // 本轮已全部发放 → 换新 seed 重洗（此时用新一批替换视图，避免无限追加旧数据）
+        rot = { seed: newSeed(), shown: 0 };
+        page = 1;
+        res = await socialApi.listPosts(page, PAGE_SIZE, { shuffle: rot.seed });
+        cycled = true;
+      }
+      // restore 不推进游标，但至少要标记「这一页已发放」，否则触底会重复取到同一页
+      const shown = Math.max(rot.shown, page * PAGE_SIZE);
+      rotRef.current = { seed: rot.seed, shown };
+      saveRotation(uid, rotRef.current);
+      setPosts((prev) => (mode === 'append' && !cycled ? [...prev, ...res.items] : res.items));
+      setFeedState((s) => ({ ...s, done: res.total > 0 && shown >= res.total }));
+      return true;
+    } catch (e) {
+      setError(errorMessage(e));
+      return false;
+    } finally {
+      feedLoadingRef.current = false;
+      setFeedState((s) => ({ ...s, loading: false }));
+    }
+  }, []);
+
+  /** 关注 / 我的：最新时间倒序分页（每批 10 条，触底续取） */
+  const loadList = useCallback(
+    async (scope: 'following' | 'mine', mode: 'init' | 'more' | 'reload' = 'init'): Promise<boolean> => {
+      if (listLoadingRef.current.has(scope)) return true; // 同一 scope 只跑一个请求
+      const cur = listsRef.current[scope];
+      if (mode === 'more' && (cur.done || cur.page === 0)) return true;
+      const page = mode === 'more' ? cur.page + 1 : 1;
+      listLoadingRef.current.add(scope);
+      setListLoading(true);
+      try {
+        const res = await socialApi.listPosts(page, PAGE_SIZE, { scope });
+        setLists((prev) => ({
+          ...prev,
+          [scope]: {
+            items: mode === 'more' ? [...prev[scope].items, ...res.items] : res.items,
+            page,
+            done: page * PAGE_SIZE >= res.total,
+          },
+        }));
+        return true;
+      } catch (e) {
+        setError(errorMessage(e));
+        return false;
+      } finally {
+        listLoadingRef.current.delete(scope);
+        setListLoading(listLoadingRef.current.size > 0);
+      }
+    },
+    [],
+  );
+
+  /** 三处列表同步打补丁（广场/关注/我的 共用卡片，点赞收藏要一起更新） */
+  const patchPost = useCallback((id: string, fn: (p: Post) => Post) => {
+    setPosts((prev) => prev.map((p) => (p.id === id ? fn(p) : p)));
+    setLists((prev) => ({
+      following: { ...prev.following, items: prev.following.items.map((p) => (p.id === id ? fn(p) : p)) },
+      mine: { ...prev.mine, items: prev.mine.items.map((p) => (p.id === id ? fn(p) : p)) },
+    }));
+  }, []);
+
   useEffect(() => {
-    void load();
-  }, [load]);
+    void loadMeta();
+    void loadFeed('restore');
+  }, [loadMeta, loadFeed]);
 
   const toggleLike = async (post: Post) => {
     // #22：账户操作统一走 api → 游客/离线给出明确提示（游客需登录；离线需联网）
     try {
       await socialApi.like(post.id);
-      setPosts((prev) =>
-        prev.map((p) =>
-          p.id === post.id
-            ? { ...p, myLiked: !p.myLiked, likesCount: p.likesCount + (p.myLiked ? -1 : 1) }
-            : p,
-        ),
-      );
+      patchPost(post.id, (p) => ({
+        ...p,
+        myLiked: !p.myLiked,
+        likesCount: p.likesCount + (p.myLiked ? -1 : 1),
+      }));
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -353,7 +474,7 @@ export function SocialPage() {
   const toggleFavorite = async (post: Post) => {
     try {
       await socialApi.favorite(post.id);
-      setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, myFavorited: !p.myFavorited } : p)));
+      patchPost(post.id, (p) => ({ ...p, myFavorited: !p.myFavorited }));
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -367,13 +488,11 @@ export function SocialPage() {
       } else {
         await socialApi.join(post.id);
       }
-      setPosts((prev) =>
-        prev.map((p) =>
-          p.id === post.id
-            ? { ...p, myJoined: !p.myJoined, joinedCount: p.joinedCount + (p.myJoined ? -1 : 1) }
-            : p,
-        ),
-      );
+      patchPost(post.id, (p) => ({
+        ...p,
+        myJoined: !p.myJoined,
+        joinedCount: p.joinedCount + (p.myJoined ? -1 : 1),
+      }));
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -388,7 +507,7 @@ export function SocialPage() {
       window.dispatchEvent(new CustomEvent('cuckoo:reminders-changed'));
       setError(null);
       setNotice(r.duplicate ? '该官方计划已在「我的计划」中，可前往计划页开启提醒' : `已把「${t.title}」保存到我的计划；在计划页开启开关即创建提醒`);
-      void load();
+      void loadMeta();
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -399,7 +518,7 @@ export function SocialPage() {
     try {
       await socialApi.leaveTemplate(t.id);
       setNotice(`已退出「${t.title}」，从我的计划移除`);
-      void load();
+      void loadMeta();
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -436,7 +555,9 @@ export function SocialPage() {
       setComposerPlanId('');
       setComposerMedia([]);
       setShowComposer(false);
-      void load();
+      // 新帖「我的」列表置顶可见（广场是随机轮换流，不保证立刻刷到自己的新帖）
+      void loadList('mine', 'reload');
+      void loadMeta();
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -470,6 +591,30 @@ export function SocialPage() {
       .then((p) => setMyPlans(p))
       .catch(() => setMyPlans([]));
   };
+
+  /** #25：下拉刷新按当前 tab 生效（广场取下一批随机帖；关注/我的 从第 1 页重取；其它刷新附属数据） */
+  const refreshActive = useCallback(async (): Promise<boolean> => {
+    if (tab === 'feed') return loadFeed('advance');
+    if (tab === 'following' || tab === 'mine') return loadList(tab, 'reload');
+    return loadMeta();
+  }, [tab, loadFeed, loadList, loadMeta]);
+
+  /** 触底自动续取：哨兵进入视口即取下一批（广场随机轮换 / 关注 / 我的 分页） */
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0]?.isIntersecting) return;
+        if (tab === 'feed') void loadFeed('append');
+        else if (tab === 'following' || tab === 'mine') void loadList(tab, 'more');
+      },
+      { rootMargin: '200px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [tab, loadFeed, loadList]);
 
   return (
     <div className="mx-auto max-w-md pb-20">
@@ -540,7 +685,10 @@ export function SocialPage() {
                 return;
               }
               setTab(key);
-              void load(); // #5：切换即刷新，与详情页操作同步
+              // #5：切换即刷新附属数据；三个帖子 tab 各自按需懒加载（关注/我的 按最新时间分页）
+              void loadMeta();
+              if (key === 'following' && listsRef.current.following.page === 0) void loadList('following');
+              if (key === 'mine' && listsRef.current.mine.page === 0) void loadList('mine');
             }}
             className={`shrink-0 rounded-full px-4 py-2 text-sm transition-colors ${
               tab === key ? 'bg-primary-500 font-medium text-white' : 'bg-surface text-ink-700 shadow-sm'
@@ -551,8 +699,8 @@ export function SocialPage() {
         ))}
       </div>
 
-      {/* #25：下拉刷新（广场/官方计划共用） */}
-      <PullToRefresh onRefresh={load}>
+      {/* #25：下拉刷新（按当前 tab：广场换一批随机帖 / 关注我的重取首页 / 其它刷新计划与通知） */}
+      <PullToRefresh onRefresh={refreshActive}>
       <main className="px-4 pt-4">
         {!online && (
           <p className="mb-3 rounded-btn bg-warning-500/15 px-3 py-2 text-[11px] text-ink-700">
@@ -575,229 +723,83 @@ export function SocialPage() {
 
         {tab === 'following' && (
           <ul className="space-y-3">
-            {(() => {
-              const shown = posts.filter((p) => followingIds.has(p.author.id));
-              return shown.length === 0 ? (
-                <div className="rounded-card bg-surface p-10 text-center text-sm text-ink-500 shadow-sm">
-                  <p>你关注的人还没有发帖</p>
-                  <p className="mt-1 text-xs text-ink-300">去关注感兴趣的朋友，他们的动态会出现在这里</p>
-                  <button
-                    onClick={() => {
-                      setTab('feed');
-                      void load();
-                    }}
-                    className="mt-4 rounded-full bg-primary-500 px-5 py-2.5 text-sm font-medium text-white"
-                  >
-                    去广场逛逛
-                  </button>
-                </div>
-              ) : (
-                shown.map((post) => (
-                  <li
-                    key={post.id}
-                    onClick={() => navigate(`/posts/${post.id}`)}
-                    className="cursor-pointer rounded-card bg-surface p-4 shadow-sm"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-50 text-sm font-medium text-primary-600">
-                        {post.author.username.slice(0, 1).toUpperCase()}
-                      </span>
-                      <p className="min-w-0 flex-1 truncate text-sm font-medium">@{post.author.username}</p>
-                      <span className="text-[10px] text-ink-300">{fmtTime(post.createdAt)}</span>
-                    </div>
-                    <p className="mt-2.5 text-sm leading-relaxed">
-                      <LinkedText text={post.content} />
-                    </p>
-                  </li>
-                ))
-              );
-            })()}
+            {lists.following.items.length === 0 && !listLoading && (
+              <div className="rounded-card bg-surface p-10 text-center text-sm text-ink-500 shadow-sm">
+                <p>你关注的人还没有发帖</p>
+                <p className="mt-1 text-xs text-ink-300">去关注感兴趣的朋友，他们的动态会出现在这里</p>
+                <button
+                  onClick={() => setTab('feed')}
+                  className="mt-4 rounded-full bg-primary-500 px-5 py-2.5 text-sm font-medium text-white"
+                >
+                  去广场逛逛
+                </button>
+              </div>
+            )}
+            {lists.following.items.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                meId={user?.id}
+                following={followingIds.has(post.author.id)}
+                joining={joining === post.id}
+                onFollow={toggleFollowAuthor}
+                onLike={toggleLike}
+                onFavorite={toggleFavorite}
+                onJoin={joinPost}
+              />
+            ))}
           </ul>
         )}
 
         {tab === 'mine' && (
           <ul className="space-y-3">
-            {posts.filter((p) => p.author.id === user?.id).length === 0 && (
+            {lists.mine.items.length === 0 && !listLoading && (
               <div className="rounded-card bg-surface p-10 text-center text-sm text-ink-500 shadow-sm">
                 你还没有发帖，点击右上角「发布」分享计划
               </div>
             )}
-            {posts
-              .filter((p) => p.author.id === user?.id)
-              .map((post) => (
-                <li
-                  key={post.id}
-                  onClick={() => navigate(`/posts/${post.id}`)}
-                  className="cursor-pointer rounded-card bg-surface p-4 shadow-sm"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-50 text-sm font-medium text-primary-600">
-                      {post.author.username.slice(0, 1).toUpperCase()}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">@{post.author.username}</p>
-                      <p className="text-[10px] text-ink-300">
-                        {fmtTime(post.createdAt)}
-                        {post.updatedAt && new Date(post.updatedAt).getTime() - new Date(post.createdAt).getTime() > 60_000 ? ' · 已编辑' : ''}
-                      </p>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/posts/${post.id}`);
-                      }}
-                      className="text-xs text-primary-600"
-                    >
-                      详情 ›
-                    </button>
-                  </div>
-                  <p className="mt-2.5 text-sm leading-relaxed">
-                    <LinkedText text={post.content} />
-                  </p>
-                  {post.mediaUrls.length > 0 && <MediaGrid urls={post.mediaUrls} className="mt-2" />}
-                </li>
-              ))}
+            {lists.mine.items.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                meId={user?.id}
+                following={followingIds.has(post.author.id)}
+                joining={joining === post.id}
+                onFollow={toggleFollowAuthor}
+                onLike={toggleLike}
+                onFavorite={toggleFavorite}
+                onJoin={joinPost}
+              />
+            ))}
           </ul>
         )}
 
         {tab === 'feed' && (
           <ul className="space-y-3">
-            {posts.length === 0 && (
+            {posts.length === 0 && !feedState.loading && (
               <div className="rounded-card bg-surface p-10 text-center text-sm text-ink-500 shadow-sm">
                 还没有动态，发布第一条吧
               </div>
             )}
             {posts.map((post) => (
-              <li
+              <PostCard
                 key={post.id}
-                onClick={() => navigate(`/posts/${post.id}`)}
-                className="cursor-pointer rounded-card bg-surface p-4 shadow-sm"
-              >
-                <div className="flex items-center gap-2.5">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/profile/${post.author.id}`);
-                    }}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-50 text-sm font-semibold text-primary-600"
-                    aria-label={`查看 @${post.author.username} 的主页`}
-                  >
-                    {post.author.avatarUrl ? (
-                      <RImg src={post.author.avatarUrl} alt="头像" className="h-full w-full object-cover" />
-                    ) : (
-                      post.author.username.slice(0, 1).toUpperCase()
-                    )}
-                  </button>
-                  <div className="min-w-0 flex-1">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/profile/${post.author.id}`);
-                      }}
-                      className="block max-w-full truncate text-sm font-medium"
-                    >
-                      @{post.author.username}
-                    </button>
-                    <p className="text-[10px] text-ink-300">
-                      {fmtTime(post.createdAt)}
-                      {post.updatedAt && new Date(post.updatedAt).getTime() - new Date(post.createdAt).getTime() > 60_000 ? ' · 已编辑' : ''}
-                    </p>
-                  </div>
-                  {post.author.id !== user?.id && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void toggleFollowAuthor(post.author.id);
-                      }}
-                      className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium ${
-                        followingIds.has(post.author.id)
-                          ? 'bg-ink-100 text-ink-500'
-                          : 'bg-primary-500 text-white'
-                      }`}
-                    >
-                      {followingIds.has(post.author.id) ? '已关注' : '+ 关注'}
-                    </button>
-                  )}
-                  {post.type === 'official_plan' && (
-                    <span className="rounded-full bg-accent-100 px-2 py-0.5 text-[10px] text-accent-700">官方</span>
-                  )}
-                </div>
-
-                <p className="mt-3 text-sm leading-relaxed">
-                  <LinkedText text={post.content} />
-                </p>
-
-                {/* 帖子媒体（图片/视频 + 全屏预览，#8） */}
-                {post.mediaUrls.length > 0 && <MediaGrid urls={post.mediaUrls} className="mt-3" />}
-
-                {post.planSnapshot && (
-                  <div className="mt-3 rounded-btn bg-primary-50/60 px-3 py-2">
-                    {/* #2/#26：紧凑展示计划引用——缩小字号与留白，不占大面积 */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/posts/${post.id}/plan`);
-                      }}
-                      className="flex w-full items-center gap-1.5 text-left"
-                    >
-                      <span className="text-[11px] text-primary-700">📋</span>
-                      <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-primary-700">
-                        {(post.planSnapshot as { from?: { name?: string } } | null)?.from?.name || '分享的计划'}
-                      </span>
-                      <span className="shrink-0 text-[9px] text-primary-500">查看详情 ›</span>
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void joinPost(post);
-                      }}
-                      disabled={joining === post.id}
-                      className={`mt-1.5 w-full rounded-btn py-2 text-xs font-medium transition-colors ${
-                        post.myJoined
-                          ? 'bg-ink-100 text-ink-700'
-                          : 'bg-primary-500 text-white'
-                      }`}
-                    >
-                      {post.myJoined ? '✓ 已加入（点击退出）' : '一键加入计划'}
-                    </button>
-                  </div>
-                )}
-
-                <div className="mt-3 flex items-center gap-4 border-t border-ink-100 pt-3 text-xs text-ink-500">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void toggleLike(post);
-                    }}
-                    className={`flex items-center gap-1 ${post.myLiked ? 'text-danger-500' : ''}`}
-                  >
-                    <Heart size={15} fill={post.myLiked ? 'currentColor' : 'none'} />
-                    {post.likesCount}
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/posts/${post.id}`);
-                    }}
-                    className="flex items-center gap-1"
-                  >
-                    <MessageCircle size={15} /> {post.commentsCount}
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void toggleFavorite(post);
-                    }}
-                    className={`flex items-center gap-1 ${post.myFavorited ? 'text-accent-700' : ''}`}
-                  >
-                    <Star size={15} fill={post.myFavorited ? 'currentColor' : 'none'} /> 收藏
-                  </button>
-                  <span className="ml-auto flex items-center gap-1 text-primary-600">
-                    <Users size={14} /> {post.joinedCount} 人已加入
-                  </span>
-                </div>
-              </li>
+                post={post}
+                meId={user?.id}
+                following={followingIds.has(post.author.id)}
+                joining={joining === post.id}
+                onFollow={toggleFollowAuthor}
+                onLike={toggleLike}
+                onFavorite={toggleFavorite}
+                onJoin={joinPost}
+              />
             ))}
+            {feedState.loading && <li className="py-3 text-center text-xs text-ink-400">加载中…</li>}
+            {feedState.done && posts.length > 0 && (
+              <li className="py-3 text-center text-[11px] text-ink-300">
+                已看完全部动态，下拉刷新会重新洗牌
+              </li>
+            )}
           </ul>
         )}
 
@@ -866,7 +868,12 @@ export function SocialPage() {
         )}
 
         {tab === 'family' && (
-          <FamilyTab family={family} onChanged={load} />
+          <FamilyTab family={family} onChanged={loadMeta} />
+        )}
+
+        {/* 触底自动续取哨兵：广场取下一批随机帖，关注/我的 取下一页 */}
+        {(tab === 'feed' || tab === 'following' || tab === 'mine') && (
+          <div ref={sentinelRef} className="h-1" aria-hidden />
         )}
       </main>
       </PullToRefresh>

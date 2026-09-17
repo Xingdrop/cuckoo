@@ -32,10 +32,23 @@ export function resolveJwtSecret(env: string): string {
 
 const ENV = process.env.NODE_ENV ?? 'development';
 
+/**
+ * 服务模式（2026-09-17）：两种模式都监听全部网卡，局域网直连与隧道/反代对外可并存。
+ * - lan    ：局域网自用——CORS 放开任意来源（局域网 IP 随时变化，手机/APK 直连无碍）
+ * - public ：对外提供服务——CORS 走白名单 + 信任一层反代头，按真实客户端 IP 限流
+ * 未显式设置时沿用既有语义：生产=public（白名单），开发/测试=lan（放开）。
+ */
+function resolveServeMode(): 'lan' | 'public' {
+  const raw = process.env.SERVE_MODE;
+  if (raw === 'public' || raw === 'lan') return raw;
+  return ENV === 'production' ? 'public' : 'lan';
+}
+
 export default () => ({
   env: ENV,
   port: parseInt(process.env.PORT ?? '3000', 10),
   corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:5173').split(','),
+  serveMode: resolveServeMode(),
 
   db: {
     path: process.env.DB_PATH ?? 'data/cuckoo.sqlite',

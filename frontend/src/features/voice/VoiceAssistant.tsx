@@ -324,7 +324,10 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
 
   return (
     <>
-      <div className="pointer-events-none fixed bottom-20 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5">
+      {/* 仅在「设置 → 语音助手」开启后显示底部按钮（enabled 来自 loadAiConfig().enabled）；
+          未开启时今日页底部不出现任何语音按钮 */}
+      {enabled && (
+        <div className="pointer-events-none fixed bottom-20 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5">
         <button
           aria-label={inputMode === 'type' ? '语音助手（点按打字）' : '语音助手（点按说话）'}
           onClick={inputMode === 'type' ? () => openTyping(false) : toggleRecord}
@@ -366,7 +369,8 @@ export function VoiceAssistant({ onToast }: { onToast: (msg: string) => void }) 
         >
           {inputMode === 'type' ? <Mic size={13} /> : <Keyboard size={13} />}
         </button>
-      </div>
+        </div>
+      )}
 
       {/* 语音全流程全屏反馈：starting/recording/stopping/AI 解析 各阶段不同动画。
           pointer-events-none 不拦截点按——底部按钮仍是唯一停止控件 */}

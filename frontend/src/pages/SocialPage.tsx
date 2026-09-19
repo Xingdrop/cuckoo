@@ -7,6 +7,7 @@ import { PullToRefresh } from '../components/PullToRefresh';
 import { useAuthStore } from '../stores/authStore';
 import { useConnectionStore } from '../stores/connectionStore';
 import { useGuestStore } from '../guest/guestStore';
+import { useLocal } from '../guest/localMode';
 import { errorMessage } from '../services/http';
 import { RImg, RVideo } from '../components/remoteMedia';
 import { socialApi, Post, PlanTemplate } from '../services/api/api.social';
@@ -119,7 +120,6 @@ export function SocialPage() {
   const [followingUsers, setFollowingUsers] = useState<{ id: string; username: string }[]>([]);
   const [joining, setJoining] = useState<string | null>(null);
   const [showTop, setShowTop] = useState(false);
-  const [netToast, setNetToast] = useState<number | null>(null);
   /** #21：计划操作成功提示（美观内联，替代 alert） */
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -128,13 +128,6 @@ export function SocialPage() {
     const t = setTimeout(() => setNotice(null), 3000);
     return () => clearTimeout(t);
   }, [notice]);
-
-  // #19：刷新时断网提示（3 秒自动消失）
-  useEffect(() => {
-    if (netToast === null) return;
-    const t = setTimeout(() => setNetToast(null), 3000);
-    return () => clearTimeout(t);
-  }, [netToast]);
 
   // #2：回到顶部按钮（滚动超过 400px 显示）
   useEffect(() => {
@@ -348,10 +341,6 @@ export function SocialPage() {
 
   /** 页面附属数据（官方计划 / 通知 / 亲友）——帖子流单独按 tab 加载 */
   const loadMeta = useCallback(async (): Promise<boolean> => {
-    if (!useConnectionStore.getState().online) {
-      // #19：离线刷新 → 提示网络已断开（显示缓存）
-      setNetToast(Date.now());
-    }
     try {
       const [t, n, fam] = await Promise.all([
         socialApi.templates(),
@@ -364,7 +353,6 @@ export function SocialPage() {
       setUnread(n.items.filter((x) => x.type !== 'missed' && !x.isRead).length);
       return true;
     } catch (e) {
-      if (!useConnectionStore.getState().online) setNetToast(Date.now());
       setError(errorMessage(e));
       return false;
     }
@@ -594,6 +582,9 @@ export function SocialPage() {
 
   /** #25：下拉刷新按当前 tab 生效（广场取下一批随机帖；关注/我的 从第 1 页重取；其它刷新附属数据） */
   const refreshActive = useCallback(async (): Promise<boolean> => {
+    // 离线/游客（本地数据）：不做刷新——本地内容不会因刷新而变化，只会让广场帖子轮换成另一批，
+    // 让用户误以为"刷出了新数据"。直接返回 false → 松开处显示「刷新失败」，2.2s 后自动消失。
+    if (useLocal()) return false;
     if (tab === 'feed') return loadFeed('advance');
     if (tab === 'following' || tab === 'mine') return loadList(tab, 'reload');
     return loadMeta();
@@ -607,6 +598,9 @@ export function SocialPage() {
     const io = new IntersectionObserver(
       (entries) => {
         if (!entries[0]?.isIntersecting) return;
+        // 离线/游客：广场的"下一批"是本地缓存重新轮换（看着像刷出了新内容）→ 不续取；
+        // 关注/我的 是本地列表的稳定分页，继续允许翻页
+        if (tab === 'feed' && useLocal()) return;
         if (tab === 'feed') void loadFeed('append');
         else if (tab === 'following' || tab === 'mine') void loadList(tab, 'more');
       },
@@ -702,16 +696,6 @@ export function SocialPage() {
       {/* #25：下拉刷新（按当前 tab：广场换一批随机帖 / 关注我的重取首页 / 其它刷新计划与通知） */}
       <PullToRefresh onRefresh={refreshActive}>
       <main className="px-4 pt-4">
-        {!online && (
-          <p className="mb-3 rounded-btn bg-warning-500/15 px-3 py-2 text-[11px] text-ink-700">
-            📡 网络已断开 — 以下为断网前接收的缓存内容，如需最新数据请联网后刷新（点赞 / 评论 / 关注 / 发帖等需联网使用）
-          </p>
-        )}
-        {netToast !== null && (
-          <p className="mb-3 rounded-btn bg-warning-500/20 px-3 py-2 text-[11px] font-medium text-ink-700">
-            ⚠ 网络已断开，刷新失败 — 正在显示断网前缓存数据
-          </p>
-        )}
         {notice && (
           <p className="mb-3 rounded-btn bg-primary-50 px-3 py-2 text-[11px] font-medium text-primary-700">
             ✓ {notice}

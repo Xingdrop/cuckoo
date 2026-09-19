@@ -2,7 +2,8 @@
 import { http } from '../http';
 import { useLocal, useGuestMode } from '../../guest/localMode';
 import { guestApi } from '../../guest/guestApi';
-import { recordCloudDelete } from '../../guest/guestStore';
+import { recordCloudDelete, useGuestStore } from '../../guest/guestStore';
+import { useAuthStore } from '../../stores/authStore';
 
 export type PlanSourceType = 'self' | 'official' | 'share';
 
@@ -66,21 +67,87 @@ export interface ProfileView {
   posts: { id: string; content: string; type: string; createdAt: string; likesCount: number; commentsCount: number; joinedCount: number }[];
 }
 
+/**
+ * 离线个人主页（#17）：用本地镜像数据拼出可展示的资料——
+ * 帖子取已缓存的动态、统计取本地日志；粉丝数/关注数本地无权威数据，展示 0 与本地关注列表长度。
+ * 不再发真实请求（否则断网时页面只剩「加载中…」或报错）。
+ */
+const localProfile = (userId: string): ProfileView => {
+  const g = useGuestStore.getState();
+  const me = useAuthStore.getState().user;
+  const isSelf = Boolean(me && me.id === userId);
+  const cached = g.feed.find((f) => f.author.id === userId)?.author;
+  const author =
+    isSelf && me
+      ? { id: me.id, username: me.username, avatarUrl: me.avatarUrl ?? null }
+      : (cached ?? { id: userId, username: '未知用户', avatarUrl: null });
+  return {
+    user: {
+      ...author,
+      healthGoals: isSelf ? (me?.healthGoals ?? null) : null,
+      // 加入时间：本人取账户资料；他人本地无资料则留空（页面此时不渲染该行）
+      createdAt: (isSelf ? me?.createdAt : '') ?? '',
+    },
+    followersCount: 0,
+    followingCount: isSelf ? g.followings.length : 0,
+    isFollowing: g.followings.includes(userId),
+    isSelf,
+    stats: {
+      totalLogs: g.logs.length,
+      completedLogs: g.logs.filter((l) => l.status === 'completed' || l.status === 'challenge_completed').length,
+    },
+    posts: g.feed
+      .filter((f) => f.author.id === userId)
+      .map((f) => ({
+        id: f.id,
+        content: f.content,
+        type: f.type,
+        createdAt: f.createdAt,
+        likesCount: f.likesCount,
+        commentsCount: f.commentsCount,
+        joinedCount: f.joinedCount,
+      })),
+  };
+};
+
 export const profileApi = {
-  get: (userId: string) => http.get<ProfileView>(`/users/${userId}/profile`).then((r) => r.data),
+  get: (userId: string) =>
+    useLocal()
+      ? Promise.resolve(localProfile(userId))
+      : http.get<ProfileView>(`/users/${userId}/profile`).then((r) => r.data),
   follow: (userId: string) =>
     useLocal()
       ? Promise.reject(new Error(useGuestMode() ? '请登录后使用（关注需要正常账户）' : '当前未联网：关注功能需联网后使用'))
       : http.post<{ following: boolean }>(`/users/${userId}/follow`).then((r) => r.data),
   followers: (userId: string) =>
-    http.get<{ id: string; username: string; avatarUrl: string | null }[]>(`/users/${userId}/followers`).then((r) => r.data),
+    useLocal()
+      ? // 粉丝列表未落本地缓存：不伪造空列表，明确提示需联网（与"需联网"标签语义一致）
+        Promise.reject(new Error('粉丝列表需联网查看'))
+      : http.get<{ id: string; username: string; avatarUrl: string | null }[]>(`/users/${userId}/followers`).then((r) => r.data),
   following: (userId: string) =>
     useLocal()
       ? Promise.resolve(guestApi.followingUsers())
       : http.get<{ id: string; username: string; avatarUrl: string | null }[]>(`/users/${userId}/following`).then((r) => r.data),
-  /** #6：收藏列表（个人主页"我的收藏"） */
+  /** #6：收藏列表（个人主页"我的收藏"）——离线取本地缓存中已收藏的帖子 */
   favorites: (userId: string) =>
-    http.get<{ items: FavPost[]; total: number }>(`/users/${userId}/favorites`).then((r) => r.data),
+    useLocal()
+      ? Promise.resolve({
+          items: useGuestStore
+            .getState()
+            .favorites.map((id) => useGuestStore.getState().feed.find((f) => f.id === id))
+            .filter((f): f is NonNullable<typeof f> => Boolean(f))
+            .map((f) => ({
+              id: f.id,
+              content: f.content,
+              createdAt: f.createdAt,
+              likesCount: f.likesCount,
+              commentsCount: f.commentsCount,
+              joinedCount: f.joinedCount,
+              author: f.author,
+            })),
+          total: useGuestStore.getState().favorites.length,
+        })
+      : http.get<{ items: FavPost[]; total: number }>(`/users/${userId}/favorites`).then((r) => r.data),
 };
 
 /** 收藏帖子（与社区帖结构一致，可点进详情） */

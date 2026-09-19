@@ -13,7 +13,9 @@ import { RImg } from '../components/remoteMedia';
 import { useAuthStore } from '../stores/authStore';
 
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' });
+  const d = new Date(iso);
+  if (!iso || Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' });
 }
 
 /**
@@ -84,6 +86,9 @@ export function ProfilePage() {
     }
   };
 
+  // 离线（本地资料）时加入时间可能缺失 → 该行不渲染，避免出现「Invalid Date 加入布谷」
+  const joined = profile ? fmtDate(profile.user.createdAt) : '';
+
   return (
     <div className="mx-auto max-w-md pb-10">
       <header className="sticky top-0 z-10 flex items-center gap-2 bg-bg px-4 py-3">
@@ -136,7 +141,7 @@ export function ProfilePage() {
                 )}
               </label>
               <h2 className="mt-3 text-lg font-semibold">@{profile.user.username}</h2>
-              <p className="mt-1 text-xs text-ink-500">{fmtDate(profile.user.createdAt)} 加入布谷</p>
+              {joined && <p className="mt-1 text-xs text-ink-500">{joined} 加入布谷</p>}
               {profile.user.healthGoals && profile.user.healthGoals.length > 0 && (
                 <div className="mt-2 flex flex-wrap justify-center gap-1.5">
                   {profile.user.healthGoals.map((g) => (

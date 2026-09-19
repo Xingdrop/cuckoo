@@ -1,10 +1,14 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL2NvbXBvbmVudHMvUHVsbFRvUmVmcmVzaC50c3h8MjAyNi0wOXw4NDI1MWQ1NjE5 */
+import { XCircle } from 'lucide-react';
 import { ReactNode, useRef, useState } from 'react';
+
+/** 失败提示停留时长（毫秒） */
+const FAIL_MS = 600;
 
 /**
  * #25：下拉刷新（社交等长列表）——平滑位移 + 转圈；断网/失败显示「刷新失败」。
  * - 与正常上下滚动兼容（touch-action: pan-y，只有顶部下拉时才接管）
- * - onRefresh 返回 boolean：false → 显示「刷新失败（断网）」提示 2 秒
+ * - onRefresh 返回 boolean：false → 在松开处显示「刷新失败」，0.6 秒后自动收起（离线模式即走此路径）
  */
 export function PullToRefresh({
   onRefresh,
@@ -59,13 +63,13 @@ export function PullToRefresh({
               if (!ok) {
                 setFailed(true);
                 if (failTimer.current) clearTimeout(failTimer.current);
-                failTimer.current = setTimeout(() => setFailed(false), 2200);
+                failTimer.current = setTimeout(() => setFailed(false), FAIL_MS);
               }
             })
             .catch(() => {
               setFailed(true);
               if (failTimer.current) clearTimeout(failTimer.current);
-              failTimer.current = setTimeout(() => setFailed(false), 2200);
+              failTimer.current = setTimeout(() => setFailed(false), FAIL_MS);
             })
             .finally(() => {
               setRefreshing(false);
@@ -80,8 +84,9 @@ export function PullToRefresh({
       <div
         className="flex items-center justify-center overflow-hidden"
         style={{
-          height: Math.round(pull),
-          transition: refreshing || pull === 0 ? 'height 220ms ease' : 'none',
+          // 刷新中 / 失败时固定撑开指示区：否则 pull 已归零 → 高度为 0，提示会被 overflow 裁掉看不见
+          height: Math.round(refreshing || failed ? Math.max(pull, 44) : pull),
+          transition: refreshing || failed || pull === 0 ? 'height 220ms ease' : 'none',
         }}
       >
         {refreshing ? (
@@ -91,8 +96,8 @@ export function PullToRefresh({
           </span>
         ) : failed ? (
           <span className="flex items-center gap-1.5 text-xs text-danger-600">
-            <span className="h-4 w-4 shrink-0 rounded-full border-2 border-danger-400 border-t-transparent" />
-            刷新失败（请检查网络）
+            <XCircle className="h-4 w-4 shrink-0" strokeWidth={2.2} />
+            刷新失败
           </span>
         ) : pull > 0 ? (
           <span className={`text-xs ${pull >= 52 ? 'text-primary-600' : 'text-ink-400'}`}>

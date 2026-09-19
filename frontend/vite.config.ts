@@ -3,14 +3,22 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
+import pkg from './package.json' with { type: 'json' };
 
 // https://vite.dev/config/
 export default defineConfig({
+  // 版本号注入：设置页底部显示真实版本，随 package.json 自动更新（避免手写死版本号）
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   plugins: [
     react(),
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // 注册由 src/main.tsx 自己完成（原生端不注册、Web 端注册 /sw.js）：
+      // 关掉自动注入，避免 dist 里再生成 registerSW.js 让旧 SW 预缓存继续生效
+      injectRegister: null,
       // 开发环境也注册 Service Worker（否则 Web Push 订阅在 dev 下不可用）
       devOptions: { enabled: true },
       includeAssets: ['icons/*.svg', 'icons/*.png'],

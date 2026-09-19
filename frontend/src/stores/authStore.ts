@@ -25,6 +25,18 @@ const isNetworkError = (e: unknown): boolean =>
   axios.isAxiosError(e) && !e.response;
 
 /**
+ * 恢复会话时挂载该账户的本地镜像（#17 离线优先）：
+ * 冷启动/APK 升级后 token 与 user 可恢复，但 mirrorOf 若停留在初始 null，
+ * useLocal() 恒为 false → 断网时所有页面仍发真实请求并卡在 15s 超时。
+ * 幂等：owner 已是该在线账户时跳过（避免重复 adopt 覆盖内存中未持久化的改动）。
+ */
+const mountOnlineMirror = (userId: string): void => {
+  const g = useGuestStore.getState();
+  if (g.owner?.mode === 'online' && g.owner.userId === userId) return;
+  g.loginAccount(userId, 'online');
+};
+
+/**
  * 认证状态：
  * - 在线：服务器校验（登录/注册），成功后镜像全量数据到本地（断网可用）
  * - 未联网：拒绝登录/注册（可先以游客身份体验，数据仅存本机）
@@ -43,24 +55,46 @@ export const useAuthStore = create<AuthState>()(
             set({ initialized: true });
             return;
           }
-          try {
-            const user = await authApi.getMe();
-            set({ user, initialized: true });
-          } catch (e) {
-            if (isNetworkError(e)) {
-              // 断网：保留 token，用本地缓存资料继续（数据走本地镜像）
-              try {
-                const raw = localStorage.getItem('cuckoo_offline_session');
-                const cached = raw ? (JSON.parse(raw) as { user: User }) : null;
-                set({ user: cached?.user ?? get().user, initialized: true });
-                return;
-              } catch {
-                /* 忽略 */
-              }
+          /** 本地缓存会话（登录/注册时写入）——探测未完成/断网时先用它进界面 */
+          const cachedSession = (): User | null => {
+            try {
+              const raw = localStorage.getItem('cuckoo_offline_session');
+              return (raw ? (JSON.parse(raw) as { user: User }) : null)?.user ?? null;
+            } catch {
+              return null;
             }
-            tokenStore.clear();
-            set({ user: null, initialized: true });
+          };
+          // 先进入界面，再后台联网探测：本地有会话资料就立即放行，不等任何网络请求
+          // （此前先等 /health 探测，最坏要等 3s 才结束启动页的「加载中…」）
+          const local = cachedSession() ?? get().user;
+          if (local?.id) {
+            set({ user: local, initialized: true });
+            mountOnlineMirror(local.id);
           }
+          void (async () => {
+            const conn = useConnectionStore.getState();
+            if (conn.lastCheck === 0) void conn.init();
+            // 无本地资料可先渲染时，只能等探测结论（离线也要结束「加载中…」，否则永远卡住）
+            const finishOffline = () => {
+              if (!local?.id) set({ user: null, initialized: true });
+            };
+            if (!(await useConnectionStore.getState().ensureChecked())) {
+              finishOffline();
+              return;
+            }
+            try {
+              const user = await authApi.getMe();
+              set({ user, initialized: true });
+              mountOnlineMirror(user.id);
+            } catch (e) {
+              if (isNetworkError(e)) {
+                finishOffline();
+                return;
+              }
+              tokenStore.clear();
+              set({ user: null, initialized: true });
+            }
+          })();
         },
 
         login: async (username, password) => {
@@ -98,6 +132,11 @@ export const useAuthStore = create<AuthState>()(
         },
 
         register: async (username, password, healthGoals) => {
+          // 与登录一致：先等联网探测落定。init() 改为「先进入界面再后台探测」后，
+          // online 在探测结束前仍是初始 false，直接发请求会误判离线/白等超时
+          if (!(await useConnectionStore.getState().ensureChecked())) {
+            throw new Error('当前未连接服务器，无法注册；可先以游客身份体验');
+          }
           const res = await authApi.register({ username, password, healthGoals });
           // 防御：响应缺 token/user（服务器地址错误/版本过旧）时给出可操作提示而非崩溃
           if (!res?.token || !res?.user?.id) {

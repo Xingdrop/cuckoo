@@ -18,15 +18,14 @@ import {
   type ServerMode,
 } from '../services/http';
 import { errorMessage } from '../services/http';
-import { loadInputMode, saveInputMode, type VoiceInputMode } from '../features/voice/voicePref';
 import { exportPhotosToPhone } from '../services/photoExport';
 import { RImg } from '../components/remoteMedia';
 import { useAuthStore } from '../stores/authStore';
 import { useConnectionStore } from '../stores/connectionStore';
 import { useGuestStore } from '../guest/guestStore';
+import { guestApi } from '../guest/guestApi';
 import { THEMES, useThemeStore, type ThemeId } from '../stores/themeStore';
 import { useLocal } from '../guest/localMode';
-import { checkPushSubscribed, isPushSupported, pushFailMessage, subscribePush, unsubscribePush } from '../utils/push';
 import type { Reminder, UserSettings } from '../types';
 
 /** 设置开关行：#25 自绘打勾框——保留 ✓ 语义，开关两态颜色恒定、平滑过渡（原生 checkbox 手机端变色突兀） */
@@ -97,7 +96,7 @@ const TEST_REMINDER: Reminder = {
 
 /**
  * P-18 设置（FR-104）
- * 通知偏好（独立开关）+ Web Push 订阅 + 测试提醒 + 账号退出
+ * 通知偏好（独立开关）+ 测试提醒 + 账号退出
  */
 export function SettingsPage() {
   const user = useAuthStore((s) => s.user);
@@ -105,8 +104,6 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const online = useConnectionStore((s) => s.online);
   const [settings, setSettings] = useState<UserSettings | null>(null);
-  const [pushEnabled, setPushEnabled] = useState<boolean | null>(null);
-  const [pushSupport, setPushSupport] = useState<boolean>(isPushSupported());
   const [showTest, setShowTest] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -120,8 +117,6 @@ export function SettingsPage() {
   const [confirmClearGuest, setConfirmClearGuest] = useState(false);
   /** #26：AI 助手配置（本地保密存储） */
   const [ai, setAi] = useState(() => loadAiConfig());
-  /** 底部语音按钮方式：语音识别 / 直接打字（仅存本机，与悬浮按钮实时同步） */
-  const [inputMode, setInputMode] = useState<VoiceInputMode>(loadInputMode);
   /** AI 测试连接结果（居中弹窗展示，不用顶部提示） */
   const [aiTestResult, setAiTestResult] = useState<string | null>(null);
   /** 服务器模式（局域网 / 云端）与当前模式地址输入 */
@@ -135,11 +130,11 @@ export function SettingsPage() {
     authApi
       .getSettings()
       .then(setSettings)
-      .catch((e) => setError(errorMessage(e)));
-    void checkPushSubscribed().then((ok) => {
-      setPushEnabled(ok);
-      setPushSupport(isPushSupported());
-    });
+      .catch((e) => {
+        // 离线/接口超时：回退本地设置（镜像数据集）——否则四个开关因 settings=null 永久禁用、点了没反应
+        setSettings(guestApi.settings());
+        setError(errorMessage(e));
+      });
     if (!isNative) appApi.info().then(setApk).catch(() => setApk({ available: false }));
   }, [isNative]);
 
@@ -147,27 +142,9 @@ export function SettingsPage() {
     setError(null);
     try {
       setSettings(await authApi.updateSettings(patch));
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-  };
-
-  const togglePush = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      if (pushEnabled) {
-        await unsubscribePush();
-        setPushEnabled(false);
-      } else {
-        const result = await subscribePush();
-        setPushEnabled(result.ok);
-        if (!result.ok) setError(pushFailMessage(result.reason));
-      }
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(false);
+    } catch {
+      // 离线/接口失败：写入本地数据集，保证开关可点且状态落盘（联网后随镜像同步回灌）
+      setSettings(guestApi.saveSettings(patch));
     }
   };
 
@@ -341,10 +318,6 @@ export function SettingsPage() {
           </div>
         </section>
 
-        {error && (
-          <p className="rounded-btn bg-danger-500/10 px-3 py-2 text-sm text-danger-700">{error}</p>
-        )}
-
         {/* 主题（外观）——三选一即时生效 */}
         <section className="rounded-card bg-surface p-4 shadow-sm">
           <h2 className="text-sm font-medium">主题外观</h2>
@@ -386,25 +359,6 @@ export function SettingsPage() {
           ))}
         </section>
 
-        {/* 浏览器推送（离线置灰：需服务器签约） */}
-        <section className="rounded-card bg-surface shadow-sm">
-          <SettingRow
-            label="浏览器推送"
-            desc={
-              !online
-                ? '离线状态不可用（联网后可在浏览器端使用）'
-                : pushEnabled === null
-                  ? '检测中…'
-                  : pushSupport
-                    ? '页面关闭时也能收到提醒（通道 B）'
-                    : '当前浏览器/环境不支持推送（需 HTTPS 或 localhost）'
-            }
-            checked={pushEnabled ?? false}
-            disabled={!online || pushEnabled === null || !pushSupport || busy}
-            onChange={togglePush}
-          />
-        </section>
-
         {/* #8（2026-09-09 晚）：国产 ROM 后台弹窗引导——FSI/精确闹钟就位后，
             「非 App 界面不弹」的残余根因几乎都是系统侧管控（ColorOS 一键清理=强制停止会
             取消全部闹钟；后台弹出界面/锁屏显示/自启动被拒会静默吞掉全屏意图） */}
@@ -440,7 +394,7 @@ export function SettingsPage() {
           <h2 className="px-4 py-3 text-sm font-medium">语音助手</h2>
           <SettingRow
             label="语音助手"
-            desc="开启后今日页底部显示语音按钮，点按开始说话、再次点按结束后 AI 解析预案并确认执行（浏览器需 HTTPS/允许麦克风；APK 使用原生语音识别，首次使用需允许麦克风权限）"
+            desc="开启后今日页底部显示语音按钮，点按说话、再点按结束，AI 解析预案确认后执行"
             checked={ai.enabled}
             disabled={busy}
             onChange={(v) => {
@@ -449,37 +403,6 @@ export function SettingsPage() {
               setNotice(v ? '语音助手已开启（可在今日页点按唤醒）' : '语音助手已关闭');
             }}
           />
-          <div className="px-4 py-3">
-            <p className="text-sm">底部按钮方式</p>
-            <p className="mt-0.5 text-xs text-ink-500">
-              「语音识别」=点按说话；「打字输入」=点按弹出键盘直接打字（识别不准或环境不支持语音时用这个）。
-              两种方式都会先生成预案、确认后才执行；底部按钮右侧小图标也能随时切换。
-            </p>
-            <div className="mt-2 flex gap-2">
-              {(
-                [
-                  { v: 'voice' as const, label: '🎤 点按说话' },
-                  { v: 'type' as const, label: '⌨️ 点按打字' },
-                ]
-              ).map((o) => (
-                <button
-                  key={o.v}
-                  type="button"
-                  aria-pressed={inputMode === o.v}
-                  onClick={() => {
-                    saveInputMode(o.v);
-                    setInputMode(o.v);
-                    setNotice(o.v === 'type' ? '已改为打字输入：底部按钮点按弹出键盘' : '已改为语音识别：底部按钮点按说话');
-                  }}
-                  className={`rounded-btn px-3 py-2 text-xs font-medium ${
-                    inputMode === o.v ? 'bg-primary-500 text-white' : 'bg-bg text-ink-600'
-                  }`}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </div>
           <div className="px-4 py-3">
             <label className="text-xs text-ink-500">AI API 地址（OpenAI 兼容，如 https://api.openai.com/v1 ）</label>
             <input
@@ -547,11 +470,11 @@ export function SettingsPage() {
             className="flex w-full items-center gap-3 px-4 py-3.5 text-left disabled:opacity-40"
           >
             <BarChart3 size={18} className="shrink-0 text-primary-600" />
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-medium">周报 / 月报</p>
               <p className="mt-0.5 text-xs text-ink-500">完成率、分类统计与建议（周一/1 日自动生成）</p>
             </div>
-            {!online && <span className="ml-auto text-[10px] text-ink-400">需联网</span>}
+            {!online && <span className="ml-auto shrink-0 whitespace-nowrap text-[10px] text-ink-400">需联网</span>}
           </button>
           <button
             onClick={() => navigate('/achievements')}
@@ -560,11 +483,11 @@ export function SettingsPage() {
             className="flex w-full items-center gap-3 px-4 py-3.5 text-left disabled:opacity-40"
           >
             <Award size={18} className="shrink-0 text-primary-600" />
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-medium">成就墙</p>
               <p className="mt-0.5 text-xs text-ink-500">连续坚持、用药/锻炼/喝水成就</p>
             </div>
-            {!online && <span className="ml-auto text-[10px] text-ink-400">需联网</span>}
+            {!online && <span className="ml-auto shrink-0 whitespace-nowrap text-[10px] text-ink-400">需联网</span>}
           </button>
           <button
             onClick={handleExport}
@@ -572,10 +495,10 @@ export function SettingsPage() {
             className="flex w-full items-center gap-3 px-4 py-3.5 text-left disabled:opacity-40"
           >
             <Download size={18} className="shrink-0 text-primary-600" />
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-medium">导出我的数据</p>
               <p className="mt-0.5 text-xs text-ink-500">
-                生成单文件报告（含照片，离线可看）· 报告存到系统下载目录；照片另存到手机「Download/布谷照片」文件夹（绝对路径，文件管理可直接查看）
+                生成含照片的单文件报告，照片另存到手机「Download/布谷照片」
               </p>
             </div>
           </button>
@@ -586,7 +509,7 @@ export function SettingsPage() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">合并游客数据</p>
                 <p className="mt-0.5 text-xs text-ink-500">
-                  预览后确认合并到当前账户（重复内容按更新时间较新保留）；游客数据默认不会自动同步
+                  预览后确认合并到当前账户（重复内容按更新时间较新保留）
                 </p>
               </div>
             </div>
@@ -644,6 +567,8 @@ export function SettingsPage() {
                     switchServerMode(m);
                     setServerMode(m);
                     setApiBaseInput(getServerAddress(m));
+                    // 换服务器后立刻重探测（理由同上：避免被断网快速失败拦到下一轮轮询）
+                    void useConnectionStore.getState().refresh();
                     setNotice(
                       m === 'cloud'
                         ? '已切换到实际服务器（公网）'
@@ -681,6 +606,8 @@ export function SettingsPage() {
               <button
                 onClick={() => {
                   saveServerAddress(serverMode, apiBaseInput);
+                  // 改地址后立刻重探测：否则仍处于断网态，请求会被「断网快速失败」拦到下一次 45s 轮询
+                  void useConnectionStore.getState().refresh();
                   setNotice(
                     apiBaseInput.trim()
                       ? `已切换到服务器：${apiBaseInput.trim()}`
@@ -752,14 +679,14 @@ export function SettingsPage() {
               title={!online ? '注销账号需联网' : undefined}
               className="flex w-full items-center gap-2 px-4 py-3.5 text-sm text-danger-500 disabled:opacity-40"
             >
-              <Trash2 size={16} /> 注销账号
-              {!online && <span className="ml-auto text-[10px] text-ink-400">离线账户：联网后即可注销（账号数据在云端）</span>}
+              <Trash2 size={16} /> <span className="whitespace-nowrap">注销账号</span>
+              {!online && <span className="ml-auto shrink-0 whitespace-nowrap text-[10px] leading-none text-ink-400">需联网</span>}
             </button>
           )}
         </section>
 
         <p className="flex items-center justify-center gap-1 pt-2 text-xs text-ink-500">
-          <Bell size={12} /> 布谷 Cuckoo v0.2 · 准时提醒，温柔守护
+          <Bell size={12} /> 布谷 Cuckoo v{__APP_VERSION__} · 准时提醒，温柔守护
         </p>
       </main>
 

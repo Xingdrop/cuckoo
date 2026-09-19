@@ -115,10 +115,29 @@ export const tokenStore = {
   clear: () => localStorage.removeItem('cuckoo_token'),
 };
 
+/** 联网状态快照：connectionStore 已 import 本模块（循环依赖），
+ *  故只能动态导入后订阅并把状态缓存下来，供请求拦截器同步读取。 */
+let connSnapshot: { online: boolean; lastCheck: number } = { online: true, lastCheck: 0 };
+void import('../stores/connectionStore').then(({ useConnectionStore }) => {
+  const sync = () => {
+    const s = useConnectionStore.getState();
+    connSnapshot = { online: s.online, lastCheck: s.lastCheck };
+  };
+  sync();
+  useConnectionStore.subscribe(sync);
+});
+
 http.interceptors.request.use((config) => {
   const token = tokenStore.get();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  // 断网快速失败：探测已落定且离线时不再发请求（否则干等 15s 超时才报错）
+  // 快照未就绪（lastCheck=0）时保持放行，避免冷启动误拦
+  if (connSnapshot.lastCheck > 0 && !connSnapshot.online) {
+    // 必须抛 AxiosError（而非普通 Error）：上层如 authStore.init() 用
+    // axios.isAxiosError(e) && !e.response 判定「断网」，抛普通 Error 会被当成登录失效而清 token 登出
+    return Promise.reject(new AxiosError('网络已断开，请联网后重试', 'ERR_NETWORK'));
   }
   return config;
 });
@@ -156,7 +175,14 @@ export function errorMessage(e: unknown): string {
     const status = e.response?.status;
     // 500（无业务 message）统一友好提示（#7）
     if (status === 500) return '服务器内部错误，请稍后重试或联系管理员';
-    return e.response?.data?.message ?? e.message;
+    // axios 原始英文错误中文化
+    if (!e.response) {
+      if (e.code === 'ECONNABORTED' || /timeout/i.test(e.message)) {
+        return '网络连接超时，请检查网络后重试';
+      }
+      return '网络已断开，请联网后重试';
+    }
+    return e.response.data?.message ?? e.message;
   }
   return e instanceof Error ? e.message : '未知错误';
 }

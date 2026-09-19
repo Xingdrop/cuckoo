@@ -121,10 +121,10 @@ function GlobalOfflineBadge() {
   return (
     <div className="flex items-center justify-center gap-1.5 bg-warning-500 px-3 py-1.5 text-[11px] font-medium text-white shadow-sm">
       <WifiOff size={12} strokeWidth={2.2} />
-      未联网 — 显示本地数据（断网前接收的社交内容可浏览），联网后自动同步
+      网络已断开
       <button
         onClick={() => setHidden(true)}
-        aria-label="关闭未联网提示"
+        aria-label="关闭断网提示"
         className="ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/20 text-[10px] leading-none hover:bg-white/35"
       >
         ✕

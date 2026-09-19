@@ -67,6 +67,11 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # 2026-09-19：不要用 action 的默认包列表——默认含已从 Google SDK 仓库下线的 'tools'，
+          # sdkmanager 会报 "Failed to find package 'tools'" 并以退出码 1 结束，门禁整体失败。
+          # 只装仍存在的 platform-tools，其余（platform/build-tools）由 Gradle 按需下载。
+          packages: 'platform-tools'
 
       - name: Frontend install & build（cap sync 需要 dist 产物）
         working-directory: frontend

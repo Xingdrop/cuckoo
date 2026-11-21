@@ -7,8 +7,8 @@
  * - notificationclick：聚焦现有窗口或打开对应页面
  */
 import { clientsClaim } from 'workbox-core';
-import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching';
-import { registerRoute } from 'workbox-routing';
+import { cleanupOutdatedCaches, matchPrecache, precacheAndRoute } from 'workbox-precaching';
+import { registerRoute, setCatchHandler } from 'workbox-routing';
 import { NetworkFirst } from 'workbox-strategies';
 
 declare const self: ServiceWorkerGlobalScope;
@@ -30,6 +30,19 @@ registerRoute(
   new NetworkFirst({ cacheName: 'cuckoo-api', networkTimeoutSeconds: 5 }),
   'GET',
 );
+
+/**
+ * 导航兜底：SPA 深链（如 /pomodoro）未在本次 SW 接管后被访问过时，运行时缓存里没有它，
+ * 断网会直接掉到浏览器错误页。这里统一回退预缓存的 index.html（App Shell），
+ * 交给前端路由按当前 URL 渲染对应页面。
+ */
+setCatchHandler(async ({ request }) => {
+  if (request.mode === 'navigate') {
+    const shell = await matchPrecache('/index.html');
+    if (shell) return shell;
+  }
+  return Response.error();
+});
 
 interface PushPayloadData {
   title?: string;

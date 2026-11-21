@@ -28,8 +28,9 @@ export default defineConfig({
       filename: 'sw.ts',
       injectManifest: {
         // webp：随包插画（public/guide/*.webp）必须预缓存，否则 PWA 离线时插画全部 404
-        // 不含 html：index.html 改为导航请求 NetworkFirst，避免旧 SW 一直吐旧版页面/旧 bundle
-        globPatterns: ['**/*.{js,css,svg,png,webp,webmanifest,ico}'],
+        // html：index.html 必须进预缓存，否则断网冷启动/未访问深链没有 App Shell 可回退
+        //       （在线时导航仍走 NetworkFirst，优先拿最新页面；离线才回退这份缓存）
+        globPatterns: ['**/*.{js,css,html,svg,png,webp,webmanifest,ico}'],
       },
       manifest: {
         name: '布谷 Cuckoo',

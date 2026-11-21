@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9tZWRpY2luZXMvbWVkaWNpbmUtcGhvdG8uZW50aXR5LnRzfDIwMjYtMTF8 */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9tZWRpY2luZXMvbWVkaWNpbmUtcGhvdG8uZW50aXR5LnRzfDIwMjYtMTF8ZGVlOTdiOWYwOA== */
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 import { Medicine } from './medicine.entity';
 

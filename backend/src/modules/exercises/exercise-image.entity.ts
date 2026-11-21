@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9leGVyY2lzZXMvZXhlcmNpc2UtaW1hZ2UuZW50aXR5LnRzfDIwMjYtMTF8 */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9leGVyY2lzZXMvZXhlcmNpc2UtaW1hZ2UuZW50aXR5LnRzfDIwMjYtMTF8NTJjZjBjNDg4Zg== */
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 import { Exercise } from './exercise.entity';
 

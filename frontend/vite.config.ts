@@ -60,6 +60,24 @@ export default defineConfig({
       '/uploads': { target: 'http://localhost:3000', changeOrigin: true },
     },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        // 第三方依赖按体积分组，避免首屏单个 chunk 超过 500 kB 告警
+        manualChunks(id: string) {
+          if (!id.includes('node_modules')) return;
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler|react-router|react-router-dom)[\\/]/.test(id)) {
+            return 'react-vendor';
+          }
+          if (/[\\/]node_modules[\\/](recharts|d3-[^\\/]+|victory-vendor|react-smooth|internmap)[\\/]/.test(id)) {
+            return 'charts';
+          }
+          if (id.includes('lunar-javascript')) return 'lunar';
+          return 'vendor';
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     include: ['tests/unit/**/*.spec.ts'],

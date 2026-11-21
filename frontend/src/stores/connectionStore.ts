@@ -1,6 +1,6 @@
 /* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3N0b3Jlcy9jb25uZWN0aW9uU3RvcmUudHN8MjAyNi0xMXw0NWUyZGE4YzJm */
 import { create } from 'zustand';
-import { apiBase } from '../services/http';
+import { apiBase, setConnectionSnapshot, setOnlineRecovery } from '../services/http';
 
 /**
  * 联网状态（#17）：navigator.onLine + 服务器健康检查（/api/v1/health）。
@@ -59,12 +59,16 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
     if (get().checking) return;
     set({ checking: true });
     const ok = navigator.onLine && (await pingHealth());
-    set({ online: ok, checking: false, lastCheck: Date.now() });
+    const at = Date.now();
+    set({ online: ok, checking: false, lastCheck: at });
+    setConnectionSnapshot(ok, at);
   },
 
   refresh: async () => {
     const ok = navigator.onLine && (await pingHealth());
-    set({ online: ok, lastCheck: Date.now() });
+    const at = Date.now();
+    set({ online: ok, lastCheck: at });
+    setConnectionSnapshot(ok, at);
     return ok;
   },
 
@@ -81,3 +85,9 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
     return get().online;
   },
 }));
+
+// API 成功但本地标记离线时的自愈（http 拦截器回调；模块级注册一次即可）
+setOnlineRecovery(() => {
+  const s = useConnectionStore.getState();
+  if (!s.online) void s.refresh();
+});

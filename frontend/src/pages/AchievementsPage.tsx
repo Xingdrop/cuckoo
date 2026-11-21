@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { ErrorBanner, EmptyState, LoadingState } from '../components/ui/Feedback';
 import { achievementsApi } from '../services/api/api.achievements';
 import type { AchievementWall } from '../services/api/api.achievements';
+import { socialApi } from '../services/api/api.social';
 import { errorMessage } from '../services/http';
 
 /**
@@ -29,7 +30,6 @@ export function AchievementsPage() {
     if (unlocked.length === 0) return;
     setSharing(true);
     try {
-      const { socialApi } = await import('../services/api/api.social');
       await socialApi.createPost({
         content: `🎉 我在布谷解锁了 ${unlocked.length} 个成就：${unlocked
           .slice(0, 3)

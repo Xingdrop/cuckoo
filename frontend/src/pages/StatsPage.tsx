@@ -9,7 +9,7 @@ import { filesApi } from '../services/api/api.files';
 import { absoluteUrl, errorMessage } from '../services/http';
 import { RImg } from '../components/remoteMedia';
 import { compressMediaFile } from '../utils/media';
-import { shortHash } from '../services/photoExport';
+import { exportPhotoListToPhone, shortHash } from '../services/photoExport';
 
 /** 热力图 4 档颜色映射（M5 完善：0 / 1-49 / 50-99 / 100%） */
 const HEAT_COLORS = ['bg-ink-100', 'bg-primary-200', 'bg-primary-400', 'bg-primary-600'];
@@ -93,7 +93,6 @@ export function StatsPage() {
     const native = Boolean((window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.());
     if (native) {
       try {
-        const { exportPhotoListToPhone } = await import('../services/photoExport');
         const r = await exportPhotoListToPhone([{ name, url: p.url }]);
         setPhotoMsg(r && r.saved ? `已导出到：${r.dir}` : r ? '照片已存在（此前导出过）' : '导出失败');
       } catch (e) {
@@ -183,7 +182,6 @@ export function StatsPage() {
       setPhotoMsg(`正在导出「${g.title}」${g.photos.length} 张照片…`);
       const native = Boolean((window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.());
       if (native) {
-        const { exportPhotoListToPhone } = await import('../services/photoExport');
         const items = g.photos.map((p, i) => ({
           // 文件名带 URL 短哈希：补拍替换（新 URL）→ 新文件名，重导出不再被同名「已存在」跳过
           name: `${g.title.slice(0, 12).replace(/[\\/:*?"<>|]/g, '_')}-${new Date(p.at).toISOString().slice(0, 10)}-${i + 1}-${shortHash(p.url)}.jpg`,

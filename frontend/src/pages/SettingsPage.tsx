@@ -8,7 +8,7 @@ import { ReminderOverlay } from '../features/reminders/ReminderOverlay';
 import { authApi } from '../services/api/api.auth';
 import { usersApi } from '../services/api/api.users';
 import { appApi, type AppApkInfo } from '../services/api/api.app';
-import { loadAiConfig, saveAiConfig } from '../assistant/assistant';
+import { loadAiConfig, runAssistant, saveAiConfig } from '../assistant/assistant';
 import {
   absoluteUrl,
   getServerAddress,
@@ -443,7 +443,6 @@ export function SettingsPage() {
               onClick={async () => {
                 setBusy(true);
                 try {
-                  const { runAssistant } = await import('../assistant/assistant');
                   const r = await runAssistant('你好，简单介绍你可以帮忙做什么设置');
                   // 2026-09-07（#9）：成功/失败都用屏幕正中弹窗展示（不再走顶部提示）
                   setAiTestResult(r.error ? `❌ 连接失败：${r.error}` : `✅ 连接成功\n\n${r.reply}`);

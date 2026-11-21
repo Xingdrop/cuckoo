@@ -1,0 +1,24 @@
+diff --git a/node_modules/@capacitor-community/speech-recognition/android/build.gradle b/node_modules/@capacitor-community/speech-recognition/android/build.gradle
+index d31e442..88e4b6f 100644
+--- a/node_modules/@capacitor-community/speech-recognition/android/build.gradle
++++ b/node_modules/@capacitor-community/speech-recognition/android/build.gradle
+@@ -18,8 +18,8 @@ buildscript {
+ apply plugin: 'com.android.library'
+ 
+ android {
+-    namespace "com.getcapacitor.community.speechrecognition.speechrecognition"
+-    compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 35
++    namespace = "com.getcapacitor.community.speechrecognition.speechrecognition"
++    compileSdk = project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 35
+     defaultConfig {
+         minSdkVersion project.hasProperty('minSdkVersion') ? rootProject.ext.minSdkVersion : 23
+         targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 35
+@@ -34,7 +34,7 @@ android {
+         }
+     }
+     lintOptions {
+-        abortOnError false
++        abortOnError = false
+     }
+     compileOptions {
+         sourceCompatibility JavaVersion.VERSION_21

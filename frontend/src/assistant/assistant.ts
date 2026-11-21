@@ -3,6 +3,7 @@
  * #26：AI 助手——配置（本地保密存储，key 不上传服务器）与编排：
  * 语音文本 + API 目录 + 上下文 → 用户自配的 OpenAI 兼容接口 → JSON 动作 → 本地执行并逐条汇报。
  */
+import { CATALOG, assistantContext, assistantTodayReminders, assistantWaterProgress, catalogText } from './apiCatalog';
 
 export interface AiConfig {
   enabled: boolean;
@@ -97,7 +98,6 @@ export async function runAssistant(
       error: 'AI_API_NOT_CONFIGURED',
     };
   }
-  const { CATALOG, catalogText, assistantContext, assistantTodayReminders, assistantWaterProgress } = await import('./apiCatalog');
   const ctx = assistantContext();
   const [todayReminders, water] = await Promise.all([assistantTodayReminders(), assistantWaterProgress()]);
   const sys = `你是「布谷」健康提醒应用的语音助手。用户说一句话，你判断要执行的动作。
@@ -211,7 +211,6 @@ export async function executePending(
     { say: rawText, act: inputSource === 'type' ? '打字输入' : '语音识别', result: '已提交', kind: 'input' },
   ];
   const undo: NonNullable<AssistantOutcome['undo']> = [];
-  const { CATALOG } = await import('./apiCatalog');
   for (const a of actions.slice(0, 5)) {
     const def = CATALOG.find((c) => c.id === a.id);
     if (!def?.exec || !def.run) {

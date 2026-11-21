@@ -5,6 +5,7 @@ import { plansApi } from '../services/api/api.plans';
 import { exercisesApi } from '../services/api/api.exercises';
 import { authApi } from '../services/api/api.auth';
 import { socialApi, notificationsApi } from '../services/api/api.social';
+import { usersApi } from '../services/api/api.users';
 import { useGuestStore, type GuestReminder } from './guestStore';
 
 /**
@@ -74,7 +75,6 @@ export async function syncMirrorToCloud(): Promise<boolean> {
   const store = useGuestStore.getState();
   if (store.mirrorOf === null) return false;
   try {
-    const { usersApi } = await import('../services/api/api.users');
     await usersApi.importData(store.exportBundle());
     const refreshed = await refreshLocalCache();
     if (refreshed) {

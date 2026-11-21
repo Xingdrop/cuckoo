@@ -5,7 +5,7 @@ import axios from 'axios';
 import { tokenStore } from '../services/http';
 import { authApi } from '../services/api/api.auth';
 import { useGuestStore } from '../guest/guestStore';
-import { refreshLocalCache } from '../guest/mirror';
+import { refreshLocalCache, syncMirrorToCloud } from '../guest/mirror';
 import { useConnectionStore } from './connectionStore';
 import type { User } from '../types';
 
@@ -120,7 +120,6 @@ export const useAuthStore = create<AuthState>()(
             );
             // 离线数据保护：该账户若有本地镜像改动，先回灌云端（按更新时间较新合并）再拉取，
             // 避免 refreshLocalCache 直接用服务端数据覆盖丢失（2026-09-06 事故根因）
-            const { syncMirrorToCloud } = await import('../guest/mirror');
             const synced = await syncMirrorToCloud().catch(() => false);
             if (!synced) void refreshLocalCache();
           } catch (e) {

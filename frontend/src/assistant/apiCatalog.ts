@@ -2,7 +2,7 @@
 import { authApi } from '../services/api/api.auth';
 import { statsApi } from '../services/api/api.stats';
 import { remindersApi, type CreateReminderInput } from '../services/api/api.reminders';
-import { loadVoiceHistory } from '../features/voice/voiceHistory';
+import { loadVoiceHistory, markUndone } from '../features/voice/voiceHistory';
 import type { CalendarItem, Reminder } from '../types';
 
 /**
@@ -502,7 +502,6 @@ export const CATALOG: CatalogAction[] = [
 /** 目录文本（注入提示词） */
 /** 撤回某条已执行的语音任务（逆序执行逆操作并标记） */
 export async function undoVoiceRecord(at: string): Promise<string> {
-  const { loadVoiceHistory, markUndone } = await import('../features/voice/voiceHistory');
   const rec = loadVoiceHistory().find((r) => r.at === at);
   if (!rec) return '记录不存在';
   if (rec.undoneAt) return '该任务已撤回过';

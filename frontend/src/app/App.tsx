@@ -35,6 +35,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useConnectionStore } from '../stores/connectionStore';
 import { useGuestStore } from '../guest/guestStore';
 import { tokenStore } from '../services/http';
+import { refreshLocalCache, syncMirrorToCloud } from '../guest/mirror';
 
 /**
  * #15/#17/#23：同步结果横幅——
@@ -49,7 +50,6 @@ function SyncOnOnline() {
       // 既弹"同步失败"横幅又会被 401 拦截器误踢到登录页
       if (!tokenStore.get()) return;
       try {
-        const { syncMirrorToCloud } = await import('../guest/mirror');
         const ok = await syncMirrorToCloud();
         setMsg(ok ? 'ok' : 'fail');
       } catch {
@@ -172,14 +172,14 @@ export function App() {
       // 离线数据保护：有本地镜像先回灌云端（合并）；回灌无事可做/失败时也要刷新镜像，
       // 否则新登录设备 reload 后镜像恒为空、断网即无数据（2026-09-13 E2E-03 根因之一）
       const g = useGuestStore.getState();
-      void import('../guest/mirror').then(async (m) => {
+      void (async () => {
         if (g.mirrorOf !== null) {
-          const synced = await m.syncMirrorToCloud().catch(() => false);
-          if (!synced) void m.refreshLocalCache();
+          const synced = await syncMirrorToCloud().catch(() => false);
+          if (!synced) void refreshLocalCache();
         } else {
-          void m.refreshLocalCache();
+          void refreshLocalCache();
         }
-      });
+      })();
     }
   }, [online]);
 

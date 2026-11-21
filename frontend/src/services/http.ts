@@ -116,16 +116,19 @@ export const tokenStore = {
 };
 
 /** 联网状态快照：connectionStore 已 import 本模块（循环依赖），
- *  故只能动态导入后订阅并把状态缓存下来，供请求拦截器同步读取。 */
+ *  改由 connectionStore 探测后回写，请求拦截器同步读取，避免动态 import。 */
 let connSnapshot: { online: boolean; lastCheck: number } = { online: true, lastCheck: 0 };
-void import('../stores/connectionStore').then(({ useConnectionStore }) => {
-  const sync = () => {
-    const s = useConnectionStore.getState();
-    connSnapshot = { online: s.online, lastCheck: s.lastCheck };
-  };
-  sync();
-  useConnectionStore.subscribe(sync);
-});
+let onlineRecovery: (() => void) | null = null;
+
+/** connectionStore 探测/刷新后回写（循环依赖的唯一出口） */
+export function setConnectionSnapshot(online: boolean, lastCheck: number): void {
+  connSnapshot = { online, lastCheck };
+}
+
+/** 请求成功但本地仍标记离线时的自愈回调（connectionStore 注册） */
+export function setOnlineRecovery(fn: () => void): void {
+  onlineRecovery = fn;
+}
 
 http.interceptors.request.use((config) => {
   const token = tokenStore.get();
@@ -150,10 +153,8 @@ http.interceptors.response.use(
       return Promise.reject(new Error('服务器地址不可用（返回了网页而非接口数据）：请在「设置 → 服务器」填写后端地址，例如 http://电脑IP:3000'));
     }
     // 2026-09-07 全局自愈：任何 API 请求成功但联网标志仍为离线（健康探测误报/瞬时失败）→
-    // 立即重探测恢复 online，避免「未联网」横幅在全应用残留（动态 import 避免与 connectionStore 循环依赖）
-    void import('../stores/connectionStore').then(({ useConnectionStore }) => {
-      if (!useConnectionStore.getState().online) void useConnectionStore.getState().refresh();
-    });
+    // 立即重探测恢复 online，避免「未联网」横幅在全应用残留
+    if (!connSnapshot.online) onlineRecovery?.();
     return res;
   },
   (error: AxiosError<ApiErrorBody>) => {

@@ -3,6 +3,20 @@
 
 本项目遵循 Conventional Commits；本文件仅记录面向用户的重大变更。
 
+## [0.2.8] - 2026-11-21
+
+### 🔒 依赖安全升级
+- 前后端 `npm audit` 归零：升级 Vite 8.3.8、Vitest 4.1.12、vite-plugin-pwa 2.0.0、Capacitor 8.5.1、axios、zod 等；对 `minimatch` / `glob` 使用 overrides 统一到已修复版本（含 jest / Nest CLI 工具链）。
+- 新增 `patch-package` 修补 vite-plugin-pwa 的 SW 构建参数（`inlineDynamicImports` → `codeSplitting: false`），消除 Rolldown 弃用告警。
+
+### 🧹 构建告警清零
+- 5 处 `INEFFECTIVE_DYNAMIC_IMPORT`（assistant、apiCatalog、voiceHistory、photoExport、mirror、api.social、api.users）统一改为静态导入。
+- 拆分第三方依赖 chunk（react-vendor / charts / lunar / vendor），消除「chunk > 500 kB」告警；首屏主包从 1.33 MB 降至约 363 kB。
+- `connectionStore` 与 `http` 的循环依赖改为状态回写 + 自愈回调，移除动态导入。
+
+### 📦 其他
+- 新安装包：`versionCode 7` / `versionName 0.2.8`，包含上一版 PWA 离线 Shell 修复。
+
 ## [0.2.7] - 2026-11-21
 
 ### 🗄 数据库规范化（本版核心）

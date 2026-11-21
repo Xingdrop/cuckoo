@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL2d1ZXN0L2d1ZXN0Q29udGVudC50c3wyMDI2LTA5fGUyYWMyYTI1YTU= */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL2d1ZXN0L2d1ZXN0Q29udGVudC50c3wyMDI2LTExfDVjMWFjZjM0OGM= */
 import { useGuestStore, type GuestTemplate, type GuestExercise } from './guestStore';
 
 /**

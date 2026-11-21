@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9ub3RpZmljYXRpb25zL21pc3NlZC1zY2FubmVyLnRzfDIwMjYtMDl8NjM4N2Y1MTQ1OA== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9ub3RpZmljYXRpb25zL21pc3NlZC1zY2FubmVyLnRzfDIwMjYtMTF8MGE5NmRiMzY4NQ== */
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -78,7 +78,7 @@ export class MissedScanner {
       // 不定时提醒（无 times 且非按小时 interval）：没有固定触发时刻，不做漏服判定（#12）
       for (const reminder of overdue.filter(
         (r) =>
-          (r.times !== null && r.times.length > 0) ||
+          (r.times?.length ?? 0) > 0 ||
           (r.repeatRule.type === 'interval' && r.repeatRule.intervalUnit === 'hour'),
       )) {
         const next = reminder.nextTriggerAt!;

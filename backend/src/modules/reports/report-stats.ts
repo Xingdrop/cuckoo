@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9yZXBvcnRzL3JlcG9ydC1zdGF0cy50c3wyMDI2LTA5fDJhOWZkNTE5MDI= */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9yZXBvcnRzL3JlcG9ydC1zdGF0cy50c3wyMDI2LTExfDBkM2FhNTQ1YzM= */
 /**
  * 周报/月报聚合纯函数（便于单测，UT-STAT-08 周报对比）。
  * 输入为 dayPlan 结构（reminders.service#dayPlan 的 items）。
@@ -25,6 +25,18 @@ export function isDoneStatus(status: string | null | undefined): boolean {
   return status === 'completed' || status === 'challenge_completed';
 }
 
+/** 分类键 → 中文名（旧提醒没有 categoryLabel 时，报告/建议里不出现英文键） */
+const CATEGORY_LABELS: Record<string, string> = {
+  medication: '吃药',
+  exercise: '锻炼',
+  water: '喝水',
+  rest: '休息',
+  work: '工作',
+  custom: '自定义',
+  eye: '护眼',
+  posture: '体态',
+};
+
 /** 把一组 dayPlan 聚合为总览（口径：完成率 = done / planned，skip 不计分母，missed 计入） */
 export function aggregatePlans(plans: PlanItem[]): AggregatedStats {
   let planned = 0;
@@ -46,7 +58,7 @@ export function aggregatePlans(plans: PlanItem[]): AggregatedStats {
         done += 1;
         remMap.set(item.title, (remMap.get(item.title) ?? 0) + 1);
       }
-      const key = item.categoryLabel ?? item.category;
+      const key = item.categoryLabel ?? CATEGORY_LABELS[item.category] ?? item.category;
       const c = catMap.get(key) ?? { planned: 0, done: 0 };
       c.planned += 1;
       if (isDoneStatus(t.status)) c.done += 1;

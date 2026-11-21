@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9zb2NpYWwvc29jaWFsLnNlcnZpY2UudHN8MjAyNi0wOXw2MWE0MTk1MWE3 */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9zb2NpYWwvc29jaWFsLnNlcnZpY2UudHN8MjAyNi0xMXxiNjQxYzU2MjMx */
 import {
   BadRequestException,
   ConflictException,
@@ -288,6 +288,20 @@ export class SocialService {
 
   // ============ 互动（幂等） ============
 
+  /**
+   * 原子增减帖子计数，且不触碰 updatedAt。
+   * TypeORM 的 increment/decrement 会自动刷新 @UpdateDateColumn，
+   * 会让前端把「点赞/评论/加入计划」误判成「已编辑」，因此这里用裸 SQL 只改计数列。
+   */
+  private async bumpPostCounter(
+    repo: Repository<Post>,
+    postId: string,
+    column: 'likesCount' | 'commentsCount' | 'joinedCount',
+    delta: number,
+  ) {
+    await repo.query(`UPDATE "posts" SET "${column}" = "${column}" + ? WHERE "id" = ?`, [delta, postId]);
+  }
+
   /** 点赞/取消（幂等） */
   async toggleLike(userId: string, postId: string) {
     await this.ensurePost(postId);
@@ -296,13 +310,13 @@ export class SocialService {
     });
     if (existing) {
       await this.interactionRepo.delete(existing.id);
-      await this.postRepo.decrement({ id: postId }, 'likesCount', 1);
+      await this.bumpPostCounter(this.postRepo, postId, 'likesCount', -1);
       return { liked: false };
     }
     await this.interactionRepo.save(
       this.interactionRepo.create({ id: randomUUID(), postId, userId, type: InteractionType.LIKE }),
     );
-    await this.postRepo.increment({ id: postId }, 'likesCount', 1);
+    await this.bumpPostCounter(this.postRepo, postId, 'likesCount', 1);
     return { liked: true };
   }
 
@@ -337,7 +351,7 @@ export class SocialService {
         content: filtered,
       }),
     );
-    await this.postRepo.increment({ id: postId }, 'commentsCount', 1);
+    await this.bumpPostCounter(this.postRepo, postId, 'commentsCount', 1);
     return comment;
   }
 
@@ -382,7 +396,7 @@ export class SocialService {
       // 幂等：已加入直接返回
       const existing = await joinRepo.findOne({ where: { postId, userId } });
       if (existing?.isActive) {
-        return { joined: true, duplicate: true, planId: existing.reminderId };
+        return { joined: true, duplicate: true, planId: existing.planId };
       }
       // 曾退出（isActive=false）：复用旧 join 记录（避免 UNIQUE(postId,userId) 冲突而无法再次加入）
       const reuseJoin = existing ?? null;
@@ -434,21 +448,21 @@ export class SocialService {
       if (reuseJoin) {
         await joinRepo.update(
           { id: reuseJoin.id },
-          { reminderId: plan.id, isActive: true },
+          { planId: plan.id, isActive: true },
         );
       } else {
         const join = joinRepo.create({
           id: randomUUID(),
           postId,
           userId,
-          reminderId: plan.id,
+          planId: plan.id,
           isActive: true,
         });
         await joinRepo.save(join);
       }
 
       // 计数 +1（原子; 曾退出后 count 已 -1，此时再加回）
-      await postRepo.increment({ id: postId }, 'joinedCount', 1);
+      await this.bumpPostCounter(postRepo, postId, 'joinedCount', 1);
       // 记录 join 互动（幂等 UNIQUE）
       await interactionRepo
         .createQueryBuilder()
@@ -479,13 +493,13 @@ export class SocialService {
         await reminderRepo.softDelete({ userId, planId: plan.id });
         await planRepo.delete({ id: plan.id, userId });
       } else {
-        await reminderRepo.softDelete(join.reminderId);
+        await reminderRepo.softDelete({ planId: join.planId, userId });
       }
       // 删除 JOIN 互动记录（关键！否则 getPost/listPosts 的 myJoined 仍为 true → 前端无法退出）
       await manager.getRepository(Interaction).delete({ postId, userId, type: InteractionType.JOIN });
       join.isActive = false;
       await joinRepo.update({ id: join.id }, { isActive: false });
-      await postRepo.decrement({ id: postId }, 'joinedCount', 1);
+      await this.bumpPostCounter(postRepo, postId, 'joinedCount', -1);
       return { left: true };
     });
   }

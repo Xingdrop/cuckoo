@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL2d1ZXN0L2d1ZXN0U3RvcmUudHN8MjAyNi0wOXw5MjQ0Y2I3MGIy */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL2d1ZXN0L2d1ZXN0U3RvcmUudHN8MjAyNi0xMXxhNjhiMjM0ZGQw */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -87,8 +87,6 @@ export interface GuestSettings {
   maxDelayCount: number;
   /** 每日喝水目标（ml） */
   waterGoalMl: number;
-  /** 兼容字段（#20 起不再使用——完成率改按提醒勾选） */
-  waterInRate?: boolean;
   /** #26：喝水（当日达标）作为完成率可选统计项 */
   waterCountInRate?: boolean;
 }
@@ -183,7 +181,6 @@ const DEFAULT_SETTINGS: GuestSettings = {
   showSkipButton: false,
   maxDelayCount: 3,
   waterGoalMl: 2000,
-  waterInRate: false,
   waterCountInRate: false,
 };
 

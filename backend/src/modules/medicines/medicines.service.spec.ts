@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9tZWRpY2luZXMvbWVkaWNpbmVzLnNlcnZpY2Uuc3BlYy50c3wyMDI2LTA5fDYxYjcxMmZiMWQ= */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9tZWRpY2luZXMvbWVkaWNpbmVzLnNlcnZpY2Uuc3BlYy50c3wyMDI2LTExfGUxY2U4MzliODQ= */
 import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -10,6 +10,7 @@ import { Device } from '../notifications/device.entity';
 import { Notification, NotificationType } from '../notifications/notification.entity';
 import { NotificationLog } from '../notifications/notification-log.entity';
 import { Reminder } from '../reminders/reminder.entity';
+import { ReminderTime } from '../reminders/reminder-time.entity';
 import { ReminderLog } from '../reminders/reminder-log.entity';
 import { Post } from '../social/post.entity';
 import { Interaction } from '../social/interaction.entity';
@@ -18,8 +19,11 @@ import { PlanTemplate } from '../social/plan-template.entity';
 import { SensitiveWord } from '../social/sensitive-word.entity';
 import { Exercise } from '../exercises/exercise.entity';
 import { UserSetting } from '../users/user-setting.entity';
+import { UserHealthGoal } from '../users/user-health-goal.entity';
 import { User } from '../users/user.entity';
 import { Medicine } from './medicine.entity';
+import { MedicinePhoto } from './medicine-photo.entity';
+import { ExerciseImage } from '../exercises/exercise-image.entity';
 import { MedicinesService } from './medicines.service';
 
 /**
@@ -39,9 +43,13 @@ describe('MedicinesService（UT-STK）', () => {
       entities: [
         User,
         UserSetting,
+        UserHealthGoal,
         Reminder,
+        ReminderTime,
         ReminderLog,
         Medicine,
+        MedicinePhoto,
+        ExerciseImage,
         EmergencyContact,
         Post,
         Interaction,

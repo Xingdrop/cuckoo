@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy91c2Vycy91c2Vycy5zZXJ2aWNlLnRzfDIwMjYtMDl8ZGU4MDUxNDM5Yw== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy91c2Vycy91c2Vycy5zZXJ2aWNlLnRzfDIwMjYtMTF8YWFiMTJjMWVmNw== */
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
@@ -19,8 +19,11 @@ import { SensitiveWord } from '../social/sensitive-word.entity';
 import { Interaction } from '../social/interaction.entity';
 import { PlanJoinRecord } from '../social/plan-join-record.entity';
 import { Plan } from '../plans/plan.entity';
-import { Reminder } from '../reminders/reminder.entity';
+import { normalizeTimes, Reminder } from '../reminders/reminder.entity';
+import { ReminderTime } from '../reminders/reminder-time.entity';
 import { ReminderLog } from '../reminders/reminder-log.entity';
+import { MedicinePhoto } from '../medicines/medicine-photo.entity';
+import { UserHealthGoal } from './user-health-goal.entity';
 import { UserSetting } from './user-setting.entity';
 import { User } from './user.entity';
 
@@ -52,11 +55,45 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException({ code: 'NOT_FOUND', message: '用户不存在' });
     }
-    if (patch.avatarUrl !== undefined) user.avatarUrl = patch.avatarUrl;
-    if (patch.healthGoals !== undefined) user.healthGoals = patch.healthGoals;
-    if (patch.timezone !== undefined) user.timezone = patch.timezone;
-    await this.userRepo.save(user);
-    return this.authService.toPublic(user);
+    // 注意：healthGoals 已拆子表——不能随 save/update 写入（TypeORM 会报列不存在）
+    const { healthGoals, ...profile } = patch;
+    await this.dataSource.transaction(async (manager) => {
+      const update: Partial<User> = {};
+      if (profile.avatarUrl !== undefined) update.avatarUrl = profile.avatarUrl;
+      if (profile.timezone !== undefined) update.timezone = profile.timezone;
+      if (Object.keys(update).length) {
+        await manager.getRepository(User).update({ id: userId }, update);
+      }
+      if (healthGoals !== undefined) {
+        const goalRepo = manager.getRepository(UserHealthGoal);
+        await goalRepo.delete({ userId });
+        const goals = [...new Set((healthGoals ?? []).filter((g) => typeof g === 'string' && g.length > 0))];
+        if (goals.length) {
+          await goalRepo.insert(goals.map((goal, sortOrder) => ({ userId, goal, sortOrder })));
+        }
+      }
+    });
+    const fresh = await this.userRepo.findOne({ where: { id: userId } });
+    return this.authService.toPublic(fresh ?? user);
+  }
+
+  /** 1NF：整组替换提醒时间点 */
+  private async replaceReminderTimes(reminderId: string, times: string[] | null | undefined) {
+    const repo = this.dataSource.getRepository(ReminderTime);
+    await repo.delete({ reminderId });
+    const rows = normalizeTimes(times);
+    if (rows.length) {
+      await repo.insert(rows.map((time, sortOrder) => ({ reminderId, time, sortOrder })));
+    }
+  }
+
+  /** 1NF：整组替换药品照片 */
+  private async replaceMedicinePhotos(medicineId: string, urls: string[]) {
+    const repo = this.dataSource.getRepository(MedicinePhoto);
+    await repo.delete({ medicineId });
+    if (urls.length) {
+      await repo.insert(urls.map((url, sortOrder) => ({ medicineId, sortOrder, url })));
+    }
   }
 
   async getSettings(userId: string): Promise<UserSetting> {
@@ -109,6 +146,7 @@ export class UsersService {
       repo: any,
       items: Item[],
       makeEntity: (id: string, raw: Item) => Record<string, unknown>,
+      after?: (id: string, raw: Item) => Promise<void>,
     ) => {
       let imported = 0;
       let skipped = 0;
@@ -144,6 +182,7 @@ export class UsersService {
         } else {
           await repo.save(repo.create(makeEntity(id, raw)));
         }
+        if (after) await after(id, raw);
         imported += 1;
       }
       return { imported, skipped };
@@ -162,7 +201,6 @@ export class UsersService {
         repeatRule: (raw.repeatRule as Reminder['repeatRule']) ?? { type: 'daily' },
         startDate: raw.startDate ? new Date(raw.startDate as string) : new Date(),
         endDate: raw.endDate ? new Date(raw.endDate as string) : null,
-        times: (raw.times as string[] | null) ?? null,
         content: (raw.content as Reminder['content']) ?? {},
         medicineId: (raw.medicineId as string) ?? null,
         planId: (raw.planId as string) ?? null,
@@ -176,7 +214,9 @@ export class UsersService {
           'Asia/Shanghai',
           (raw.times as string[] | null) ?? null,
         ),
-      }));
+      }), async (id, raw) => {
+        await this.replaceReminderTimes(id, (raw.times as string[] | null) ?? null);
+      });
     }
     // 执行日志
     if (bundle.logs?.length) {
@@ -213,17 +253,15 @@ export class UsersService {
         administration: (raw.administration as string) ?? null,
         instructions: (raw.instructions as string) ?? null,
         expiryDate: raw.expiryDate ? new Date(raw.expiryDate as string) : null,
-        // #25：多张照片
-        photoUrl:
-          (Array.isArray(raw.photoUrls) && (raw.photoUrls as string[]).length
-            ? (raw.photoUrls as string[])[0]
-            : (raw.photoUrl as string)) ?? null,
-        photoUrls: Array.isArray(raw.photoUrls)
-          ? (raw.photoUrls as string[])
+      }), async (id, raw) => {
+        // #25：多张照片（photoUrls 优先，兼容 photoUrl 单张）→ 子表
+        const urls = Array.isArray(raw.photoUrls) && (raw.photoUrls as string[]).length
+          ? (raw.photoUrls as string[]).filter((u) => typeof u === 'string' && u.length > 0)
           : raw.photoUrl
             ? [raw.photoUrl as string]
-            : null,
-      }));
+            : [];
+        await this.replaceMedicinePhotos(id, urls);
+      });
     }
     // 计划（#22：合并 config —— 加入时保存的提醒配置，可重建提醒）
     if (bundle.plans?.length) {
@@ -294,7 +332,7 @@ export class UsersService {
       const fields = [
         'notificationEnabled', 'soundEnabled', 'vibrationEnabled', 'theme',
         'missedThresholdMinutes', 'showSkipButton', 'maxDelayCount',
-        'waterGoalMl', 'waterInRate',
+        'waterGoalMl',
       ].filter((k) => s[k] !== undefined) as (keyof UserSetting)[];
       if (fields.length > 0) {
         // user_settings 无 updated_at 列：本地显式提供的设置视为较新并覆盖（部分字段合并不覆盖未提供项）

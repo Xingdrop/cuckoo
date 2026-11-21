@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3BhZ2VzL1JlcG9ydFBhZ2UudHN4fDIwMjYtMDl8YzQ1MTY0ODliMA== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3BhZ2VzL1JlcG9ydFBhZ2UudHN4fDIwMjYtMTF8YTFiYzA5YTI0MA== */
 import { ChevronLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -9,6 +9,30 @@ import { errorMessage } from '../services/http';
 
 function fmtDate(d: string): string {
   return new Date(d).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
+}
+
+/** 周报 range.end 是开区间（下周一 00:00），展示时回退一天为实际结束日 */
+function fmtRangeEnd(end: string): string {
+  const d = new Date(`${end}T00:00:00`);
+  d.setDate(d.getDate() - 1);
+  const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return fmtDate(key);
+}
+
+/** 报告里存的是分类键（兼容历史报告），展示时统一为中文 */
+const CATEGORY_CN: Record<string, string> = {
+  medication: '吃药',
+  exercise: '锻炼',
+  water: '喝水',
+  rest: '休息',
+  work: '工作',
+  custom: '自定义',
+  eye: '护眼',
+  posture: '体态',
+};
+
+function categoryName(name: string): string {
+  return CATEGORY_CN[name] ?? name;
 }
 
 /**
@@ -58,7 +82,7 @@ export function ReportPage() {
               <div className="flex items-end justify-between">
                 <div>
                   <p className="text-sm text-white/70">
-                    {d.type === 'weekly' && d.range ? `${fmtDate(d.range.start)} - ${fmtDate(d.range.end)}` : d.period}
+                    {d.type === 'weekly' && d.range ? `${fmtDate(d.range.start)} - ${fmtRangeEnd(d.range.end)}` : d.period}
                   </p>
                   <p className="mt-1 text-4xl font-bold">
                     {d.overallRate}
@@ -88,7 +112,7 @@ export function ReportPage() {
               <section className="rounded-card bg-surface p-4 shadow-sm">
                 <h2 className="text-sm font-medium">本周亮点</h2>
                 <ul className="mt-2 space-y-1.5 text-sm text-ink-500">
-                  {d.bestCategory && <li>🏅 最佳分类：{d.bestCategory}</li>}
+                  {d.bestCategory && <li>🏅 最佳分类：{categoryName(d.bestCategory)}</li>}
                   {d.bestReminder && (
                     <li>⭐ 完成最多：「{d.bestReminder.title}」× {d.bestReminder.done} 次</li>
                   )}
@@ -104,7 +128,7 @@ export function ReportPage() {
                   {d.categoryStats.map((c) => (
                     <li key={c.name}>
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-ink-700">{c.name}</span>
+                        <span className="text-ink-700">{categoryName(c.name)}</span>
                         <span className="text-xs text-ink-500">
                           {c.done}/{c.planned} · {c.rate}%
                         </span>

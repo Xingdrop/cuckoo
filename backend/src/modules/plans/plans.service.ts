@@ -1,14 +1,14 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9wbGFucy9wbGFucy5zZXJ2aWNlLnRzfDIwMjYtMDl8Y2ZiMjQ3YjJlNA== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9wbGFucy9wbGFucy5zZXJ2aWNlLnRzfDIwMjYtMTF8YTA3YzFlYmUxNQ== */
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
 import { DataSource, In, Repository } from 'typeorm';
 import { Plan, PlanSourceType } from './plan.entity';
-import { Reminder } from '../reminders/reminder.entity';
+import { normalizeTimes, Reminder, timesOf } from '../reminders/reminder.entity';
+import { ReminderTime } from '../reminders/reminder-time.entity';
 import { computeNextTrigger } from '../../common/reminder-schedule';
 import { PlanJoinRecord } from '../social/plan-join-record.entity';
 import { Interaction, InteractionType } from '../social/interaction.entity';
-import { Post } from '../social/post.entity';
 
 type PlanReminderConfig = Record<string, unknown> & {
   category?: string;
@@ -124,7 +124,7 @@ export class PlansService {
                 existing.startDate,
                 existing.endDate,
                 'Asia/Shanghai',
-                existing.times,
+                timesOf(existing),
               ),
             },
           );
@@ -132,14 +132,20 @@ export class PlansService {
         cfg.push({ ...entry, reminderId: existing.id });
         continue;
       }
-      const created = await this.reminderRepo.save(this.buildFromConfig(userId, plan.id, entry));
+      const built = this.buildFromConfig(userId, plan.id, entry);
+      const created = await this.reminderRepo.save(built.entity);
+      await this.replaceTimes(created.id, built.times);
       cfg.push({ ...entry, reminderId: created.id });
     }
     await this.planRepo.update({ id: plan.id, userId }, { config: cfg as never });
   }
 
-  /** 按配置创建提醒（与一键加入的字段解析一致） */
-  private buildFromConfig(userId: string, planId: string, c: PlanReminderConfig): Partial<Reminder> {
+  /** 按配置创建提醒（与一键加入的字段解析一致）；时间点单独返回，写入子表 */
+  private buildFromConfig(
+    userId: string,
+    planId: string,
+    c: PlanReminderConfig,
+  ): { entity: Reminder; times: string[] | null } {
     const now = new Date();
     const startDate = new Date(now);
     const times = Array.isArray(c.times) ? (c.times as string[]) : c.startTime ? [c.startTime] : null;
@@ -148,14 +154,13 @@ export class PlansService {
       startDate.setHours(h, m, 0, 0);
     }
     const repeatRule = (c.repeatRule as Reminder['repeatRule']) ?? { type: 'daily' };
-    return this.reminderRepo.create({
+    const entity = this.reminderRepo.create({
       id: randomUUID(),
       userId,
       category: (c.category as Reminder['category']) ?? 'custom',
       title: c.title ?? '加入的计划',
       repeatRule,
       startDate,
-      times,
       content: c.content ?? {},
       method: {},
       delaySettings: {},
@@ -166,6 +171,17 @@ export class PlansService {
       modifiedFromPlan: false,
       nextTriggerAt: computeNextTrigger(repeatRule, now, startDate, null, 'Asia/Shanghai', times),
     });
+    return { entity, times };
+  }
+
+  /** 1NF：整组替换提醒时间点（与 RemindersService 同语义） */
+  private async replaceTimes(reminderId: string, times: string[] | null | undefined): Promise<void> {
+    const repo = this.dataSource.getRepository(ReminderTime);
+    await repo.delete({ reminderId });
+    const rows = normalizeTimes(times);
+    if (rows.length) {
+      await repo.insert(rows.map((time, sortOrder) => ({ reminderId, time, sortOrder })));
+    }
   }
 
   /** 启停（#18：关闭=清除提醒，开启=按配置重建） */
@@ -213,7 +229,11 @@ export class PlansService {
             userId,
             type: InteractionType.JOIN,
           });
-          await manager.getRepository(Post).decrement({ id: plan.sourceId! }, 'joinedCount', 1);
+          // 裸 SQL 只改计数，避免刷新帖子 updatedAt 被前端误判为「已编辑」
+          await manager.query(
+            'UPDATE "posts" SET "joinedCount" = MAX(0, "joinedCount" - 1) WHERE "id" = ?',
+            [plan.sourceId!],
+          );
         });
       }
     }

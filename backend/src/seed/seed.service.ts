@@ -1,10 +1,11 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvc2VlZC9zZWVkLnNlcnZpY2UudHN8MjAyNi0wOXwwOTYzNWJkNTQ4 */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvc2VlZC9zZWVkLnNlcnZpY2UudHN8MjAyNi0xMXw1OWViM2RmZWE2 */
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
 import { Repository } from 'typeorm';
 import { Exercise, ExerciseCategory } from '../modules/exercises/exercise.entity';
+import { ExerciseImage } from '../modules/exercises/exercise-image.entity';
 import {
   PlanTemplate,
   PlanTemplateStatus,
@@ -170,15 +171,29 @@ export class SeedService implements OnApplicationBootstrap {
     await this.exerciseRepo.delete({ id: 'ex-stand-heel' });
 
     for (const e of exercises) {
+      // imageUrls 已拆子表：实体 create 不会写入，需单独替换
+      const { imageUrls, ...entity } = e;
       const exists = await this.exerciseRepo.findOne({ where: { id: e.id } });
       if (!exists) {
-        await this.exerciseRepo.save(this.exerciseRepo.create(e as Exercise));
-      } else if (exists.imageUrl !== e.imageUrl || JSON.stringify(exists.imageUrls) !== JSON.stringify(e.imageUrls)) {
+        await this.exerciseRepo.save(this.exerciseRepo.create(entity as Exercise));
+        await this.replaceImages(e.id, imageUrls ?? []);
+      } else if (exists.imageUrl !== e.imageUrl || JSON.stringify(exists.imageUrls) !== JSON.stringify(imageUrls)) {
         // 插画升级时同步（steps/名称保持运营可改）
-        await this.exerciseRepo.update({ id: e.id }, { imageUrl: e.imageUrl, imageUrls: e.imageUrls });
+        await this.exerciseRepo.update({ id: e.id }, { imageUrl: e.imageUrl });
+        await this.replaceImages(e.id, imageUrls ?? []);
       }
     }
     this.logger.log(`微运动库种子: ${exercises.length} 条`);
+  }
+
+  /** 1NF：整组替换微运动组图 */
+  private async replaceImages(exerciseId: string, urls: string[]): Promise<void> {
+    const repo = this.exerciseRepo.manager.getRepository(ExerciseImage);
+    await repo.delete({ exerciseId });
+    const valid = urls.filter((u) => typeof u === 'string' && u.length > 0);
+    if (valid.length) {
+      await repo.insert(valid.map((url, sortOrder) => ({ exerciseId, sortOrder, url })));
+    }
   }
 
   /** 敏感词（示例，运营可扩展） */

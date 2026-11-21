@@ -1,4 +1,4 @@
-# @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8LmdpdGlnbm9yZXwyMDI2LTA5fDEzODQxNWY1YWU=
+# @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8LmdpdGlnbm9yZXwyMDI2LTExfDQwNjdjZmM4MGY=
 # ---- 依赖 ----
 node_modules/
 
@@ -34,6 +34,7 @@ Plugin/
 
 # AI/开发辅助文件与内部文档（不入公开仓库，本地保留）
 /.zcode/
+/.trae/
 /docs/
 /开始.md
 /tools/

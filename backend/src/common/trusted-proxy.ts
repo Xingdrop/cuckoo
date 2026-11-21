@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvY29tbW9uL3RydXN0ZWQtcHJveHkudHN8MjAyNi0wOXxhMjE2ZmY1MjE1 */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvY29tbW9uL3RydXN0ZWQtcHJveHkudHN8MjAyNi0xMXw1ZmMyMGViNDg5 */
 /**
  * 反向代理信任判定（2026-09-17 安全加固）。
  *

@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3BhZ2VzL1JlbWluZGVyTGlzdFBhZ2UudHN4fDIwMjYtMDl8OWE5OGY3ZDdhZA== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3BhZ2VzL1JlbWluZGVyTGlzdFBhZ2UudHN4fDIwMjYtMTF8N2IyZDJmYjRlMw== */
 import { ChevronRight, Pencil, Plus, Power, Settings2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -57,6 +57,9 @@ function formatReminderTime(r: Reminder): string {
     const unit = (rr.intervalUnit as string) === 'minute' ? '分钟' : rr.intervalUnit === 'week' ? '周' : '小时';
     return `每 ${rr.intervalValue ?? 1} ${unit}`;
   }
+  // 一次性/每月等：nextTriggerAt 已过期时用 startDate 的时刻兜底，避免显示「—」
+  const startTime = formatTime(r.startDate);
+  if (startTime !== '—') return startTime;
   return '—';
 }
 

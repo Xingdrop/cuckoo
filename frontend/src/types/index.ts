@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3R5cGVzL2luZGV4LnRzfDIwMjYtMDl8ODBmOTUwY2NkNw== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3R5cGVzL2luZGV4LnRzfDIwMjYtMTF8NTczYzMyZWFkMg== */
 /**
  * 全局类型定义（与后端 DTO/实体字段一一对齐，见 docs/技术方案设计.md §6）
  * 后端字段变更时必须同步本文件。
@@ -26,8 +26,6 @@ export interface UserSettings {
   maxDelayCount: number;
   /** 每日喝水目标（ml） */
   waterGoalMl: number;
-  /** 喝水达标是否计入完成率（#13，旧开关——已由 #20/#26 面板勾选取代） */
-  waterInRate: boolean;
   /** #26：喝水（当日达标）作为完成率可选统计项 */
   waterCountInRate?: boolean;
 }
@@ -167,7 +165,7 @@ export interface CalendarItem {
   categoryLabel: string | null;
   categoryIcon: string | null;
   content: ReminderContent;
-  times: { time: string; status: ReminderLogStatus | null; delayMinutes?: number }[];
+  times: { time: string; status: ReminderLogStatus | null; delayMinutes?: number; logId?: string | null }[];
   todayTotal: number;
   /** 不定时每日提醒：不显示具体时间（2026-08） */
   untimed?: boolean;

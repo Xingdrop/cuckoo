@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvY29tbW9uL3JlbWluZGVyLXNjaGVkdWxlLnNwZWMudHN8MjAyNi0wOXxhNGY3YjU5OWM0 */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvY29tbW9uL3JlbWluZGVyLXNjaGVkdWxlLnNwZWMudHN8MjAyNi0xMXwwNDBkOGIzN2Y2 */
 import {
   computeFollowingTrigger,
   computeNextTrigger,
@@ -29,6 +29,16 @@ describe('UT-SCH-01 单次提醒', () => {
       TZ,
     );
     expect(next).toBeNull();
+  });
+  it('刚过 5 秒仍返回 startDate（60s 宽限，避免保存即永不提醒）', () => {
+    const next = computeNextTrigger(
+      { type: RepeatType.ONCE },
+      new Date('2026-08-20T10:00:05Z'),
+      start,
+      null,
+      TZ,
+    );
+    expect(next?.toISOString()).toBe('2026-08-20T10:00:00.000Z');
   });
 });
 

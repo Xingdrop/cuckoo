@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9hdXRoL2F1dGguc2VydmljZS50c3wyMDI2LTA5fDVjNzgzNmFiYjY= */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9hdXRoL2F1dGguc2VydmljZS50c3wyMDI2LTExfDkxNWNiN2U0NjE= */
 import {
   ConflictException,
   HttpException,
@@ -14,6 +14,7 @@ import { randomUUID } from 'node:crypto';
 import { Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { UserSetting } from '../users/user-setting.entity';
+import { UserHealthGoal } from '../users/user-health-goal.entity';
 import { User } from '../users/user.entity';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -51,14 +52,34 @@ export class AuthService {
       throw new ConflictException({ code: 'CONFLICT', message: '用户名已被占用' });
     }
 
+    const healthGoals = dto.healthGoals ?? null;
     const user = this.userRepo.create({
       id: randomUUID(),
       username: dto.username,
       phone: dto.phone ?? null,
       passwordHash: await bcrypt.hash(dto.password, BCRYPT_ROUNDS),
-      healthGoals: dto.healthGoals ?? null,
     });
-    await this.userRepo.save(user);
+    try {
+      await this.userRepo.save(user);
+    } catch (e) {
+      // 并发注册会绕过上面的存在性检查：数据库唯一约束报错时转成友好 409，避免 500
+      const msg = String((e as Error)?.message ?? '');
+      if (/UNIQUE constraint failed:\s*users\.username/i.test(msg)) {
+        throw new ConflictException({ code: 'CONFLICT', message: '用户名已被占用' });
+      }
+      if (/UNIQUE constraint failed:\s*users\.phone/i.test(msg)) {
+        throw new ConflictException({ code: 'CONFLICT', message: '该手机号已绑定其他账号' });
+      }
+      throw e;
+    }
+    // 1NF：健康目标拆子表（create 不会写入非列属性，需显式落库）
+    const goals = [...new Set((healthGoals ?? []).filter((g) => typeof g === 'string' && g.length > 0))];
+    if (goals.length) {
+      await this.userRepo.manager
+        .getRepository(UserHealthGoal)
+        .insert(goals.map((goal, sortOrder) => ({ userId: user.id, goal, sortOrder })));
+    }
+    user.healthGoals = goals.length ? goals : null;
     await this.settingRepo.save(
       this.settingRepo.create({ userId: user.id }),
     );

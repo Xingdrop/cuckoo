@@ -1,5 +1,6 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9tZWRpY2luZXMvbWVkaWNpbmUuZW50aXR5LnRzfDIwMjYtMDl8NGM4NDNmZTFlNw== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9tZWRpY2luZXMvbWVkaWNpbmUuZW50aXR5LnRzfDIwMjYtMTF8YzVmYTc3ZTY5MA== */
 import {
+  AfterLoad,
   Column,
   CreateDateColumn,
   DeleteDateColumn,
@@ -7,10 +8,12 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../users/user.entity';
+import { MedicinePhoto } from './medicine-photo.entity';
 import { utcDateTime } from '../../common/datetime.transformer';
 
 /** 药品。库存扣减在 Service 层事务中执行 */
@@ -53,12 +56,28 @@ export class Medicine {
   @Column({ type: 'varchar',  nullable: true })
   instructions: string | null;
 
-  @Column({ type: 'varchar',  nullable: true })
-  photoUrl: string | null;
+  /** 首图投影（1NF：实际存 medicine_photos 子表） */
+  photoUrl?: string | null;
 
-  /** #25：多张药品照片（photoUrl 兼容保留单张） */
-  @Column({ type: 'simple-json', nullable: true })
-  photoUrls: string[] | null;
+  /** 全部照片投影（#25：多张药品照片） */
+  photoUrls?: string[] | null;
+
+  @OneToMany(() => MedicinePhoto, (p) => p.medicine, { eager: true })
+  photoRows?: MedicinePhoto[];
+
+  @AfterLoad()
+  projectPhotos(): void {
+    const rows = this.photoRows ?? [];
+    const urls = [...rows].sort((a, b) => a.sortOrder - b.sortOrder).map((p) => p.url);
+    this.photoUrl = urls[0] ?? null;
+    this.photoUrls = urls.length ? urls : null;
+    Object.defineProperty(this, 'photoRows', {
+      value: rows,
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    });
+  }
 
   /** 每次服用扣减数量，默认 1 */
   @Column({ type: 'int', default: 1 })

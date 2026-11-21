@@ -1,13 +1,14 @@
 {
   "name": "cuckoo-backend",
   "private": true,
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "布谷 Cuckoo - 智能提醒与健康管理后端 API (NestJS)",
   "scripts": {
     "build": "nest build",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
+    "db:migrate": "npm run build && node dist/db/migrate-cli.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvdml0ZS5jb25maWcudHN8MjAyNi0wOXxhZmZiNzE2NmU3 */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvdml0ZS5jb25maWcudHN8MjAyNi0xMXw2NDE1MGQyOTJl */
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
@@ -28,7 +28,8 @@ export default defineConfig({
       filename: 'sw.ts',
       injectManifest: {
         // webp：随包插画（public/guide/*.webp）必须预缓存，否则 PWA 离线时插画全部 404
-        globPatterns: ['**/*.{js,css,html,svg,png,webp,webmanifest,ico}'],
+        // 不含 html：index.html 改为导航请求 NetworkFirst，避免旧 SW 一直吐旧版页面/旧 bundle
+        globPatterns: ['**/*.{js,css,svg,png,webp,webmanifest,ico}'],
       },
       manifest: {
         name: '布谷 Cuckoo',

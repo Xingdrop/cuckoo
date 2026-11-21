@@ -1,5 +1,13 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9leGVyY2lzZXMvZXhlcmNpc2UuZW50aXR5LnRzfDIwMjYtMDl8YmY1ZGM0OTBmYw== */
-import { Column, CreateDateColumn, Entity, PrimaryColumn } from 'typeorm';
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9leGVyY2lzZXMvZXhlcmNpc2UuZW50aXR5LnRzfDIwMjYtMTF8OTlkMGVlNDhlNA== */
+import {
+  AfterLoad,
+  Column,
+  CreateDateColumn,
+  Entity,
+  OneToMany,
+  PrimaryColumn,
+} from 'typeorm';
+import { ExerciseImage } from './exercise-image.entity';
 import { utcDateTime } from '../../common/datetime.transformer';
 
 export enum ExerciseCategory {
@@ -27,9 +35,25 @@ export class Exercise {
   @Column({ type: 'varchar',  nullable: true })
   imageUrl: string | null;
 
-  /** 跟练组图（分解动作 2~3 帧；#微运动详情） */
-  @Column({ type: 'simple-json', nullable: true })
-  imageUrls: string[] | null;
+  /** 跟练组图（分解动作 2~3 帧；1NF：实际存 exercise_images 子表） */
+  imageUrls?: string[] | null;
+
+  @OneToMany(() => ExerciseImage, (i) => i.exercise, { eager: true })
+  imageRows?: ExerciseImage[];
+
+  @AfterLoad()
+  projectImages(): void {
+    const rows = this.imageRows ?? [];
+    this.imageUrls = rows.length
+      ? [...rows].sort((a, b) => a.sortOrder - b.sortOrder).map((i) => i.url)
+      : null;
+    Object.defineProperty(this, 'imageRows', {
+      value: rows,
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    });
+  }
 
   @Column({ type: 'varchar',  nullable: true })
   videoUrl: string | null;

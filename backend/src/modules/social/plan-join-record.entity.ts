@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9zb2NpYWwvcGxhbi1qb2luLXJlY29yZC5lbnRpdHkudHN8MjAyNi0wOXwxMDhiMzUwZTZl */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9zb2NpYWwvcGxhbi1qb2luLXJlY29yZC5lbnRpdHkudHN8MjAyNi0xMXwwY2U2MjI5YTk3 */
 import {
   Column,
   CreateDateColumn,
@@ -30,9 +30,9 @@ export class PlanJoinRecord {
   @Column('text')
   userId: string;
 
-  /** 用户加入后创建的提醒 ID */
+  /** 加入后保存的计划 ID（历史列名 reminderId 实为 planId，P3 迁移已改名） */
   @Column('text')
-  reminderId: string;
+  planId: string;
 
   @Column({ type: 'boolean', default: true })
   isActive: boolean;

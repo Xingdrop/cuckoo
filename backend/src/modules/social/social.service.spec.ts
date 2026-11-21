@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9zb2NpYWwvc29jaWFsLnNlcnZpY2Uuc3BlYy50c3wyMDI2LTA5fGJjNmJlNjA2YWE= */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9zb2NpYWwvc29jaWFsLnNlcnZpY2Uuc3BlYy50c3wyMDI2LTExfGVkNzJkOTcwYTg= */
 import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -7,9 +7,13 @@ import { SocialService } from './social.service';
 import { AuditService } from '../audit/audit.service';
 import { User } from '../users/user.entity';
 import { UserSetting } from '../users/user-setting.entity';
+import { UserHealthGoal } from '../users/user-health-goal.entity';
 import { Reminder } from '../reminders/reminder.entity';
+import { ReminderTime } from '../reminders/reminder-time.entity';
 import { ReminderLog } from '../reminders/reminder-log.entity';
 import { Medicine } from '../medicines/medicine.entity';
+import { MedicinePhoto } from '../medicines/medicine-photo.entity';
+import { ExerciseImage } from '../exercises/exercise-image.entity';
 import { EmergencyContact } from '../contacts/emergency-contact.entity';
 import { Post } from './post.entity';
 import { Interaction } from './interaction.entity';
@@ -63,10 +67,11 @@ describe('SocialService（UT-JOIN）', () => {
       type: 'better-sqlite3',
       database: ':memory:',
       entities: [
-        User, UserSetting, Reminder, ReminderLog, Medicine, EmergencyContact,
+        User, UserSetting, UserHealthGoal, Reminder, ReminderTime, ReminderLog,
+        Medicine, MedicinePhoto, EmergencyContact,
         Post, Interaction, PlanJoinRecord, PlanTemplate, SensitiveWord,
         Follow,
-        Notification, NotificationLog, Device, Exercise,
+        Notification, NotificationLog, Device, Exercise, ExerciseImage,
         AuditLog, Report, Achievement, AchievementRule, Plan,
       ],
       synchronize: true,
@@ -224,7 +229,7 @@ describe('SocialService（UT-JOIN）', () => {
     // PlanJoinRecord 关联（reminderId 字段存计划 id）
     const join = await joinRepo.findOne({ where: { postId: post.id, userId: USER_B } });
     expect(join?.isActive).toBe(true);
-    expect(join?.reminderId).toBe(plans[0].id);
+    expect(join?.planId).toBe(plans[0].id);
 
     // count +1
     const updated = await postRepo.findOne({ where: { id: post.id } });
@@ -252,7 +257,7 @@ describe('SocialService（UT-JOIN）', () => {
     const join = await joinRepo.findOne({ where: { postId: post.id, userId: USER_B } });
     expect(join?.isActive).toBe(false);
     // #18：退出 = 从「我的计划」移除（计划已删除，未创建过提醒）
-    const plan = await planRepo.findOne({ where: { id: join!.reminderId, userId: USER_B } });
+    const plan = await planRepo.findOne({ where: { id: join!.planId, userId: USER_B } });
     expect(plan).toBeNull();
     expect((await postRepo.findOne({ where: { id: post.id } }))?.joinedCount).toBe(0);
   });

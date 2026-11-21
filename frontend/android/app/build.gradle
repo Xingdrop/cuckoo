@@ -1,4 +1,4 @@
-// @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvYW5kcm9pZC9hcHAvYnVpbGQuZ3JhZGxlfDIwMjYtMDl8NWI0OTQ2MDNhZA==
+// @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvYW5kcm9pZC9hcHAvYnVpbGQuZ3JhZGxlfDIwMjYtMTF8ZmU2Yjc4OTAxNQ==
 apply plugin: 'com.android.application'
 
 // 发布签名：keystore 凭证放本机根目录 keystore.properties（不入库，见 frontend/.gitignore）。
@@ -16,8 +16,8 @@ android {
         applicationId "com.xingdrop.cuckoo"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 5
-        versionName "0.2.6"
+        versionCode 6
+        versionName "0.2.7"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         // #37：Vosk 原生库只保留真机 ABI（x86 系仅模拟器用，剔除后 APK 减 ~23MB）
         ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' }

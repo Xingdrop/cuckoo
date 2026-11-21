@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3BhZ2VzL1N0YXRzUGFnZS50c3h8MjAyNi0wOXw0OWJiMjhhNDdm */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3BhZ2VzL1N0YXRzUGFnZS50c3h8MjAyNi0xMXxiYjk2Nzc2NmQ0 */
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { CalendarDays, Camera, ChevronLeft, Download, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -269,10 +269,10 @@ export function StatsPage() {
             </div>
             <div className="text-right">
               <p className="text-sm text-white/70">今日完成率</p>
-              <p className="mt-1 text-2xl font-bold">{stats?.rate ?? 0}%</p>
+              <p className="mt-1 text-2xl font-bold">{stats && stats.planned > 0 ? `${stats.rate}%` : '—'}</p>
               <p className="text-xs text-white/60">
-                {stats?.done ?? 0}/{stats?.planned ?? 0}
-                <span className="ml-1 opacity-80">（按提醒勾选计入）</span>
+                {stats && stats.planned > 0 ? `${stats.done}/${stats.planned}` : '暂无应执行'}
+                <span className="ml-1 opacity-80">（按提醒勾选计入，放弃不计）</span>
               </p>
             </div>
           </div>
@@ -392,7 +392,9 @@ export function StatsPage() {
                 const right =
                   name === 'water'
                     ? `${((c as { waterMl?: number }).waterMl ?? 0)} / ${((c as { waterGoalMl?: number }).waterGoalMl ?? 2000)}ml · ${c.rate}%`
-                    : `${c.done}/${c.planned} · ${c.rate}%`;
+                    : c.planned > 0
+                      ? `${c.done}/${c.planned} · ${c.rate}%`
+                      : '暂无应执行';
                 return (
                   <li key={name}>
                     <div className="flex items-center justify-between text-sm">

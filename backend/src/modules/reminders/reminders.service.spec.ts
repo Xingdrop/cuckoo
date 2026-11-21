@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9yZW1pbmRlcnMvcmVtaW5kZXJzLnNlcnZpY2Uuc3BlYy50c3wyMDI2LTA5fDczNGI0NjA3NGM= */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9yZW1pbmRlcnMvcmVtaW5kZXJzLnNlcnZpY2Uuc3BlYy50c3wyMDI2LTExfDE0ZWRmYjk5NWY= */
 import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -11,7 +11,10 @@ import { PlansService } from '../plans/plans.service';
 import { Plan } from '../plans/plan.entity';
 import { User } from '../users/user.entity';
 import { UserSetting } from '../users/user-setting.entity';
+import { UserHealthGoal } from '../users/user-health-goal.entity';
+import { MedicinePhoto } from '../medicines/medicine-photo.entity';
 import { Reminder, ReminderCategory, RepeatType } from './reminder.entity';
+import { ReminderTime } from './reminder-time.entity';
 import { ReminderLog, ReminderLogStatus } from './reminder-log.entity';
 import { RemindersService, findDelayedLogForSlot } from './reminders.service';
 
@@ -35,7 +38,7 @@ describe('RemindersService ack 状态机（UT-ACK）', () => {
     dataSource = new DataSource({
       type: 'better-sqlite3',
       database: ':memory:',
-      entities: [User, UserSetting, Reminder, ReminderLog, Medicine, Notification, Plan],
+      entities: [User, UserSetting, UserHealthGoal, Reminder, ReminderTime, ReminderLog, Medicine, MedicinePhoto, Notification, Plan],
       synchronize: true,
     });
     await dataSource.initialize();

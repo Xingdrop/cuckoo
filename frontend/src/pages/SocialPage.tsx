@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3BhZ2VzL1NvY2lhbFBhZ2UudHN4fDIwMjYtMDl8ODQ5OTBjN2IzNg== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3BhZ2VzL1NvY2lhbFBhZ2UudHN4fDIwMjYtMTF8MzNlYTU2YmM5Yg== */
 import { ArrowUp, Bell, ImagePlus, PenSquare, Play, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';

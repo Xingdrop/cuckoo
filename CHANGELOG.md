@@ -1,7 +1,28 @@
-<!-- @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8Q0hBTkdFTE9HLm1kfDIwMjYtMDl8NTRiN2JmY2NkNg== -->
+<!-- @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8Q0hBTkdFTE9HLm1kfDIwMjYtMTF8NTRkYjQwZmZmYw== -->
 # 更新日志（CHANGELOG）
 
 本项目遵循 Conventional Commits；本文件仅记录面向用户的重大变更。
+
+## [0.2.7] - 2026-11-21
+
+### 🗄 数据库规范化（本版核心）
+
+- **结构变更改由迁移管理**：新增 `schema_migrations` 与 `npm run db:migrate`，启动前自动执行；`synchronize` 在所有环境关闭，结构不再随实体漂移。每次迁移前自动在线备份（保留最近 5 份）。
+- **数组字段拆子表（1NF）**：`reminders.times` → `reminder_times`、`users.healthGoals` → `user_health_goals`、`medicines.photoUrl/photoUrls` → `medicine_photos`、`exercises.imageUrls` → `exercise_images`；接口响应保持原契约（`times` 仍是字符串数组），旧数据已全量回填并校验一致。
+- **约束与索引**：18 张表重建补齐外键与 CHECK（状态枚举、计数非负、禁止自关注等）；用户名/手机号改为「软删除后可用」的部分唯一索引；亲友绑定改为无序对唯一；补齐 39 个索引（含 `plans(userId)`、`reminders(planId/medicineId)`、`audit_logs(userId,createdAt)`）。
+- **清理历史遗留**：删除 `user_settings.waterInRate` 等死列；`plan_join_records.reminderId` 更名为 `planId` 并加外键；按互动表重算帖子计数。
+
+### 🐛 修复
+
+- **一次性提醒时间丢失**：此前「仅一次」提醒用日期串提交，服务端只拿到当天 00:00，被误判为「不定时」；现提交带具体时刻的完整时间。
+- **旧提醒列表时间为空**：一次性/每月提醒在 `nextTriggerAt` 过期后显示「—」，现回退展示开始时刻。
+- **周报日期区间多一天**：周报存储的结束日是下周一（开区间），详情页展示时回退一天。
+- **报告分类显示英文键**：历史报告中的 `medication` 等分类键统一显示为中文。
+
+### ✨ 改进
+
+- **今日页可撤销完成/放弃**：已完成的提醒新增撤销按钮，放弃项也可撤回重新待办；已错过项的一键按钮改为明确的「补记完成」对勾。
+- **完成率口径与后端一致**：今日完成率直接采用服务端统计（含喝水可选统计项、放弃不计分母），无应执行项时显示「— / 暂无应执行」，不再显示 0%。
 
 ## [0.2.6] - 2026-09-17
 

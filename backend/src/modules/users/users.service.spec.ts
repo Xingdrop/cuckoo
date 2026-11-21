@@ -1,15 +1,18 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy91c2Vycy91c2Vycy5zZXJ2aWNlLnNwZWMudHN8MjAyNi0wOXwzZWIyNmZhNzI5 */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy91c2Vycy91c2Vycy5zZXJ2aWNlLnNwZWMudHN8MjAyNi0xMXxhOWMwOTcyMzhi */
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { UsersService } from './users.service';
 import { User } from './user.entity';
 import { UserSetting } from './user-setting.entity';
+import { UserHealthGoal } from './user-health-goal.entity';
 import { AuthService } from '../auth/auth.service';
 import { AuditService } from '../audit/audit.service';
 import { Reminder } from '../reminders/reminder.entity';
+import { ReminderTime } from '../reminders/reminder-time.entity';
 import { ReminderLog } from '../reminders/reminder-log.entity';
 import { Medicine } from '../medicines/medicine.entity';
+import { MedicinePhoto } from '../medicines/medicine-photo.entity';
 import { Plan } from '../plans/plan.entity';
 import { Post } from '../social/post.entity';
 import { SensitiveWord } from '../social/sensitive-word.entity';
@@ -34,7 +37,7 @@ describe('UsersService（UT-SEC 跨租户导入）', () => {
     dataSource = new DataSource({
       type: 'better-sqlite3',
       database: ':memory:',
-      entities: [User, UserSetting, Reminder, ReminderLog, Medicine, Plan, Post, SensitiveWord],
+      entities: [User, UserSetting, UserHealthGoal, Reminder, ReminderTime, ReminderLog, Medicine, MedicinePhoto, Plan, Post, SensitiveWord],
       synchronize: true,
     });
     await dataSource.initialize();

@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3BhZ2VzL1JlbWluZGVyRWRpdFBhZ2UudHN4fDIwMjYtMDl8NTY2ZGUyZTUwYg== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3BhZ2VzL1JlbWluZGVyRWRpdFBhZ2UudHN4fDIwMjYtMTF8YmI5NzZmNzcxMg== */
 import { ChevronLeft, Clock, ImagePlus, Play, Plus, X } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -209,8 +209,12 @@ export function ReminderEditPage() {
         ...(repeatType === 'monthly' ? { dayOfMonth } : {}),
         ...(repeatType === 'interval' ? { intervalValue, intervalUnit } : {}),
       },
-      // #5：用本地日期串提交（ISO UTC 会偏移一天——"选今日却建到昨天/明天"）
-      startDate: `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`,
+      // #5：daily/weekly 用本地日期串提交（ISO UTC 会偏移一天）；
+      // 一次性提醒必须带具体时刻，否则后端只拿到当天 00:00，会被误判为「不定时」
+      startDate:
+        repeatType === 'once'
+          ? startDate.toISOString()
+          : `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`,
       ...(planId ? { planId } : {}),
       ...(cleanTimes ? { times: cleanTimes } : {}),
       content: {

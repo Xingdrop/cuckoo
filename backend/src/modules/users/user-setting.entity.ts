@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy91c2Vycy91c2VyLXNldHRpbmcuZW50aXR5LnRzfDIwMjYtMDl8NGYxY2RjMzA1Zg== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy91c2Vycy91c2VyLXNldHRpbmcuZW50aXR5LnRzfDIwMjYtMTF8OGE1ZTAxZTEyMQ== */
 import { Column, Entity, JoinColumn, OneToOne, PrimaryColumn } from 'typeorm';
 import { User } from './user.entity';
 
@@ -37,10 +37,6 @@ export class UserSetting {
   /** 每日喝水目标（ml） */
   @Column({ type: 'int', default: 2000 })
   waterGoalMl: number;
-
-  /** #14：喝水达标是否计入完成率（默认不计入；可在喝水管理开启） */
-  @Column({ type: 'boolean', default: false })
-  waterInRate: boolean;
 
   /** #26：喝水（当日达标）作为完成率可选统计项（今日完成率面板逐项勾选） */
   @Column({ type: 'boolean', default: false })

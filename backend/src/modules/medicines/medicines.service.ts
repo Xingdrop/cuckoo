@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9tZWRpY2luZXMvbWVkaWNpbmVzLnNlcnZpY2UudHN8MjAyNi0wOXwyN2VlNTdhZjI2 */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9tZWRpY2luZXMvbWVkaWNpbmVzLnNlcnZpY2UudHN8MjAyNi0xMXxiNzM4ZTI0YzNi */
 import {
   BadRequestException,
   Injectable,
@@ -15,6 +15,7 @@ import { CreateMedicineDto } from './dto/create-medicine.dto';
 import { DeductStockDto } from './dto/deduct-stock.dto';
 import { UpdateMedicineDto } from './dto/update-medicine.dto';
 import { Medicine } from './medicine.entity';
+import { MedicinePhoto } from './medicine-photo.entity';
 
 /**
  * 药品管理 + 库存事务（FR-301~305, FR-308）。
@@ -55,17 +56,24 @@ export class MedicinesService {
       threshold: dto.threshold ?? 0,
       expiryDate: dto.expiryDate ?? null,
       instructions: dto.instructions ?? null,
-      photoUrl: dto.photoUrl ?? null,
-      // #25：多张照片（photoUrls 优先，兼容 photoUrl 单张）
-      photoUrls: dto.photoUrls?.length
-        ? dto.photoUrls
-        : dto.photoUrl
-          ? [dto.photoUrl]
-          : null,
       deductionPerUse: dto.deductionPerUse ?? 1,
       notifyOnLowStock: dto.notifyOnLowStock ?? true,
     });
-    return this.medicineRepo.save(medicine);
+    const saved = await this.medicineRepo.save(medicine);
+    // #25：多张照片（photoUrls 优先，兼容 photoUrl 单张）→ 子表
+    const urls = dto.photoUrls?.length ? dto.photoUrls : dto.photoUrl ? [dto.photoUrl] : [];
+    await this.replacePhotos(saved.id, urls);
+    return this.findOne(userId, saved.id);
+  }
+
+  /** 1NF：整组替换药品照片（sortOrder 决定首图） */
+  private async replacePhotos(medicineId: string, urls: string[]): Promise<void> {
+    const repo = this.dataSource.getRepository(MedicinePhoto);
+    await repo.delete({ medicineId });
+    const valid = urls.filter((u) => typeof u === 'string' && u.length > 0);
+    if (valid.length) {
+      await repo.insert(valid.map((url, sortOrder) => ({ medicineId, sortOrder, url })));
+    }
   }
 
   async list(userId: string) {
@@ -85,7 +93,17 @@ export class MedicinesService {
 
   async update(userId: string, id: string, dto: UpdateMedicineDto) {
     await this.findOne(userId, id);
-    await this.medicineRepo.update({ id, userId }, dto);
+    // photoUrl/photoUrls 已拆子表，不能传给 update
+    const { photoUrl, photoUrls, ...rest } = dto;
+    if (Object.keys(rest).length) {
+      await this.medicineRepo.update({ id, userId }, rest);
+    }
+    if (photoUrl !== undefined || photoUrls !== undefined) {
+      await this.replacePhotos(
+        id,
+        photoUrls?.length ? photoUrls : photoUrl ? [photoUrl] : [],
+      );
+    }
     return this.findOne(userId, id);
   }
 

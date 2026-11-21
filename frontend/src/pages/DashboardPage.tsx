@@ -1,5 +1,5 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3BhZ2VzL0Rhc2hib2FyZFBhZ2UudHN4fDIwMjYtMDl8ZjA0NDEzOTI5ZA== */
-import { BarChart3, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Mic, Plus, Settings, SlidersHorizontal, X } from 'lucide-react';
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3BhZ2VzL0Rhc2hib2FyZFBhZ2UudHN4fDIwMjYtMTF8NjkzNjBkMTM1Yg== */
+import { BarChart3, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Mic, Plus, RotateCcw, Settings, SlidersHorizontal, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '../components/BottomNav';
@@ -272,11 +272,15 @@ export function DashboardPage() {
     .filter((s) => s.isAbandoned)
     .sort((a, b) => a.time.localeCompare(b.time));
 
-  /** #20：完成率仅统计「计入完成率」的提醒 */
-  const rateSlots = slots.filter((s) => s.item.countInRate !== false);
+  /** #20：完成率仅统计「计入完成率」的提醒；已放弃不计入分母（与后端 /stats 口径一致） */
+  const rateSlots = slots.filter((s) => s.item.countInRate !== false && s.status !== 'skipped');
   const totalDone = rateSlots.filter((s) => s.isDone).length;
   const totalPlanned = rateSlots.length;
   const rate = totalPlanned > 0 ? Math.round((totalDone / totalPlanned) * 100) : 0;
+  // 今日以后端统计为准（含喝水可选统计项），其它日期用本地推导
+  const displayDone = selected === today && stats ? stats.done : totalDone;
+  const displayPlanned = selected === today && stats ? stats.planned : totalPlanned;
+  const displayRate = selected === today && stats ? stats.rate : rate;
 
   /** #21：间隔提醒逐时点打卡（完成/放弃 仅影响该时点；#26 可带照片记录） */
   const intervalAck = async (item: CalendarItem, time: string, status: 'completed' | 'skipped', photoUrl?: string) => {
@@ -315,6 +319,21 @@ export function DashboardPage() {
       await remindersApi.ack(item.reminderId, { status, scheduledTime: noon.toISOString(), photoUrl });
     } catch {
       /* 重复/失败静默，刷新后以服务端为准 */
+    }
+    void load(selected);
+  };
+
+  /** 撤销某个槽的终态（撤销放弃 / 撤销完成）：删除该条记录，槽位回到待办 */
+  const undoSlot = async (item: CalendarItem, time: string) => {
+    const logId = item.times.find((t) => t.time === time)?.logId;
+    if (!logId) {
+      showToast('该记录已不存在，请刷新');
+      return;
+    }
+    try {
+      await remindersApi.deleteLog(logId);
+    } catch {
+      showToast('撤销失败，请重试');
     }
     void load(selected);
   };
@@ -532,12 +551,15 @@ export function DashboardPage() {
               </span>
             </div>
             <p className="-mt-1 text-2xl font-bold leading-none text-primary-600">
-              {selected === today && stats ? stats.rate : rate}%
+              {displayPlanned > 0 ? `${displayRate}%` : '—'}
             </p>
             <p className="mt-1.5 text-[11px] leading-tight text-ink-500">
-              {selected === today && stats ? stats.done : totalDone}/{selected === today && stats ? stats.planned : totalPlanned} 完成
+              {displayPlanned > 0 ? `${displayDone}/${displayPlanned} 完成` : '暂无应执行'}
               {selected === today && missedSlots.length > 0 && (
                 <span className="text-danger-700"> · 错过 {missedSlots.length}</span>
+              )}
+              {abandonedSlots.length > 0 && (
+                <span className="text-ink-500"> · 放弃 {abandonedSlots.length}</span>
               )}
             </p>
             {selected === today && stats && (
@@ -822,6 +844,14 @@ export function DashboardPage() {
                           <Check size={11} /> 今日已完成提醒
                         </span>
                       )}
+                      <button
+                        onClick={() => void undoSlot(s.item, s.time)}
+                        aria-label="撤销完成，恢复为未完成"
+                        title="撤销完成（时段已过则归入已错过）"
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink-100 text-ink-500 transition-colors hover:bg-ink-200"
+                      >
+                        <RotateCcw size={12} />
+                      </button>
                     </li>
                   );
                 })}
@@ -882,9 +912,10 @@ export function DashboardPage() {
                     <button
                       onClick={() => setCompleteConfirm({ item: s.item, time: s.item.untimed ? undefined : s.time })}
                       className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-danger-500 text-white"
-                      aria-label="已错过，点击修改为已完成"
+                      aria-label="补记完成"
+                      title="补记完成"
                     >
-                      <X size={12} />
+                      <Check size={12} />
                     </button>
                     <button
                       onClick={() => {
@@ -951,12 +982,14 @@ export function DashboardPage() {
                       )}
                     </span>
                     </button>
-                    <span
-                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink-300 text-white"
-                      aria-label="已放弃"
+                    <button
+                      onClick={() => void undoSlot(s.item, s.time)}
+                      aria-label="撤销放弃，恢复为未完成"
+                      title="撤销放弃（时段已过则归入已错过）"
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink-300 text-white transition-colors hover:bg-ink-400"
                     >
                       <X size={12} />
-                    </span>
+                    </button>
                     {/* 主动放弃 ≠ 任务失败：保留再次完成入口（ack 回精确槽时刻） */}
                     <button
                       onClick={() => {
@@ -991,7 +1024,7 @@ export function DashboardPage() {
           <div className="w-full max-w-sm rounded-card bg-surface p-5 shadow-xl">
             <h3 className="text-base font-semibold">计入完成率的提醒</h3>
             <p className="mt-1 text-[11px] text-ink-500">
-              勾选的提醒才统计完成率；未勾选仍会正常提醒与打卡（默认全部计入）
+              勾选的提醒才统计完成率；未勾选仍会正常提醒与打卡（默认全部计入）。已放弃的打卡不计入完成率。
             </p>
             <ul className="mt-3 max-h-72 space-y-1 overflow-y-auto rounded-btn bg-bg p-2">
               {/* #26：喝水（当日达标）作为可选统计项——不建喝水提醒也可统计 */}

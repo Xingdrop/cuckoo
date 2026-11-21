@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvY29tbW9uL3JlbWluZGVyLXNjaGVkdWxlLnRzfDIwMjYtMDl8NmUzZTQ4Y2IyZg== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvY29tbW9uL3JlbWluZGVyLXNjaGVkdWxlLnRzfDIwMjYtMTF8YzRiMmFhOTkzNA== */
 import { IntervalUnit, RepeatRule, RepeatType } from '../modules/reminders/reminder.entity';
 
 /**
@@ -185,9 +185,15 @@ export function computeNextTrigger(
   times: string[] | null = null,
 ): Date | null {
   switch (rule.type) {
-    case RepeatType.ONCE:
-      if (startDate > from && (!endDate || startDate <= endDate)) return new Date(startDate);
+    case RepeatType.ONCE: {
+      // 宽限 60s：用户常把时间设成「当前这一分钟」，保存时已经过了几十秒。
+      // 若严格 startDate > from，会导致 nextTriggerAt=null → 永远不提醒（列表显示「—」）。
+      const GRACE_MS = 60_000;
+      if (startDate.getTime() >= from.getTime() - GRACE_MS && (!endDate || startDate <= endDate)) {
+        return new Date(startDate);
+      }
       return null;
+    }
 
     case RepeatType.INTERVAL: {
       const unit = rule.intervalUnit ?? IntervalUnit.DAY;

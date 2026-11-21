@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9yZW1pbmRlcnMvcmVtaW5kZXJzLnNlcnZpY2UudHN8MjAyNi0wOXxlOWIxOTdlYjI2 */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9yZW1pbmRlcnMvcmVtaW5kZXJzLnNlcnZpY2UudHN8MjAyNi0xMXwzOTNlNDUyN2I1 */
 import {
   BadRequestException,
   ConflictException,
@@ -28,13 +28,16 @@ import { AckReminderDto } from './dto/ack-reminder.dto';
 import { CreateReminderDto } from './dto/create-reminder.dto';
 import { UpdateReminderDto } from './dto/update-reminder.dto';
 import { ReminderLog, ReminderLogStatus } from './reminder-log.entity';
+import { ReminderTime } from './reminder-time.entity';
 import {
   IntervalUnit,
+  normalizeTimes,
   Reminder,
   ReminderCategory,
   ReminderContent,
   RepeatRule,
   RepeatType,
+  timesOf,
 } from './reminder.entity';
 
 const DEFAULT_TZ = 'Asia/Shanghai';
@@ -145,7 +148,6 @@ export class RemindersService {
       planId: dto.planId ?? null,
       isActive: dto.isActive ?? true,
       countInRate: dto.countInRate !== false,
-      times: dto.times ?? null,
       nextTriggerAt: computeNextTrigger(
         dto.repeatRule,
         new Date(),
@@ -155,13 +157,27 @@ export class RemindersService {
         dto.times ?? null,
       ),
     });
-    return this.reminderRepo.save(reminder);
+    const saved = await this.reminderRepo.save(reminder);
+    await this.replaceTimes(saved.id, dto.times);
+    return this.findOne(userId, saved.id);
+  }
+
+  /** 1NF：整组替换提醒时间点子表（空/非法值自动过滤） */
+  private async replaceTimes(reminderId: string, times: string[] | null | undefined): Promise<void> {
+    const repo = this.dataSource.getRepository(ReminderTime);
+    await repo.delete({ reminderId });
+    const rows = normalizeTimes(times);
+    if (rows.length) {
+      await repo.insert(rows.map((time, sortOrder) => ({ reminderId, time, sortOrder })));
+    }
   }
 
   /** 列表：支持分类/启停筛选；排序默认 nextTriggerAt 升序 */
   async list(userId: string, query: { category?: string; isActive?: boolean } = {}) {
     const qb = this.reminderRepo
       .createQueryBuilder('r')
+      // eager 对 QueryBuilder 不生效，显式 join 时间点子表（@AfterLoad 负责投影为 times）
+      .leftJoinAndSelect('r.timesRows', 'rt')
       .where('r.userId = :userId', { userId })
       .orderBy('r.nextTriggerAt', 'ASC');
     if (query.category) qb.andWhere('r.category = :category', { category: query.category });
@@ -276,10 +292,11 @@ export class RemindersService {
         times = [toLocalTimeStr(r.startDate, timezone)];
       }
       const dayLogs = logs.filter((l) => l.reminderId === r.id);
-      // 不定时提醒：无 times 且非按小时 interval（每天在创建时刻提醒，界面不显示具体时间）
-      const untimed =
-        (!r.times || r.times.length === 0) &&
-        !(r.repeatRule.type === RepeatType.INTERVAL && r.repeatRule.intervalUnit === IntervalUnit.HOUR);
+      // 不定时 = 每日提醒且没配置时间点（times 为空）。
+      // 一次性/每月/间隔提醒即使没配 times，也应使用 startDate 的时刻并显示具体时间。
+      const untimed = (!r.times || r.times.length === 0) && r.repeatRule.type === RepeatType.DAILY;
+      // 不定时无固定时刻：统一取正午，与前端 untimedAck / 助手打卡口径一致，否则当日状态对不上
+      if (untimed) times = ['12:00'];
 
       result.push({
         reminderId: r.id,
@@ -299,7 +316,8 @@ export class RemindersService {
           // 不定时提醒：不显示"错过"（无固定时间点，不存在超时漏服；#12）
           const status = untimed && log?.status === ReminderLogStatus.MISSED ? null : (log?.status ?? null);
           // #8：延迟中的槽位带上累计延迟分钟数（前端据此显示新时间）
-          return { time: t, status, delayMinutes: log?.delayMinutes ?? 0 };
+          // logId：让今日页能对具体记录做撤销（撤销放弃 / 撤销完成）
+          return { time: t, status, delayMinutes: log?.delayMinutes ?? 0, logId: log?.id ?? null };
         }),
         todayTotal: times.length,
         untimed,
@@ -365,19 +383,24 @@ export class RemindersService {
     const timezone = await this.getUserTimezone(userId);
 
     // 剔除非 Reminder 实体字段（waterGoalMl 属 UserSetting，误入 dto 展开会导致 TypeORM 500）
-    const { waterGoalMl: _waterGoalMl, ...dtoRest } = dto as UpdateReminderDto & { waterGoalMl?: number };
+    const {
+      waterGoalMl: _waterGoalMl,
+      times: dtoTimes,
+      ...dtoRest
+    } = dto as UpdateReminderDto & { waterGoalMl?: number };
+    // times 已拆子表：不得传给 update（否则 TypeORM 报列不存在）
+    const { times: _ignoredTimes, ...updateRest } = dtoRest as typeof dtoRest & { times?: unknown };
 
-    const next = { ...reminder.repeatRule, ...(dtoRest.repeatRule ?? {}) };
-    const startDate = dtoRest.startDate ? new Date(dtoRest.startDate) : reminder.startDate;
-    const endDate = dtoRest.endDate !== undefined ? (dtoRest.endDate ? new Date(dtoRest.endDate) : null) : reminder.endDate;
-    const times = dtoRest.times !== undefined ? dtoRest.times : reminder.times;
+    const next = { ...reminder.repeatRule, ...(updateRest.repeatRule ?? {}) };
+    const startDate = updateRest.startDate ? new Date(updateRest.startDate) : reminder.startDate;
+    const endDate = updateRest.endDate !== undefined ? (updateRest.endDate ? new Date(updateRest.endDate) : null) : reminder.endDate;
+    const times = dtoTimes !== undefined ? dtoTimes : timesOf(reminder);
 
     const patch: Partial<Reminder> = {
-      ...dtoRest,
+      ...updateRest,
       repeatRule: next,
       startDate,
       endDate,
-      times,
       nextTriggerAt: computeNextTrigger(next, new Date(), startDate, endDate, timezone, times),
     };
     // 注意：不能用 save(entity)——TypeORM 1.x 对带 transformer 的列会写入数据库旧值
@@ -386,6 +409,9 @@ export class RemindersService {
       patch.modifiedFromPlan = true;
     }
     await this.reminderRepo.update({ id, userId }, patch);
+    if (dtoTimes !== undefined) {
+      await this.replaceTimes(id, dtoTimes);
+    }
     return this.findOne(userId, id);
   }
 
@@ -417,6 +443,7 @@ export class RemindersService {
         reminder.startDate,
         reminder.endDate,
         timezone,
+        timesOf(reminder),
       );
     }
     await this.reminderRepo.update({ id, userId }, { isActive, nextTriggerAt });
@@ -625,6 +652,39 @@ export class RemindersService {
             { nextTriggerAt: new Date(Date.now() + (dto.delayMinutes ?? 0) * 60_000) },
           );
           return { ok: true, log: { ...existing, status: ReminderLogStatus.DELAYED, delayMinutes: totalDelayMin }, duplicate: true, delayed: true };
+        }
+
+        // #61：终态改判 —— 已放弃↔已完成 允许互相纠正。
+        // 此前 skipped 槽点「完成」会落到下面的静默 duplicate 分支，界面看起来「点了没反应」。
+        const wasCompleted =
+          existing.status === ReminderLogStatus.COMPLETED ||
+          existing.status === ReminderLogStatus.CHALLENGE_COMPLETED;
+        const wasTerminal = wasCompleted || existing.status === ReminderLogStatus.SKIPPED;
+        if (isTerminal && wasTerminal && existing.status !== dto.status) {
+          // 已完成改判 → 先回补此前扣减的库存，再按新状态结算
+          if (wasCompleted && (existing.stockDeducted ?? 0) > 0 && reminder.medicineId) {
+            await manager
+              .getRepository(Medicine)
+              .increment({ id: reminder.medicineId }, 'stock', existing.stockDeducted);
+          }
+          const log = {
+            ...existing,
+            status: dto.status,
+            actualTime: new Date(),
+            stockDeducted: 0,
+          } as ReminderLog;
+          await this.settleStock(manager, reminder, log, userId, isCompleted);
+          await logRepo.update(
+            { id: existing.id },
+            {
+              status: dto.status,
+              actualTime: log.actualTime,
+              stockDeducted: log.stockDeducted ?? 0,
+              medicineNameSnapshot: log.medicineNameSnapshot ?? existing.medicineNameSnapshot,
+            },
+          );
+          // 终态纠正不改变调度（上次放弃/完成时已经推进过）
+          return { ok: true, log, duplicate: false, corrected: true };
         }
 
         if (dto.note) {

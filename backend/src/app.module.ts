@@ -29,8 +29,12 @@ import { AuditModule } from './modules/audit/audit.module';
 import { User } from './modules/users/user.entity';
 import { UserSetting } from './modules/users/user-setting.entity';
 import { Reminder } from './modules/reminders/reminder.entity';
+import { ReminderTime } from './modules/reminders/reminder-time.entity';
 import { ReminderLog } from './modules/reminders/reminder-log.entity';
 import { Medicine } from './modules/medicines/medicine.entity';
+import { MedicinePhoto } from './modules/medicines/medicine-photo.entity';
+import { UserHealthGoal } from './modules/users/user-health-goal.entity';
+import { ExerciseImage } from './modules/exercises/exercise-image.entity';
 import { EmergencyContact } from './modules/contacts/emergency-contact.entity';
 import { Post } from './modules/social/post.entity';
 import { Interaction } from './modules/social/interaction.entity';
@@ -86,9 +90,13 @@ import { SeedModule } from './seed/seed.module';
         entities: [
           User,
           UserSetting,
+          UserHealthGoal,
           Reminder,
+          ReminderTime,
           ReminderLog,
           Medicine,
+          MedicinePhoto,
+          ExerciseImage,
           EmergencyContact,
           Post,
           Interaction,
@@ -109,8 +117,8 @@ import { SeedModule } from './seed/seed.module';
           AchievementRule,
           Plan,
         ],
-        // M0-M1 阶段用 synchronize 快速建表；生产切换 PostgreSQL 后改用 migration
-        synchronize: config.get<string>('env') !== 'production',
+        // 结构变更只由 src/db/migrations 管理（启动前自动迁移），任何环境都不自动改表
+        synchronize: false,
         // DB_WAL=true 时启用 SQLite WAL 模式（配置此前为死代码，2026-08 修复接入）
         ...(config.get<boolean>('db.wal')
           ? { prepareDatabase: (db: { pragma: (s: string) => unknown }) => void db.pragma('journal_mode = WAL') }

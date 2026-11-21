@@ -1,5 +1,6 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9yZW1pbmRlcnMvcmVtaW5kZXIuZW50aXR5LnRzfDIwMjYtMDl8NmY3OWNiNzhkOQ== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9yZW1pbmRlcnMvcmVtaW5kZXIuZW50aXR5LnRzfDIwMjYtMTF8Yzg1NzEwNjQwMw== */
 import {
+  AfterLoad,
   Column,
   CreateDateColumn,
   DeleteDateColumn,
@@ -7,11 +8,13 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../users/user.entity';
 import { Medicine } from '../medicines/medicine.entity';
+import { ReminderTime } from './reminder-time.entity';
 import { utcDateTime } from '../../common/datetime.transformer';
 
 /** 提醒分类 */
@@ -117,9 +120,29 @@ export class Reminder {
   @Column({ type: 'datetime', transformer: utcDateTime })
   startDate: Date;
 
-  /** 每日多时间点（HH:mm 数组，daily/weekly 适用）；为空时用 startDate 的时间 */
-  @Column({ type: 'simple-json', nullable: true })
-  times: string[] | null;
+  /**
+   * 每日多时间点（HH:mm 数组，daily/weekly 适用）；为空时用 startDate 的时间。
+   * 1NF 改造后不再持久化：由 timesRows 子表在 @AfterLoad 投影（保持 API 契约不变）。
+   */
+  times?: string[] | null;
+
+  /** 时间点子表（eager 加载）；JSON 序列化时被设为不可枚举，避免污染接口响应 */
+  @OneToMany(() => ReminderTime, (t) => t.reminder, { eager: true })
+  timesRows?: ReminderTime[];
+
+  @AfterLoad()
+  projectTimes(): void {
+    const rows = this.timesRows ?? [];
+    this.times = rows.length
+      ? [...rows].sort((a, b) => a.sortOrder - b.sortOrder).map((t) => t.time)
+      : null;
+    Object.defineProperty(this, 'timesRows', {
+      value: rows,
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    });
+  }
 
   @Column({ type: 'datetime', transformer: utcDateTime, nullable: true })
   endDate: Date | null;
@@ -171,4 +194,32 @@ export class Reminder {
 
   @DeleteDateColumn({ transformer: utcDateTime })
   deletedAt: Date | null;
+}
+
+/** 去重并过滤非法 HH:mm（迁移与写入共用） */
+export function normalizeTimes(times?: string[] | null): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of times ?? []) {
+    if (typeof t === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(t) && !seen.has(t)) {
+      seen.add(t);
+      out.push(t);
+    }
+  }
+  return out;
+}
+
+/** 兼容普通对象 mock：优先取投影，其次从子表行组装 */
+export function timesOf(r: {
+  times?: string[] | null;
+  timesRows?: ReminderTime[];
+}): string[] | null {
+  if (Array.isArray(r.times)) return r.times;
+  if (Array.isArray(r.timesRows)) {
+    return r.timesRows
+      .slice()
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((t) => t.time);
+  }
+  return null;
 }

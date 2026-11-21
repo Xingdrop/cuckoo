@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvY29tbW9uL3RydXN0ZWQtcHJveHkuc3BlYy50c3wyMDI2LTA5fDNkM2YwZWUwMmU= */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvY29tbW9uL3RydXN0ZWQtcHJveHkuc3BlYy50c3wyMDI2LTExfDM5YjFhM2FlZDI= */
 import { isTrustedProxy, normalizeIp } from './trusted-proxy';
 
 describe('trusted-proxy（public 模式 trust proxy 判定）', () => {

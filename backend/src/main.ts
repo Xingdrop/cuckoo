@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { config as loadEnv } from 'dotenv';
 import helmet from 'helmet';
 import type { NextFunction, Request, Response } from 'express';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -11,8 +12,13 @@ import { join } from 'node:path';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { isTrustedProxy } from './common/trusted-proxy';
+import { runMigrations } from './db/migrator';
 
 async function bootstrap() {
+  // 迁移必须先于 Nest 创建：生产已关闭 synchronize，结构只由 src/db/migrations 管理
+  loadEnv();
+  await runMigrations();
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const config = app.get(ConfigService);
 
@@ -69,11 +75,24 @@ async function bootstrap() {
   // 顺序要求：必须在 /api（控制器）与 /uploads 静态之后——先静态命中，未命中才回退 index.html。
   const spaDir = join(process.cwd(), config.get<string>('spa.dir') ?? '');
   if (existsSync(join(spaDir, 'index.html'))) {
-    app.useStaticAssets(spaDir, { index: false });
+    app.useStaticAssets(spaDir, {
+      index: false,
+      setHeaders: (res, filePath) => {
+        const p = filePath.replace(/\\/g, '/');
+        if (p.endsWith('/sw.js')) {
+          // SW 必须每次回源校验，否则 Cloudflare/浏览器会长期缓存旧版本
+          res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+        } else if (/\/assets\//.test(p)) {
+          // 内容哈希命名，可长期强缓存
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      },
+    });
     app.use((req: Request, res: Response, next: NextFunction) => {
       if (req.method !== 'GET' && req.method !== 'HEAD') return next();
       const url = req.originalUrl || req.url;
       if (url.startsWith('/api') || url.startsWith('/uploads')) return next();
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
       res.sendFile(join(spaDir, 'index.html'));
     });
   } else {

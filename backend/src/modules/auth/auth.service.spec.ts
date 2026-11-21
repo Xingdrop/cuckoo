@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9hdXRoL2F1dGguc2VydmljZS5zcGVjLnRzfDIwMjYtMDl8MmVkOWYwNzQ4NQ== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy9hdXRoL2F1dGguc2VydmljZS5zcGVjLnRzfDIwMjYtMTF8Y2FiMTc3NDRjMQ== */
 import { ConflictException, HttpException, HttpStatus, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -58,6 +58,17 @@ describe('AuthService（UT-AUTH）', () => {
     expect(result.token).toBe('fake-jwt-token');
     expect(result.user.username).toBe('newbie');
     expect(result.user).not.toHaveProperty('passwordHash');
+  });
+
+  it('UT-AUTH-01c 并发注册撞用户名唯一约束 → CONFLICT 而非 500', async () => {
+    userRepo.findOne.mockResolvedValue(null);
+    userRepo.create.mockImplementation((x: unknown) => x);
+    userRepo.save.mockRejectedValue(
+      new Error('UNIQUE constraint failed: users.username'),
+    );
+    await expect(
+      service.register({ username: 'racer', password: 'password123' }),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('UT-AUTH-03 登录成功签发 token', async () => {

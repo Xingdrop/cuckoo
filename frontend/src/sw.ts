@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3N3LnRzfDIwMjYtMDl8ZDQ5M2E1NTcxZg== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8ZnJvbnRlbmQvc3JjL3N3LnRzfDIwMjYtMTF8NTA1MjRiMWU2OA== */
 /// <reference lib="webworker" />
 /**
  * 布谷自定义 Service Worker（FR-204/FR-802 通道 B）。
@@ -17,6 +17,12 @@ self.skipWaiting();
 clientsClaim();
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
+
+// 页面导航 NetworkFirst：每次都先取最新 index.html（拿到新 bundle），断网时回退缓存
+registerRoute(
+  ({ request }) => request.mode === 'navigate',
+  new NetworkFirst({ cacheName: 'cuckoo-pages', networkTimeoutSeconds: 3 }),
+);
 
 // /api GET NetworkFirst（保留原 generateSW 的运行时缓存策略）
 registerRoute(

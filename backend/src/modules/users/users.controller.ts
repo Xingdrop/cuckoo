@@ -1,4 +1,4 @@
-/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy91c2Vycy91c2Vycy5jb250cm9sbGVyLnRzfDIwMjYtMDl8OWRhZWNkOGNhYQ== */
+/* @Sdrop 布谷(Cuckoo) v2 SKEY_5biD6LC3KEN1Y2tvbyl8WGluZ2Ryb3B8YmFja2VuZC9zcmMvbW9kdWxlcy91c2Vycy91c2Vycy5jb250cm9sbGVyLnRzfDIwMjYtMTF8NGYyZTVlYTZjMQ== */
 import {
   Body,
   Controller,
@@ -76,11 +76,6 @@ class UpdateSettingsDto {
   @Min(100)
   @Max(10000)
   waterGoalMl?: number;
-
-  /** #13：喝水达标是否计入完成率 */
-  @IsOptional()
-  @IsBoolean()
-  waterInRate?: boolean;
 
   /** #26：喝水（当日达标）作为完成率可选统计项（今日完成率面板逐项勾选） */
   @IsOptional()

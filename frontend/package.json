@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@capacitor-community/speech-recognition": "^7.0.1",
-    "@capacitor/android": "^8.5.1",
+    "@capacitor/android": "^8.6.2",
     "@capacitor/camera": "^8.2.4",
     "@capacitor/core": "^8.5.1",
     "@capacitor/filesystem": "^8.1.3",
